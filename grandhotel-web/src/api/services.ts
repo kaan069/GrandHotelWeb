@@ -30,6 +30,8 @@ export interface ApiRoom {
   reservationCheckIn: string | null;
   reservationCheckOut: string | null;
   reservationStaffName: string | null;
+  reservationStatus: string | null;
+  reservationOwnerName: string | null;
   beds: { type: string }[];
   notes: string | null;
 }
@@ -242,6 +244,10 @@ export const reservationsApi = {
   /** Rezervasyon iptal */
   cancel: (id: number) =>
     api.post<ApiReservation>(`/reservations/${id}/cancel/`).then((r) => r.data),
+
+  /** Rezerve → Check-in dönüşümü */
+  checkIn: (id: number) =>
+    api.post<ApiReservation>(`/reservations/${id}/check_in/`).then((r) => r.data),
 };
 
 /* ==================== FOLIOS API ==================== */

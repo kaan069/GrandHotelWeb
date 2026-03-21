@@ -20,15 +20,19 @@ interface ChartGridProps {
  */
 const getBarDates = (r: ApiReservation): { start: dayjs.Dayjs; end: dayjs.Dayjs } | null => {
   if (r.status === 'reserved') {
-    if (!r.plannedCheckIn || !r.plannedCheckOut) return null;
-    return { start: dayjs(r.plannedCheckIn), end: dayjs(r.plannedCheckOut) };
+    if (!r.plannedCheckIn) return null;
+    const start = dayjs(r.plannedCheckIn).startOf('day');
+    const end = r.plannedCheckOut
+      ? dayjs(r.plannedCheckOut).startOf('day')
+      : start.add(1, 'day');
+    return { start, end };
   }
   if (r.status === 'checked_in') {
-    const start = dayjs(r.checkIn);
+    const start = dayjs(r.checkIn).startOf('day');
     const end = r.checkOut
-      ? dayjs(r.checkOut)
+      ? dayjs(r.checkOut).startOf('day')
       : r.plannedCheckOut
-        ? dayjs(r.plannedCheckOut)
+        ? dayjs(r.plannedCheckOut).startOf('day')
         : dayjs().startOf('day').add(1, 'day');
     return { start, end };
   }

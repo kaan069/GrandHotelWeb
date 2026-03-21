@@ -112,6 +112,22 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
           guestId: f.guestId ?? undefined,
           createdBy: f.createdBy ?? undefined,
         })));
+
+        // Eğer reserved bir rezervasyon varsa, sahibinin bilgisini hızlı rezervasyon alanına getir
+        if (room.reservationId) {
+          const resDetail = await reservationsApi.getById(room.reservationId);
+          if (resDetail.status === 'reserved' && resDetail.stays && resDetail.stays.length > 0) {
+            const owner = resDetail.stays[0];
+            const nameParts = (owner.guestName || '').split(' ');
+            const firstName = nameParts[0] || '';
+            const lastName = nameParts.slice(1).join(' ') || '';
+            setQuickRes({
+              firstName,
+              lastName,
+              phone: owner.phone || '',
+            });
+          }
+        }
       } catch (err) {
         console.error('Veri yüklenirken hata:', err);
       }
@@ -185,27 +201,29 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
   const handleQuickReservation = async () => {
     if (!quickRes.firstName.trim() || !quickRes.lastName.trim() || !quickRes.phone.trim()) return;
     try {
+      // 1. Misafir oluştur
       const apiGuest = await guestsApi.create({
         tcNo: '',
         firstName: quickRes.firstName.trim(),
         lastName: quickRes.lastName.trim(),
         phone: quickRes.phone.trim(),
       });
-      const guest: Guest = {
-        id: apiGuest.id,
-        tcNo: apiGuest.tcNo,
-        firstName: apiGuest.firstName,
-        lastName: apiGuest.lastName,
-        phone: apiGuest.phone,
-        email: apiGuest.email ?? undefined,
-        companyId: apiGuest.companyId ?? undefined,
-        isBlocked: apiGuest.isBlocked,
-        createdAt: apiGuest.createdAt ?? new Date().toISOString(),
-      };
-      addGuestToRoom(guest);
+
+      // 2. Rezervasyon oluştur (check-in yapmadan, oda değişmez)
+      await reservationsApi.create({
+        roomId: room.id,
+        guestId: apiGuest.id,
+        plannedCheckIn: checkInDate || new Date().toISOString().split('T')[0],
+        plannedCheckOut: checkOutDate || undefined,
+        notes: roomNote,
+      });
+
+      // 3. Formu temizle, odaya ekleme (ön rezervasyon — henüz gelmedi)
       setQuickRes({ firstName: '', lastName: '', phone: '' });
+      alert('Rezervasyon kaydedildi. Misafir geldiğinde check-in yapılacak.');
     } catch (err) {
       console.error('Hızlı rezervasyon hatası:', err);
+      alert('Rezervasyon oluşturulamadı');
     }
   };
 
@@ -284,14 +302,28 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
   const handleCheckIn = async () => {
     const guests = room.guests || [];
     if (guests.length === 0) return;
+
+    const confirmed = window.confirm('Kaydetmeyi ve check-in yapmayı onaylıyor musunuz?');
+    if (!confirmed) return;
+
     try {
-      await roomsApi.checkIn(room.id, {
-        guestId: guests[0].guestId,
-        notes: roomNote,
-        plannedCheckOut: checkOutDate || undefined,
-      });
-      for (let i = 1; i < guests.length; i++) {
-        await roomsApi.addGuest(room.id, guests[i].guestId);
+      if (room.reservationId) {
+        // Mevcut rezervasyon var → check-in'e çevir
+        await reservationsApi.checkIn(room.reservationId);
+        // Varsa ek misafirleri ekle
+        for (let i = 1; i < guests.length; i++) {
+          await roomsApi.addGuest(room.id, guests[i].guestId);
+        }
+      } else {
+        // Rezervasyon yok → direkt check-in
+        await roomsApi.checkIn(room.id, {
+          guestId: guests[0].guestId,
+          notes: roomNote,
+          plannedCheckOut: checkOutDate || undefined,
+        });
+        for (let i = 1; i < guests.length; i++) {
+          await roomsApi.addGuest(room.id, guests[i].guestId);
+        }
       }
     } catch (err: any) {
       console.error('Check-in hatası:', err);

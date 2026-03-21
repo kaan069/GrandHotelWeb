@@ -53,6 +53,8 @@ interface Room {
   status: string;
   guestName?: string;
   guests?: RoomGuestInfo[];
+  reservationStatus?: string | null;
+  reservationOwnerName?: string | null;
 }
 
 interface StatusColorConfig {
@@ -110,6 +112,12 @@ const STATUS_COLORS: Record<string, StatusColorConfig> = {
     text: '#37474F',
     label: '#546E7A',
   },
+  reserved: {
+    bg: '#E3F2FD',
+    border: '#1565C0',
+    text: '#0D47A1',
+    label: '#1565C0',
+  },
 };
 
 const RoomCard: React.FC<RoomCardProps> = ({ room, onStatusChange, onAction, onClick }) => {
@@ -117,7 +125,10 @@ const RoomCard: React.FC<RoomCardProps> = ({ room, onStatusChange, onAction, onC
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const menuOpen = Boolean(anchorEl);
 
-  const colors = STATUS_COLORS[room.status] || STATUS_COLORS[ROOM_STATUS.AVAILABLE];
+  const isReserved = room.reservationStatus === 'reserved' && room.status === ROOM_STATUS.AVAILABLE;
+  const colors = isReserved
+    ? STATUS_COLORS['reserved']
+    : (STATUS_COLORS[room.status] || STATUS_COLORS[ROOM_STATUS.AVAILABLE]);
 
   /** Menüyü aç */
   const handleMenuOpen = (e: React.MouseEvent<HTMLElement>): void => {
@@ -315,6 +326,23 @@ const RoomCard: React.FC<RoomCardProps> = ({ room, onStatusChange, onAction, onC
         </Typography>
       )}
 
+      {/* Rezervasyon sahibi adı (rezerve ise) */}
+      {isReserved && room.reservationOwnerName && (
+        <Typography
+          sx={{
+            fontSize: '0.65rem',
+            color: colors.text,
+            fontWeight: 600,
+            mt: 0.5,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {room.reservationOwnerName}
+        </Typography>
+      )}
+
       {/* Durum etiketi - alt kısım */}
       <Box
         sx={{
@@ -331,7 +359,7 @@ const RoomCard: React.FC<RoomCardProps> = ({ room, onStatusChange, onAction, onC
             letterSpacing: '0.05em',
           }}
         >
-          {ROOM_STATUS_LABELS[room.status]}
+          {isReserved ? 'REZERVE' : ROOM_STATUS_LABELS[room.status]}
         </Typography>
       </Box>
 
