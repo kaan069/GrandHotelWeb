@@ -55,6 +55,8 @@ interface Room {
   guests?: RoomGuestInfo[];
   reservationStatus?: string | null;
   reservationOwnerName?: string | null;
+  reservationCheckIn?: string | null;
+  reservationCheckOut?: string | null;
 }
 
 interface StatusColorConfig {
@@ -125,7 +127,15 @@ const RoomCard: React.FC<RoomCardProps> = ({ room, onStatusChange, onAction, onC
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const menuOpen = Boolean(anchorEl);
 
-  const isReserved = room.reservationStatus === 'reserved' && room.status === ROOM_STATUS.AVAILABLE;
+  const isReserved = (() => {
+    if (room.reservationStatus !== 'reserved' || room.status !== ROOM_STATUS.AVAILABLE) return false;
+    if (room.reservationCheckIn) {
+      const today = new Date().toISOString().split('T')[0];
+      const checkIn = room.reservationCheckIn.split('T')[0];
+      if (checkIn !== today) return false;
+    }
+    return true;
+  })();
   const colors = isReserved
     ? STATUS_COLORS['reserved']
     : (STATUS_COLORS[room.status] || STATUS_COLORS[ROOM_STATUS.AVAILABLE]);

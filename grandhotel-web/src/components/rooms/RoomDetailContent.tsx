@@ -18,6 +18,8 @@ import {
   FOLIO_CATEGORY_LABELS,
 } from '../../utils/constants';
 import { companiesApi, guestsApi, foliosApi, roomsApi, reservationsApi } from '../../api/services';
+import type { ApiRoomMinibarItem } from '../../api/services';
+import { ConfirmDialog } from '../common';
 import GuestSearchDialog from './GuestSearchDialog';
 import FolioAddDialog from './FolioAddDialog';
 import DetailDialog from './DetailDialog';
@@ -48,16 +50,18 @@ interface RoomDetailContentRoom {
   reservationCheckIn?: string | null;
   reservationCheckOut?: string | null;
   beds?: { type: string }[];
+  minibar?: ApiRoomMinibarItem[];
 }
 
 interface RoomDetailContentProps {
   room: RoomDetailContentRoom;
   onRoomUpdate: (roomId: number, updates: Partial<RoomDetailContentRoom>) => void;
   onRoomSwitch?: (roomNumber: string) => void;
+  onClose?: () => void;
   allRoomNumbers?: string[];
 }
 
-const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdate, onRoomSwitch, allRoomNumbers = [] }) => {
+const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdate, onRoomSwitch, onClose, allRoomNumbers = [] }) => {
   /* === State === */
   /* Tarihler backend'den gelir — reservationCheckIn/Out alanları */
   const formatDateForInput = (isoStr?: string | null) => {
@@ -90,6 +94,8 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
 
   const [guestCardDialogOpen, setGuestCardDialogOpen] = useState(false);
   const [guestCardData, setGuestCardData] = useState<Guest | null>(null);
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
 
   /* === Effects === */
   useEffect(() => {
@@ -113,10 +119,12 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
           createdBy: f.createdBy ?? undefined,
         })));
 
-        // Eğer reserved bir rezervasyon varsa, sahibinin bilgisini hızlı rezervasyon alanına getir
+        // Eğer reserved bir rezervasyon varsa ve tarihi bugünse, sahibinin bilgisini hızlı rezervasyon alanına getir
         if (room.reservationId) {
           const resDetail = await reservationsApi.getById(room.reservationId);
-          if (resDetail.status === 'reserved' && resDetail.stays && resDetail.stays.length > 0) {
+          const today = new Date().toISOString().split('T')[0];
+          const resCheckIn = (resDetail.checkIn || '').split('T')[0];
+          if (resDetail.status === 'reserved' && resCheckIn === today && resDetail.stays && resDetail.stays.length > 0) {
             const owner = resDetail.stays[0];
             const nameParts = (owner.guestName || '').split(' ');
             const firstName = nameParts[0] || '';
@@ -213,8 +221,8 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
       await reservationsApi.create({
         roomId: room.id,
         guestId: apiGuest.id,
-        plannedCheckIn: checkInDate || new Date().toISOString().split('T')[0],
-        plannedCheckOut: checkOutDate || undefined,
+        checkIn: checkInDate || new Date().toISOString().split('T')[0],
+        checkOut: checkOutDate || undefined,
         notes: roomNote,
       });
 
@@ -277,25 +285,44 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
     window.open(`mailto:?subject=${subject}&body=${body}`, '_self');
   };
 
-  /** Rezervasyon kaydet — check-in yapmadan sadece kayıt oluştur */
+  /** Rezervasyon kaydet — yeni oluştur veya mevcut rezervasyonu güncelle */
   const handleSaveReservation = async () => {
-    const guests = room.guests || [];
-    if (guests.length === 0) {
-      alert('Kaydetmek için en az 1 misafir eklemelisiniz.');
-      return;
-    }
-    try {
-      await reservationsApi.create({
-        roomId: room.id,
-        guestId: guests[0].guestId,
-        plannedCheckIn: checkInDate || new Date().toISOString().split('T')[0],
-        plannedCheckOut: checkOutDate || undefined,
-        notes: roomNote,
-      });
-      alert('Rezervasyon kaydedildi. Oda durumu değişmedi.');
-    } catch (err: any) {
-      console.error('Rezervasyon kayıt hatası:', err);
-      alert(err?.response?.data?.error || err.message || 'Rezervasyon kaydedilemedi');
+    if (room.reservationId) {
+      // Mevcut rezervasyonu güncelle
+      try {
+        await reservationsApi.update(room.reservationId, {
+          roomId: room.id,
+          checkIn: checkInDate || undefined,
+          checkOut: checkOutDate || undefined,
+          notes: roomNote || undefined,
+          companyId: selectedCompanyId ? Number(selectedCompanyId) : null,
+          totalAmount: nightlyRate ? Number(nightlyRate) : undefined,
+        });
+        alert('Rezervasyon güncellendi.');
+      } catch (err: any) {
+        console.error('Rezervasyon güncelleme hatası:', err);
+        alert(err?.response?.data?.error || err.message || 'Rezervasyon güncellenemedi');
+      }
+    } else {
+      // Yeni rezervasyon oluştur
+      const guests = room.guests || [];
+      if (guests.length === 0) {
+        alert('Kaydetmek için en az 1 misafir eklemelisiniz.');
+        return;
+      }
+      try {
+        await reservationsApi.create({
+          roomId: room.id,
+          guestId: guests[0].guestId,
+          checkIn: checkInDate || new Date().toISOString().split('T')[0],
+          checkOut: checkOutDate || undefined,
+          notes: roomNote,
+        });
+        alert('Rezervasyon kaydedildi. Oda durumu değişmedi.');
+      } catch (err: any) {
+        console.error('Rezervasyon kayıt hatası:', err);
+        alert(err?.response?.data?.error || err.message || 'Rezervasyon kaydedilemedi');
+      }
     }
   };
 
@@ -319,7 +346,7 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
         await roomsApi.checkIn(room.id, {
           guestId: guests[0].guestId,
           notes: roomNote,
-          plannedCheckOut: checkOutDate || undefined,
+          checkOut: checkOutDate || undefined,
         });
         for (let i = 1; i < guests.length; i++) {
           await roomsApi.addGuest(room.id, guests[i].guestId);
@@ -341,16 +368,28 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
     }
   };
 
-  const handleCancel = async () => {
+  const handleCancelClick = () => {
+    setCancelConfirmOpen(true);
+  };
+
+  const handleCancelConfirm = async () => {
+    setCancelLoading(true);
     try {
+      if (room.reservationId) {
+        await reservationsApi.cancel(room.reservationId);
+      }
       if (room.status === ROOM_STATUS.OCCUPIED) {
         await roomsApi.checkOut(room.id);
       }
       await roomsApi.updateStatus(room.id, ROOM_STATUS.AVAILABLE);
-      /* WebSocket broadcast → Dashboard otomatik güncellenir */
+      setCancelConfirmOpen(false);
+      /* Ana ekrana dön */
+      if (onClose) onClose();
     } catch (err: any) {
       console.error('İptal hatası:', err);
       alert(err?.response?.data?.error || err.message || 'İptal yapılamadı');
+    } finally {
+      setCancelLoading(false);
     }
   };
 
@@ -427,6 +466,14 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
   const isCheckInDisabled = !hasGuests || (!hasPayment || folioTotal > 0);
   const isOccupied = room.status === ROOM_STATUS.OCCUPIED;
 
+  /* Mevcut rezervasyonda değişiklik var mı? */
+  const hasReservationChanges = !!room.reservationId && (
+    checkInDate !== formatDateForInput(room.reservationCheckIn) ||
+    checkOutDate !== formatDateForInput(room.reservationCheckOut) ||
+    roomNote !== (room.notes || '') ||
+    nightlyRate !== (room.price ? String(room.price) : '')
+  );
+
   return (
     <Box>
       <RoomHeaderToolbar
@@ -436,14 +483,16 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
         isCheckInDisabled={isCheckInDisabled}
         isOccupied={isOccupied}
         hasGuests={!!hasGuests}
+        hasReservation={!!room.reservationId}
         allRoomNumbers={allRoomNumbers}
         onFolioAddOpen={() => setFolioAddOpen(true)}
         onDetailOpen={() => setDetailDialogOpen(true)}
         onInvoiceOpen={() => setInvoiceDialogOpen(true)}
         onCheckIn={handleCheckIn}
         onCheckOut={handleCheckOut}
-        onCancel={handleCancel}
+        onCancel={handleCancelClick}
         onSaveReservation={handleSaveReservation}
+        isSaveEnabled={hasReservationChanges}
         onRoomSwitch={onRoomSwitch}
       />
 
@@ -461,6 +510,7 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
         note={roomNote}
         onNoteChange={setRoomNote}
         onNoteSave={handleNoteSave}
+        minibarItems={room.minibar || []}
         checkInDate={checkInDate}
         onCheckInDateChange={setCheckInDate}
         checkOutDate={checkOutDate}
@@ -552,6 +602,18 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
         }
         companyId={selectedCompanyId ? Number(selectedCompanyId) : undefined}
         roomId={room.id}
+      />
+
+      {/* Rezervasyon İptal Onay */}
+      <ConfirmDialog
+        open={cancelConfirmOpen}
+        title="Rezervasyon İptal"
+        message={`Oda ${room.roomNumber} için rezervasyonu iptal etmek istediğinize emin misiniz?`}
+        confirmText="İptal Et"
+        confirmColor="error"
+        onConfirm={handleCancelConfirm}
+        onCancel={() => setCancelConfirmOpen(false)}
+        loading={cancelLoading}
       />
     </Box>
   );

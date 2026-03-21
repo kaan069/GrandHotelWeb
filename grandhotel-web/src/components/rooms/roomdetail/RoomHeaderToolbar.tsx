@@ -31,6 +31,7 @@ interface RoomHeaderToolbarProps {
   isCheckInDisabled: boolean;
   isOccupied: boolean;
   hasGuests: boolean;
+  hasReservation?: boolean;
   allRoomNumbers: string[];
   onFolioAddOpen: () => void;
   onDetailOpen: () => void;
@@ -39,6 +40,7 @@ interface RoomHeaderToolbarProps {
   onCheckOut: () => void;
   onCancel: () => void;
   onSaveReservation?: () => void;
+  isSaveEnabled?: boolean;
   onRoomSwitch?: (roomNumber: string) => void;
 }
 
@@ -49,6 +51,7 @@ const RoomHeaderToolbar: React.FC<RoomHeaderToolbarProps> = ({
   isCheckInDisabled,
   isOccupied,
   hasGuests,
+  hasReservation = false,
   allRoomNumbers,
   onFolioAddOpen,
   onDetailOpen,
@@ -57,6 +60,7 @@ const RoomHeaderToolbar: React.FC<RoomHeaderToolbarProps> = ({
   onCheckOut,
   onCancel,
   onSaveReservation,
+  isSaveEnabled = false,
   onRoomSwitch,
 }) => {
   const [editing, setEditing] = useState(false);
@@ -162,7 +166,7 @@ const RoomHeaderToolbar: React.FC<RoomHeaderToolbarProps> = ({
             size="small"
             color="primary"
             onClick={onSaveReservation}
-            disabled={!hasGuests}
+            disabled={hasReservation ? !isSaveEnabled : !hasGuests}
           >
             Kaydet
           </Button>
@@ -183,7 +187,7 @@ const RoomHeaderToolbar: React.FC<RoomHeaderToolbarProps> = ({
           color="error"
           startIcon={<CancelIcon />}
           onClick={onCancel}
-          disabled={!hasGuests}
+          disabled={!hasGuests && !hasReservation}
         >
           İptal Et
         </Button>

@@ -34,6 +34,49 @@ export interface ApiRoom {
   reservationOwnerName: string | null;
   beds: { type: string }[];
   notes: string | null;
+  minibar?: ApiRoomMinibarItem[];
+}
+
+export interface ApiRoomMinibarItem {
+  productId: number;
+  productName: string;
+  placed: number;
+  remaining: number;
+  consumed: number;
+  price: string;
+}
+
+export interface ApiStockItem {
+  id: number;
+  name: string;
+  category: string;
+  unit: string;
+  quantity: number;
+  createdAt: string;
+  minibarPrice?: string | null;
+}
+
+export interface ApiMinibarProduct {
+  id: number;
+  name: string;
+  price: string;
+  unit: string;
+  totalStock: number;
+  inMinibar: number;
+  sold: number;
+  availableStock: number;
+}
+
+export interface ApiMinibarRoomItem {
+  id: number;
+  roomId: number;
+  roomNumber: string;
+  productId: number;
+  productName: string;
+  quantity: number;
+  price: string;
+  placedBy: string;
+  placedAt: string;
 }
 
 export interface ApiRoomGuest {
@@ -74,8 +117,6 @@ export interface ApiReservation {
   companyName: string | null;
   checkIn: string;
   checkOut: string | null;
-  plannedCheckIn: string | null;
-  plannedCheckOut: string | null;
   guestNames: string | null;
   guestCount: number;
   status: string;
@@ -121,7 +162,7 @@ export const roomsApi = {
   getById: (id: number) =>
     api.get<ApiRoom>(`/rooms/${id}/`).then((r) => r.data),
 
-  checkIn: (roomId: number, body: { guestId: number; notes?: string; plannedCheckOut?: string }) =>
+  checkIn: (roomId: number, body: { guestId: number; notes?: string; checkOut?: string }) =>
     api.post<ApiRoom>(`/rooms/${roomId}/check_in/`, body).then((r) => r.data),
 
   checkOut: (roomId: number, body?: { guestId?: number }) =>
@@ -236,7 +277,7 @@ export const reservationsApi = {
   /** Yeni rezervasyon oluştur (check-in yapmadan) */
   create: (data: {
     roomId: number; guestId: number;
-    plannedCheckIn: string; plannedCheckOut?: string;
+    checkIn: string; checkOut?: string;
     notes?: string; staffName?: string; companyId?: number;
   }) =>
     api.post<ApiReservation>('/reservations/', data).then((r) => r.data),
@@ -244,6 +285,17 @@ export const reservationsApi = {
   /** Rezervasyon iptal */
   cancel: (id: number) =>
     api.post<ApiReservation>(`/reservations/${id}/cancel/`).then((r) => r.data),
+
+  /** Rezervasyon güncelle */
+  update: (id: number, data: {
+    roomId?: number;
+    checkIn?: string;
+    checkOut?: string;
+    notes?: string;
+    companyId?: number | null;
+    totalAmount?: number;
+  }) =>
+    api.put<ApiReservation>(`/reservations/${id}/`, data).then((r) => r.data),
 
   /** Rezerve → Check-in dönüşümü */
   checkIn: (id: number) =>
@@ -525,4 +577,46 @@ export const leavesApi = {
 
   getForEmployee: (employeeId: number) =>
     api.get<ApiLeave[]>(`/staff/${employeeId}/leaves/`).then((r) => r.data),
+};
+
+/* ==================== STOCK API ==================== */
+
+export const stockApi = {
+  getAll: (category?: string) => {
+    const qs = category ? `?category=${category}` : '';
+    return api.get<ApiStockItem[]>(`/stock/${qs}`).then((r) => r.data);
+  },
+
+  create: (data: { name: string; category: string; unit: string; quantity: number; price?: number }) =>
+    api.post<ApiStockItem>('/stock/', data).then((r) => r.data),
+
+  update: (id: number, data: Partial<{ name: string; category: string; unit: string; quantity: number; price: number }>) =>
+    api.put<ApiStockItem>(`/stock/${id}/`, data).then((r) => r.data),
+
+  delete: (id: number) =>
+    api.delete(`/stock/${id}/`),
+};
+
+/* ==================== MINIBAR API ==================== */
+
+export const minibarApi = {
+  /** Aktif minibar ürünleri + stok bilgisi */
+  getProducts: () =>
+    api.get<ApiMinibarProduct[]>('/minibar/products/').then((r) => r.data),
+
+  /** Odanın minibar içeriği */
+  getRoomItems: (roomId: number) =>
+    api.get<ApiMinibarRoomItem[]>(`/minibar/rooms/${roomId}/`).then((r) => r.data),
+
+  /** Minibara ürün ekle */
+  addToRoom: (roomId: number, data: { productId: number; quantity: number; staffName?: string }) =>
+    api.post<ApiMinibarRoomItem>(`/minibar/rooms/${roomId}/add/`, data).then((r) => r.data),
+
+  /** Minibardan çıkar (iade) */
+  removeFromRoom: (roomId: number, data: { productId: number; quantity: number }) =>
+    api.post(`/minibar/rooms/${roomId}/remove/`, data),
+
+  /** Tüketim + folio charge */
+  consume: (roomId: number, data: { productId: number; quantity: number; staffName?: string }) =>
+    api.post<{ folioItem: ApiFolioItem }>(`/minibar/rooms/${roomId}/consume/`, data).then((r) => r.data),
 };

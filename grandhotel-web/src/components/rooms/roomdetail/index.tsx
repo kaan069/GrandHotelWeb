@@ -5,7 +5,9 @@ import CustomerManagementSection from './CustomerManagementSection';
 import StayInfoPanel from './StayInfoPanel';
 import QuickReservationSection from './QuickReservationSection';
 import RoomNoteSection from './RoomNoteSection';
+import MinibarSection from './MinibarSection';
 import { RoomGuest, Company, FolioItem } from '../../../utils/constants';
+import type { ApiRoomMinibarItem } from '../../../api/services';
 
 export { default as RoomHeaderToolbar } from './RoomHeaderToolbar';
 export { default as NewGuestDialog } from './NewGuestDialog';
@@ -31,6 +33,8 @@ interface RoomDetailSectionsProps {
   note: string;
   onNoteChange: (value: string) => void;
   onNoteSave: () => void;
+  /* MinibarSection */
+  minibarItems: ApiRoomMinibarItem[];
   /* StayInfoPanel */
   checkInDate: string;
   onCheckInDateChange: (value: string) => void;
@@ -60,6 +64,7 @@ const RoomDetailSections: React.FC<RoomDetailSectionsProps> = ({
   note,
   onNoteChange,
   onNoteSave,
+  minibarItems,
   checkInDate,
   onCheckInDateChange,
   checkOutDate,
@@ -101,9 +106,10 @@ const RoomDetailSections: React.FC<RoomDetailSectionsProps> = ({
           onNoteChange={onNoteChange}
           onSave={onNoteSave}
         />
+
       </Grid>
 
-      {/* Sağ Panel - Konaklama Bilgileri */}
+      {/* Sağ Panel - Konaklama Bilgileri + Minibar */}
       <Grid size={{ xs: 12, md: 4 }}>
         <StayInfoPanel
           checkInDate={checkInDate}
@@ -119,6 +125,8 @@ const RoomDetailSections: React.FC<RoomDetailSectionsProps> = ({
           folioTotal={folioTotal}
           onFolioDetailOpen={onFolioDetailOpen}
         />
+
+        <MinibarSection items={minibarItems} />
       </Grid>
     </Grid>
   );

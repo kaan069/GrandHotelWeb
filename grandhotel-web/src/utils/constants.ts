@@ -399,6 +399,16 @@ export const MENU_ITEMS: MenuItem[] = [
     ],
   },
   {
+    id: 'minibar',
+    label: 'Minibar / Stok',
+    path: '/minibar',
+    icon: 'LocalBar',
+    roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.MINIBAR],
+    children: [
+      { id: 'stock-management', label: 'Stok Yönetimi', path: '/minibar/stock' },
+    ],
+  },
+  {
     id: 'users',
     label: 'Eleman Yönetimi',
     path: '/users',

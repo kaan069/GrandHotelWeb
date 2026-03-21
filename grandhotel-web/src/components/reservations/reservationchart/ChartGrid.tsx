@@ -15,15 +15,15 @@ interface ChartGridProps {
 
 /**
  * Bir rezervasyonun takvimde gösterilecek başlangıç ve bitiş tarihlerini hesaplar.
- * - status='reserved' → plannedCheckIn / plannedCheckOut
+ * - status='reserved' → checkIn / checkOut
  * - status='checked_in' → checkIn / checkOut (checkOut null ise bugün + 1)
  */
 const getBarDates = (r: ApiReservation): { start: dayjs.Dayjs; end: dayjs.Dayjs } | null => {
   if (r.status === 'reserved') {
-    if (!r.plannedCheckIn) return null;
-    const start = dayjs(r.plannedCheckIn).startOf('day');
-    const end = r.plannedCheckOut
-      ? dayjs(r.plannedCheckOut).startOf('day')
+    if (!r.checkIn) return null;
+    const start = dayjs(r.checkIn).startOf('day');
+    const end = r.checkOut
+      ? dayjs(r.checkOut).startOf('day')
       : start.add(1, 'day');
     return { start, end };
   }
@@ -31,9 +31,7 @@ const getBarDates = (r: ApiReservation): { start: dayjs.Dayjs; end: dayjs.Dayjs 
     const start = dayjs(r.checkIn).startOf('day');
     const end = r.checkOut
       ? dayjs(r.checkOut).startOf('day')
-      : r.plannedCheckOut
-        ? dayjs(r.plannedCheckOut).startOf('day')
-        : dayjs().startOf('day').add(1, 'day');
+      : dayjs().startOf('day').add(1, 'day');
     return { start, end };
   }
   return null;

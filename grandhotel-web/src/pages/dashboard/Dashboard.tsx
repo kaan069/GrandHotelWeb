@@ -24,7 +24,7 @@ import usePageTabs from '../../hooks/usePageTabs';
 import useRoomWebSocket from '../../hooks/useRoomWebSocket';
 import { ROOM_STATUS, RoomTab, RoomGuest } from '../../utils/constants';
 import { roomsApi, kazancApi } from '../../api/services';
-import type { ApiRoom, DashboardStats } from '../../api/services';
+import type { ApiRoom, ApiRoomMinibarItem, DashboardStats } from '../../api/services';
 
 /* Dashboard alt bileşenleri */
 import { DashboardContent, DashboardDialogs } from '../../components/dashboard';
@@ -48,6 +48,7 @@ interface Room {
   reservationStatus?: string | null;
   reservationOwnerName?: string | null;
   beds?: { type: string }[];
+  minibar?: ApiRoomMinibarItem[];
 }
 
 const mapApiRoom = (r: ApiRoom): Room => ({
@@ -68,6 +69,7 @@ const mapApiRoom = (r: ApiRoom): Room => ({
   reservationStatus: r.reservationStatus,
   reservationOwnerName: r.reservationOwnerName,
   beds: r.beds,
+  minibar: r.minibar,
 });
 
 interface CheckInOutItem {
@@ -241,6 +243,7 @@ const Dashboard: React.FC = () => {
           room={activeRoom}
           onRoomUpdate={handleRoomUpdate}
           onRoomSwitch={handleRoomSwitch}
+          onClose={handleBackToList}
           allRoomNumbers={rooms.map((r) => r.roomNumber)}
         />
       ) : (

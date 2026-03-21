@@ -167,8 +167,8 @@ const CompanyReport: React.FC = () => {
                       <TableCell>
                         {(r.stays || []).map((s: any) => s.guestName).join(', ') || '-'}
                       </TableCell>
-                      <TableCell>{r.checkIn ? new Date(r.checkIn).toLocaleDateString('tr-TR') : r.plannedCheckIn || '-'}</TableCell>
-                      <TableCell>{r.checkOut ? new Date(r.checkOut).toLocaleDateString('tr-TR') : r.plannedCheckOut || '-'}</TableCell>
+                      <TableCell>{r.checkIn ? new Date(r.checkIn).toLocaleDateString('tr-TR') : '-'}</TableCell>
+                      <TableCell>{r.checkOut ? new Date(r.checkOut).toLocaleDateString('tr-TR') : '-'}</TableCell>
                       <TableCell align="right">{total.toLocaleString('tr-TR')} ₺</TableCell>
                       <TableCell align="right">{paid.toLocaleString('tr-TR')} ₺</TableCell>
                       <TableCell align="right">

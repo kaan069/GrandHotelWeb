@@ -18,11 +18,13 @@ import {
   Add as AddIcon,
   Hotel as HotelIcon,
   GroupWork as GroupIcon,
+  Edit as EditIcon,
+  Cancel as CancelIcon,
 } from '@mui/icons-material';
 import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { Dayjs } from 'dayjs';
 
-import { PageHeader, DataTable, StatusBadge } from '../../components/common';
+import { PageHeader, DataTable, StatusBadge, ConfirmDialog } from '../../components/common';
 import { FilterPanel, DateRangePicker } from '../../components/forms';
 import RoomDetailContent from '../../components/rooms/RoomDetailContent';
 import usePermission from '../../hooks/usePermission';
@@ -31,12 +33,13 @@ import { formatDate, formatCurrency } from '../../utils/formatters';
 import {
   RESERVATION_STATUS_LABELS,
 } from '../../utils/constants';
-import { reservationsApi, roomsApi } from '../../api/services';
-import type { ApiReservation, ApiRoom } from '../../api/services';
+import { reservationsApi, roomsApi, companiesApi } from '../../api/services';
+import type { ApiReservation, ApiRoom, ApiCompany, ApiRoomMinibarItem } from '../../api/services';
 
 /* Alt bileşenler */
 import ReservationDialogs from '../../components/reservations';
 import type { NewReservationResult, BulkReservationResult } from '../../components/reservations';
+import ReservationEditDialog from '../../components/reservations/ReservationEditDialog';
 
 /* ==================== TİPLER ==================== */
 
@@ -57,6 +60,7 @@ interface RoomForDetail {
   reservationCheckIn?: string | null;
   reservationCheckOut?: string | null;
   beds?: { type: string }[];
+  minibar?: ApiRoomMinibarItem[];
 }
 
 interface RoomTab {
@@ -91,6 +95,7 @@ const mapApiRoomToDetail = (r: ApiRoom): RoomForDetail => ({
   reservationCheckIn: r.reservationCheckIn,
   reservationCheckOut: r.reservationCheckOut,
   beds: r.beds,
+  minibar: r.minibar,
 });
 
 /** Ödeme durumu hesapla */
@@ -137,18 +142,6 @@ const columns: GridColDef[] = [
   {
     field: 'checkOut',
     headerName: 'Çıkış',
-    width: 120,
-    valueGetter: (value: string | null) => value ? formatDate(value) : '-',
-  },
-  {
-    field: 'plannedCheckIn',
-    headerName: 'Planlı Giriş',
-    width: 120,
-    valueGetter: (value: string | null) => value ? formatDate(value) : '-',
-  },
-  {
-    field: 'plannedCheckOut',
-    headerName: 'Planlı Çıkış',
     width: 120,
     valueGetter: (value: string | null) => value ? formatDate(value) : '-',
   },
@@ -220,6 +213,14 @@ const ReservationList: React.FC = () => {
   const [newResDialogOpen, setNewResDialogOpen] = useState(false);
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
 
+  /* Düzenle / İptal state'leri */
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editReservation, setEditReservation] = useState<ApiReservation | null>(null);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancelTarget, setCancelTarget] = useState<ApiReservation | null>(null);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [companies, setCompanies] = useState<ApiCompany[]>([]);
+
   /* Tab state */
   const [openTabs, setOpenTabs] = useState<RoomTab[]>([]);
   const [activeTabIndex, setActiveTabIndex] = useState<number>(-1);
@@ -231,11 +232,14 @@ const ReservationList: React.FC = () => {
     dateEnd: null,
   });
 
-  /* Oda verilerini bir kere yükle */
+  /* Oda ve firma verilerini bir kere yükle */
   useEffect(() => {
     roomsApi.getAll()
       .then((data) => setRooms(data))
       .catch((err) => console.error('Odalar yüklenemedi:', err));
+    companiesApi.getAll()
+      .then((data) => setCompanies(data))
+      .catch((err) => console.error('Firmalar yüklenemedi:', err));
   }, []);
 
   /* Rezervasyonları yükle (filtre değişince tekrar) */
@@ -383,6 +387,79 @@ const ReservationList: React.FC = () => {
     onBackToList: handleBackToList,
   });
 
+  /** Rezervasyon düzenle */
+  const handleEditClick = (row: ApiReservation) => {
+    setEditReservation(row);
+    setEditDialogOpen(true);
+  };
+
+  /** Rezervasyon iptal onay dialog'u aç */
+  const handleCancelClick = (row: ApiReservation) => {
+    setCancelTarget(row);
+    setCancelDialogOpen(true);
+  };
+
+  /** Rezervasyon iptal onayla */
+  const handleCancelConfirm = async () => {
+    if (!cancelTarget) return;
+    setCancelLoading(true);
+    try {
+      await reservationsApi.cancel(cancelTarget.id);
+      fetchReservations();
+      setCancelDialogOpen(false);
+      setCancelTarget(null);
+    } catch (err: any) {
+      console.error('Rezervasyon iptal hatası:', err);
+      alert(err?.response?.data?.error || err.message || 'Rezervasyon iptal edilemedi');
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+
+  /** Düzenleme kaydet */
+  const handleEditSave = () => {
+    setEditDialogOpen(false);
+    setEditReservation(null);
+    fetchReservations();
+  };
+
+  /** İşlem kolonunu dahil eden kolon listesi */
+  const allColumns: GridColDef[] = [
+    ...columns,
+    {
+      field: 'actions',
+      headerName: 'İşlemler',
+      width: 120,
+      sortable: false,
+      filterable: false,
+      renderCell: (params: GridRenderCellParams) => {
+        const row = params.row as ApiReservation;
+        const isDisabled = row.status === 'cancelled' || row.status === 'checked_out';
+        return (
+          <Box sx={{ display: 'flex', gap: 0.5 }}>
+            <Button
+              size="small"
+              sx={{ minWidth: 32, p: 0.5 }}
+              onClick={(e) => { e.stopPropagation(); handleEditClick(row); }}
+              disabled={isDisabled}
+            >
+              <EditIcon fontSize="small" />
+            </Button>
+            <Button
+              size="small"
+              color="error"
+              sx={{ minWidth: 32, p: 0.5 }}
+              onClick={(e) => { e.stopPropagation(); handleCancelClick(row); }}
+              disabled={isDisabled}
+            >
+              <CancelIcon fontSize="small" />
+            </Button>
+          </Box>
+        );
+      },
+    },
+  ];
+
   /** Dialog'a gönderilecek oda listesi (price: number olmalı) */
   const dialogRooms = rooms.map((r) => ({
     id: r.id,
@@ -423,7 +500,7 @@ const ReservationList: React.FC = () => {
 
       {/* Aktif Tab İçeriği veya Liste */}
       {activeTabIndex >= 0 && activeRoom ? (
-        <RoomDetailContent key={activeRoom.id} room={activeRoom} onRoomUpdate={handleRoomUpdate} />
+        <RoomDetailContent key={activeRoom.id} room={activeRoom} onRoomUpdate={handleRoomUpdate} onClose={handleBackToList} />
       ) : (
         <>
           {/* Filtreler */}
@@ -461,7 +538,7 @@ const ReservationList: React.FC = () => {
             /* Rezervasyon tablosu */
             <DataTable
               rows={tableRows}
-              columns={columns}
+              columns={allColumns}
               onRowClick={handleRowClick}
               searchable
               searchPlaceholder="Misafir adı veya oda numarası ara..."
@@ -479,6 +556,28 @@ const ReservationList: React.FC = () => {
         bulkDialogOpen={bulkDialogOpen}
         onBulkClose={() => setBulkDialogOpen(false)}
         onBulkSave={handleBulkSave}
+      />
+
+      {/* Rezervasyon İptal Onay Dialog */}
+      <ConfirmDialog
+        open={cancelDialogOpen}
+        title="Rezervasyon İptal"
+        message={`#${cancelTarget?.id} numaralı rezervasyonu iptal etmek istediğinize emin misiniz?`}
+        confirmText="İptal Et"
+        confirmColor="error"
+        onConfirm={handleCancelConfirm}
+        onCancel={() => { setCancelDialogOpen(false); setCancelTarget(null); }}
+        loading={cancelLoading}
+      />
+
+      {/* Rezervasyon Düzenle Dialog */}
+      <ReservationEditDialog
+        open={editDialogOpen}
+        onClose={() => { setEditDialogOpen(false); setEditReservation(null); }}
+        reservation={editReservation}
+        rooms={dialogRooms}
+        companies={companies}
+        onSave={handleEditSave}
       />
     </div>
   );

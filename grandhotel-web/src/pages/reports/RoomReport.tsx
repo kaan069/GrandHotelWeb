@@ -147,8 +147,8 @@ const RoomReport: React.FC = () => {
                       {(r.stays || []).map((s: any) => s.guestName).join(', ') || '-'}
                     </TableCell>
                     <TableCell>{r.companyName || '-'}</TableCell>
-                    <TableCell>{r.checkIn ? new Date(r.checkIn).toLocaleDateString('tr-TR') : r.plannedCheckIn || '-'}</TableCell>
-                    <TableCell>{r.checkOut ? new Date(r.checkOut).toLocaleDateString('tr-TR') : r.plannedCheckOut || '-'}</TableCell>
+                    <TableCell>{r.checkIn ? new Date(r.checkIn).toLocaleDateString('tr-TR') : '-'}</TableCell>
+                    <TableCell>{r.checkOut ? new Date(r.checkOut).toLocaleDateString('tr-TR') : '-'}</TableCell>
                     <TableCell>{r.notes || '-'}</TableCell>
                     <TableCell align="right">{parseFloat(r.totalAmount || 0).toLocaleString('tr-TR')} ₺</TableCell>
                     <TableCell align="right">{parseFloat(r.paidAmount || 0).toLocaleString('tr-TR')} ₺</TableCell>
