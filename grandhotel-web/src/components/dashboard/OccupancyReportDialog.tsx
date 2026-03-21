@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Typography,
   Box,
@@ -16,14 +16,20 @@ import {
   TableRow,
   Paper,
   CircularProgress,
+  TextField,
+  ButtonGroup,
 } from '@mui/material';
 import {
   Assessment as AssessmentIcon,
   Print as PrintIcon,
+  Today as TodayIcon,
+  Hotel as HotelIcon,
+  Search as SearchIcon,
 } from '@mui/icons-material';
+import dayjs from 'dayjs';
 
 import { ROOM_STATUS, BED_TYPE_LABELS, RoomGuest } from '../../utils/constants';
-import { foliosApi, companiesApi, guestsApi } from '../../api/services';
+import { foliosApi, companiesApi, guestsApi, reservationsApi } from '../../api/services';
 import { formatCurrency } from '../../utils/formatters';
 
 interface OccupancyRoom {
@@ -53,80 +59,169 @@ interface RoomReportRow {
   totalCharge: number;
   totalPayment: number;
   balance: number;
+  checkInDate?: string;
 }
+
+type ReportMode = 'current' | 'dateRange' | 'today';
 
 const OccupancyReportDialog: React.FC<OccupancyReportDialogProps> = ({ open, onClose, rooms, canViewFinancials }) => {
   const occupiedRooms = rooms.filter((r) => r.status === ROOM_STATUS.OCCUPIED);
   const [reportRows, setReportRows] = useState<RoomReportRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState<ReportMode>('current');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
-  useEffect(() => {
-    if (!open || occupiedRooms.length === 0) {
+  const fetchCurrentReport = useCallback(async () => {
+    if (occupiedRooms.length === 0) {
       setReportRows([]);
       return;
     }
 
-    const fetchReport = async () => {
-      setLoading(true);
-      try {
-        const [companiesData, allGuestsData] = await Promise.all([
-          companiesApi.getAll(),
-          guestsApi.getAll(),
-        ]);
+    setLoading(true);
+    try {
+      const [companiesData, allGuestsData] = await Promise.all([
+        companiesApi.getAll(),
+        guestsApi.getAll(),
+      ]);
 
-        const rows: RoomReportRow[] = await Promise.all(
-          occupiedRooms.map(async (room) => {
-            const folios = await foliosApi.getForRoom(room.id);
-            const guestNames = room.guests && room.guests.length > 0
-              ? room.guests.map((g) => g.guestName).join(', ')
-              : room.guestName || '-';
+      const rows: RoomReportRow[] = await Promise.all(
+        occupiedRooms.map(async (room) => {
+          const folios = await foliosApi.getForRoom(room.id);
+          const guestNames = room.guests && room.guests.length > 0
+            ? room.guests.map((g) => g.guestName).join(', ')
+            : room.guestName || '-';
 
-            let companyName = '-';
-            if (room.guests && room.guests.length > 0) {
-              for (const rg of room.guests) {
-                const guest = allGuestsData.find((g) => g.id === rg.guestId);
-                if (guest?.companyId) {
-                  const comp = companiesData.find((c) => c.id === guest.companyId);
-                  if (comp) { companyName = comp.name; break; }
-                }
+          let companyName = '-';
+          if (room.guests && room.guests.length > 0) {
+            for (const rg of room.guests) {
+              const guest = allGuestsData.find((g) => g.id === rg.guestId);
+              if (guest?.companyId) {
+                const comp = companiesData.find((c) => c.id === guest.companyId);
+                if (comp) { companyName = comp.name; break; }
               }
             }
+          }
 
-            const totalCharge = folios
-              .filter((f) => f.category !== 'payment' && f.category !== 'discount')
-              .reduce((sum, f) => sum + Number(f.amount), 0);
-            const totalDiscount = folios
-              .filter((f) => f.category === 'discount')
-              .reduce((sum, f) => sum + Number(f.amount), 0);
-            const totalPayment = folios
-              .filter((f) => f.category === 'payment')
-              .reduce((sum, f) => sum + Number(f.amount), 0);
-            const balance = totalCharge - totalDiscount - totalPayment;
+          const totalCharge = folios
+            .filter((f) => f.category !== 'payment' && f.category !== 'discount')
+            .reduce((sum, f) => sum + Number(f.amount), 0);
+          const totalDiscount = folios
+            .filter((f) => f.category === 'discount')
+            .reduce((sum, f) => sum + Number(f.amount), 0);
+          const totalPayment = folios
+            .filter((f) => f.category === 'payment')
+            .reduce((sum, f) => sum + Number(f.amount), 0);
+          const balance = totalCharge - totalDiscount - totalPayment;
 
-            return {
-              roomNumber: room.roomNumber,
-              bedType: BED_TYPE_LABELS[room.bedType] || room.bedType,
-              guests: guestNames,
-              company: companyName,
-              nightlyRate: room.price,
-              totalCharge: totalCharge - totalDiscount,
-              totalPayment,
-              balance,
-            };
-          })
-        );
+          return {
+            roomNumber: room.roomNumber,
+            bedType: BED_TYPE_LABELS[room.bedType] || room.bedType,
+            guests: guestNames,
+            company: companyName,
+            nightlyRate: room.price,
+            totalCharge: totalCharge - totalDiscount,
+            totalPayment,
+            balance,
+          };
+        })
+      );
 
-        setReportRows(rows);
-      } catch (err) {
-        console.error('Rapor verileri yüklenirken hata:', err);
+      setReportRows(rows);
+    } catch (err) {
+      console.error('Rapor verileri yüklenirken hata:', err);
+      setReportRows([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [rooms]);
+
+  const fetchDateRangeReport = useCallback(async (from: string, to: string) => {
+    setLoading(true);
+    try {
+      const reservations = await reservationsApi.getAll({
+        dateFrom: from,
+        dateTo: to,
+        status: 'checked_in,checked_out',
+      });
+
+      if (reservations.length === 0) {
         setReportRows([]);
-      } finally {
-        setLoading(false);
+        return;
       }
-    };
 
-    fetchReport();
-  }, [open, rooms]);
+      const details = await Promise.all(
+        reservations.map((r) => reservationsApi.getById(r.id))
+      );
+
+      const rows: RoomReportRow[] = details.map((detail) => {
+        const guestNames = detail.stays.map((s) => s.guestName).join(', ') || '-';
+
+        const totalCharge = detail.folioItems
+          .filter((f) => f.category !== 'payment' && f.category !== 'discount')
+          .reduce((sum, f) => sum + Number(f.amount), 0);
+        const totalDiscount = detail.folioItems
+          .filter((f) => f.category === 'discount')
+          .reduce((sum, f) => sum + Number(f.amount), 0);
+        const totalPayment = detail.folioItems
+          .filter((f) => f.category === 'payment')
+          .reduce((sum, f) => sum + Number(f.amount), 0);
+        const balance = totalCharge - totalDiscount - totalPayment;
+
+        return {
+          roomNumber: detail.roomNumber,
+          bedType: BED_TYPE_LABELS[detail.roomNumber] || '-',
+          guests: guestNames,
+          company: detail.companyName || '-',
+          nightlyRate: 0,
+          totalCharge: totalCharge - totalDiscount,
+          totalPayment,
+          balance,
+          checkInDate: detail.checkIn,
+        };
+      });
+
+      setReportRows(rows);
+    } catch (err) {
+      console.error('Rapor verileri yüklenirken hata:', err);
+      setReportRows([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!open) {
+      setReportRows([]);
+      return;
+    }
+
+    if (mode === 'current') {
+      fetchCurrentReport();
+    }
+  }, [open, mode, rooms]);
+
+  const handleSearch = () => {
+    if (!dateFrom || !dateTo) return;
+    setMode('dateRange');
+    fetchDateRangeReport(dateFrom, dateTo);
+  };
+
+  const handleToday = () => {
+    const todayStr = dayjs().format('YYYY-MM-DD');
+    setDateFrom(todayStr);
+    setDateTo(todayStr);
+    setMode('today');
+    fetchDateRangeReport(todayStr, todayStr);
+  };
+
+  const handleCurrentMode = () => {
+    setMode('current');
+    setDateFrom('');
+    setDateTo('');
+  };
+
+  const isDateMode = mode === 'dateRange' || mode === 'today';
 
   const totals = reportRows.reduce(
     (acc, row) => ({
@@ -143,6 +238,23 @@ const OccupancyReportDialog: React.FC<OccupancyReportDialogProps> = ({ open, onC
   };
 
   const today = new Date().toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
+
+  const getSubtitle = () => {
+    if (mode === 'today') return `Bugün giriş yapan odalar: ${reportRows.length}`;
+    if (mode === 'dateRange') {
+      const from = dayjs(dateFrom).format('DD.MM.YYYY');
+      const to = dayjs(dateTo).format('DD.MM.YYYY');
+      return `${from} - ${to} arası giriş yapan odalar: ${reportRows.length}`;
+    }
+    return `Dolu Oda: ${occupiedRooms.length} / ${rooms.length}`;
+  };
+
+  const hasNoData = mode === 'current' ? occupiedRooms.length === 0 : reportRows.length === 0;
+  const noDataMessage = mode === 'current'
+    ? 'Şu anda dolu oda bulunmuyor.'
+    : mode === 'today'
+      ? 'Bugün giriş yapan oda bulunmuyor.'
+      : 'Seçilen tarih aralığında giriş yapan oda bulunmuyor.';
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth PaperProps={{ sx: { maxHeight: '90vh' } }}>
@@ -172,12 +284,59 @@ const OccupancyReportDialog: React.FC<OccupancyReportDialogProps> = ({ open, onC
             <Typography variant="body2" color="text.secondary">{today}</Typography>
           </Box>
 
+          {/* Filtre Alanı */}
+          <Box className="no-print" sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center', mb: 2, p: 1.5, bgcolor: 'grey.50', borderRadius: 1 }}>
+            <TextField
+              type="date"
+              size="small"
+              label="Başlangıç"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              sx={{ width: 160 }}
+            />
+            <TextField
+              type="date"
+              size="small"
+              label="Bitiş"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              sx={{ width: 160 }}
+            />
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<SearchIcon />}
+              onClick={handleSearch}
+              disabled={!dateFrom || !dateTo}
+            >
+              Ara
+            </Button>
+            <ButtonGroup size="small" variant="outlined">
+              <Button
+                startIcon={<TodayIcon />}
+                onClick={handleToday}
+                variant={mode === 'today' ? 'contained' : 'outlined'}
+              >
+                Bugün
+              </Button>
+              <Button
+                startIcon={<HotelIcon />}
+                onClick={handleCurrentMode}
+                variant={mode === 'current' ? 'contained' : 'outlined'}
+              >
+                Mevcut Konaklama
+              </Button>
+            </ButtonGroup>
+          </Box>
+
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
             <Typography variant="subtitle2" color="text.secondary">
               Tarih: {today}
             </Typography>
             <Typography variant="subtitle2" color="text.secondary">
-              Dolu Oda: {occupiedRooms.length} / {rooms.length}
+              {getSubtitle()}
             </Typography>
           </Box>
 
@@ -188,9 +347,9 @@ const OccupancyReportDialog: React.FC<OccupancyReportDialogProps> = ({ open, onC
                 Rapor verileri yükleniyor...
               </Typography>
             </Box>
-          ) : occupiedRooms.length === 0 ? (
+          ) : hasNoData && !loading ? (
             <Typography variant="body1" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-              Şu anda dolu oda bulunmuyor.
+              {noDataMessage}
             </Typography>
           ) : (
             <TableContainer component={Paper} variant="outlined">
@@ -198,12 +357,13 @@ const OccupancyReportDialog: React.FC<OccupancyReportDialogProps> = ({ open, onC
                 <TableHead>
                   <TableRow sx={{ bgcolor: 'grey.50' }}>
                     <TableCell sx={{ fontWeight: 600 }}>Oda No</TableCell>
+                    {isDateMode && <TableCell sx={{ fontWeight: 600 }}>Giriş Tarihi</TableCell>}
                     <TableCell sx={{ fontWeight: 600 }}>Yatak Tipi</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Konuklar</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Firma</TableCell>
                     {canViewFinancials && (
                       <>
-                        <TableCell sx={{ fontWeight: 600 }} align="right">Gecelik Ücret</TableCell>
+                        {!isDateMode && <TableCell sx={{ fontWeight: 600 }} align="right">Gecelik Ücret</TableCell>}
                         <TableCell sx={{ fontWeight: 600 }} align="right">Ödenen</TableCell>
                         <TableCell sx={{ fontWeight: 600 }} align="right">Borç/Bakiye</TableCell>
                       </>
@@ -211,17 +371,22 @@ const OccupancyReportDialog: React.FC<OccupancyReportDialogProps> = ({ open, onC
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {reportRows.map((row) => (
-                    <TableRow key={row.roomNumber}>
+                  {reportRows.map((row, idx) => (
+                    <TableRow key={`${row.roomNumber}-${idx}`}>
                       <TableCell>
                         <Chip label={row.roomNumber} size="small" variant="outlined" sx={{ fontWeight: 600 }} />
                       </TableCell>
+                      {isDateMode && (
+                        <TableCell>
+                          {row.checkInDate ? dayjs(row.checkInDate).format('DD.MM.YYYY HH:mm') : '-'}
+                        </TableCell>
+                      )}
                       <TableCell>{row.bedType}</TableCell>
                       <TableCell>{row.guests}</TableCell>
                       <TableCell>{row.company}</TableCell>
                       {canViewFinancials && (
                         <>
-                          <TableCell align="right">{formatCurrency(row.nightlyRate)}</TableCell>
+                          {!isDateMode && <TableCell align="right">{formatCurrency(row.nightlyRate)}</TableCell>}
                           <TableCell align="right" sx={{ color: 'success.main' }}>
                             {formatCurrency(row.totalPayment)}
                           </TableCell>
@@ -235,12 +400,14 @@ const OccupancyReportDialog: React.FC<OccupancyReportDialogProps> = ({ open, onC
                       )}
                     </TableRow>
                   ))}
-                  {canViewFinancials && (
+                  {canViewFinancials && reportRows.length > 0 && (
                     <TableRow sx={{ bgcolor: 'grey.50' }}>
-                      <TableCell colSpan={4} sx={{ fontWeight: 700 }}>TOPLAM</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 700 }}>
-                        {formatCurrency(totals.nightlyRate)}
-                      </TableCell>
+                      <TableCell colSpan={isDateMode ? 5 : 4} sx={{ fontWeight: 700 }}>TOPLAM</TableCell>
+                      {!isDateMode && (
+                        <TableCell align="right" sx={{ fontWeight: 700 }}>
+                          {formatCurrency(totals.nightlyRate)}
+                        </TableCell>
+                      )}
                       <TableCell align="right" sx={{ fontWeight: 700, color: 'success.main' }}>
                         {formatCurrency(totals.totalPayment)}
                       </TableCell>
