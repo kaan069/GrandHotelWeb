@@ -216,7 +216,7 @@ const RoomCard: React.FC<RoomCardProps> = ({ room, onStatusChange, onAction, onC
     <Box
       onClick={() => onClick?.(room)}
       sx={{
-        width: 140,
+        width: 175,
         minHeight: 110,
         borderRadius: 2,
         border: `2px solid ${colors.border}`,
@@ -254,10 +254,24 @@ const RoomCard: React.FC<RoomCardProps> = ({ room, onStatusChange, onAction, onC
           fontWeight: 700,
           color: colors.text,
           lineHeight: 1.2,
+          textAlign: 'center',
         }}
       >
         {room.roomNumber}
       </Typography>
+      {room.guests && room.guests.length > 0 && (
+        <Typography
+          sx={{
+            fontSize: '0.7rem',
+            fontWeight: 600,
+            color: colors.text,
+            opacity: 0.85,
+            textAlign: 'center',
+          }}
+        >
+          {room.guests.length} Kişi
+        </Typography>
+      )}
 
       {/* Yatak tipi */}
       <Typography
