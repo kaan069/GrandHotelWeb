@@ -52,7 +52,8 @@ const ChartGrid: React.FC<ChartGridProps> = ({ rooms, days, startDate, reservati
       if (r.roomNumber !== roomNumber) return false;
       const dates = getBarDates(r);
       if (!dates) return false;
-      return dates.start.isSame(date, 'day');
+      return dates.start.isSame(date, 'day') ||
+             (dates.start.isBefore(startDate, 'day') && date.isSame(startDate, 'day'));
     });
   };
 
@@ -60,8 +61,9 @@ const ChartGrid: React.FC<ChartGridProps> = ({ rooms, days, startDate, reservati
     const dates = getBarDates(reservation);
     if (!dates) return 1;
     const endOfView = startDate.add(VISIBLE_DAYS, 'day');
+    const effectiveStart = dates.start.isBefore(startDate, 'day') ? startDate : date;
     const effectiveEnd = dates.end.isBefore(endOfView) ? dates.end : endOfView;
-    return effectiveEnd.diff(date, 'day');
+    return Math.max(1, effectiveEnd.diff(effectiveStart, 'day'));
   };
 
   return (
