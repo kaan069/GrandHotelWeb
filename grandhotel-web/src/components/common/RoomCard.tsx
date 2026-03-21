@@ -238,13 +238,16 @@ const RoomCard: React.FC<RoomCardProps> = ({ room, onStatusChange, onAction, onC
       onClick={() => onClick?.(room)}
       sx={{
         width: 175,
-        minHeight: 110,
+        height: 150,
         borderRadius: 2,
         border: `2px solid ${colors.border}`,
         bgcolor: colors.bg,
         position: 'relative',
         p: 1.5,
         cursor: 'pointer',
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
         transition: 'all 0.2s ease',
         '&:hover': {
           transform: 'translateY(-2px)',

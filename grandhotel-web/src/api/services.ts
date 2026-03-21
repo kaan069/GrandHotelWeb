@@ -52,8 +52,9 @@ export interface ApiStockItem {
   category: string;
   unit: string;
   quantity: number;
-  createdAt: string;
+  isMinibar: boolean;
   minibarPrice?: string | null;
+  createdAt: string;
 }
 
 export interface ApiMinibarProduct {
@@ -587,10 +588,10 @@ export const stockApi = {
     return api.get<ApiStockItem[]>(`/stock/${qs}`).then((r) => r.data);
   },
 
-  create: (data: { name: string; category: string; unit: string; quantity: number; price?: number }) =>
+  create: (data: { name: string; category: string; unit: string; quantity: number; isMinibar?: boolean; minibarPrice?: number }) =>
     api.post<ApiStockItem>('/stock/', data).then((r) => r.data),
 
-  update: (id: number, data: Partial<{ name: string; category: string; unit: string; quantity: number; price: number }>) =>
+  update: (id: number, data: Partial<{ name: string; category: string; unit: string; quantity: number; isMinibar: boolean; minibarPrice: number }>) =>
     api.put<ApiStockItem>(`/stock/${id}/`, data).then((r) => r.data),
 
   delete: (id: number) =>

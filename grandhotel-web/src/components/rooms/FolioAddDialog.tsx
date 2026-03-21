@@ -2,9 +2,10 @@
  * FolioAddDialog - Folio Ekleme Dialog'u
  *
  * Oda hesabına yeni folio kalemi ekler.
+ * Minibar kategorisi seçildiğinde stoktan ürün listesi gösterilir.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -17,6 +18,8 @@ import {
 import { Receipt as ReceiptIcon } from '@mui/icons-material';
 
 import { FOLIO_CATEGORIES, FOLIO_CATEGORY_LABELS } from '../../utils/constants';
+import { minibarApi } from '../../api/services';
+import type { ApiMinibarProduct } from '../../api/services';
 
 interface FolioAddDialogProps {
   open: boolean;
@@ -36,9 +39,41 @@ const FolioAddDialog: React.FC<FolioAddDialogProps> = ({
   const [amount, setAmount] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  /* Minibar ürünleri */
+  const [minibarProducts, setMinibarProducts] = useState<ApiMinibarProduct[]>([]);
+  const [selectedProductId, setSelectedProductId] = useState('');
+
+  useEffect(() => {
+    if (open && category === FOLIO_CATEGORIES.MINIBAR && minibarProducts.length === 0) {
+      minibarApi.getProducts()
+        .then(setMinibarProducts)
+        .catch((err) => console.error('Minibar ürünleri yüklenemedi:', err));
+    }
+  }, [open, category]);
+
+  const handleCategoryChange = (value: string) => {
+    setCategory(value);
+    setErrors((p) => ({ ...p, category: '' }));
+    // Minibar'dan çıkılırsa seçimi temizle
+    if (value !== FOLIO_CATEGORIES.MINIBAR) {
+      setSelectedProductId('');
+    }
+  };
+
+  const handleProductChange = (productId: string) => {
+    setSelectedProductId(productId);
+    const product = minibarProducts.find((p) => String(p.id) === productId);
+    if (product) {
+      setDescription(product.name);
+      setAmount(String(parseFloat(product.price)));
+      setErrors((p) => ({ ...p, description: '', amount: '' }));
+    }
+  };
+
   const handleSave = () => {
     const newErrors: Record<string, string> = {};
     if (!category) newErrors.category = 'Kategori seçiniz';
+    if (category === FOLIO_CATEGORIES.MINIBAR && !selectedProductId) newErrors.product = 'Ürün seçiniz';
     if (!description.trim()) newErrors.description = 'Açıklama giriniz';
     if (!amount || parseFloat(amount) <= 0) newErrors.amount = 'Geçerli tutar giriniz';
 
@@ -53,21 +88,24 @@ const FolioAddDialog: React.FC<FolioAddDialogProps> = ({
       amount: parseFloat(amount),
     });
 
-    // Reset
-    setCategory('');
-    setDescription('');
-    setAmount('');
-    setErrors({});
+    resetForm();
     onClose();
   };
 
-  const handleClose = () => {
+  const resetForm = () => {
     setCategory('');
     setDescription('');
     setAmount('');
+    setSelectedProductId('');
     setErrors({});
+  };
+
+  const handleClose = () => {
+    resetForm();
     onClose();
   };
+
+  const isMinibar = category === FOLIO_CATEGORIES.MINIBAR;
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="xs" fullWidth>
@@ -81,7 +119,7 @@ const FolioAddDialog: React.FC<FolioAddDialogProps> = ({
           select
           label="Kategori"
           value={category}
-          onChange={(e) => { setCategory(e.target.value); setErrors((p) => ({ ...p, category: '' })); }}
+          onChange={(e) => handleCategoryChange(e.target.value)}
           error={!!errors.category}
           helperText={errors.category}
           fullWidth
@@ -93,6 +131,25 @@ const FolioAddDialog: React.FC<FolioAddDialogProps> = ({
           ))}
         </TextField>
 
+        {/* Minibar ürün seçimi */}
+        {isMinibar && (
+          <TextField
+            select
+            label="Minibar Ürünü"
+            value={selectedProductId}
+            onChange={(e) => handleProductChange(e.target.value)}
+            error={!!errors.product}
+            helperText={errors.product}
+            fullWidth
+          >
+            {minibarProducts.map((p) => (
+              <MenuItem key={p.id} value={String(p.id)}>
+                {p.name} — {parseFloat(p.price).toLocaleString('tr-TR')} ₺
+              </MenuItem>
+            ))}
+          </TextField>
+        )}
+
         <TextField
           label="Açıklama"
           value={description}
@@ -102,6 +159,7 @@ const FolioAddDialog: React.FC<FolioAddDialogProps> = ({
           fullWidth
           multiline
           rows={2}
+          slotProps={{ input: { readOnly: isMinibar } }}
         />
 
         <TextField

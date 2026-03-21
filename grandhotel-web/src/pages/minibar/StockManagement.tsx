@@ -18,6 +18,8 @@ import {
   DialogActions,
   TextField,
   MenuItem,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
 import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
@@ -29,7 +31,6 @@ import type { ApiStockItem } from '../../api/services';
 /* ==================== SABİTLER ==================== */
 
 const CATEGORY_LABELS: Record<string, string> = {
-  minibar: 'Minibar',
   cleaning: 'Temizlik',
   kitchen: 'Mutfak',
   office: 'Ofis',
@@ -50,15 +51,17 @@ interface StockForm {
   category: string;
   unit: string;
   quantity: string;
-  price: string;
+  isMinibar: boolean;
+  minibarPrice: string;
 }
 
 const emptyForm: StockForm = {
   name: '',
-  category: 'minibar',
+  category: 'kitchen',
   unit: 'adet',
   quantity: '',
-  price: '',
+  isMinibar: false,
+  minibarPrice: '',
 };
 
 /* ==================== KOLONLAR ==================== */
@@ -82,11 +85,20 @@ const baseColumns: GridColDef[] = [
   },
   { field: 'quantity', headerName: 'Stok', width: 100, align: 'center' as const, headerAlign: 'center' as const },
   {
-    field: 'minibarPrice',
-    headerName: 'Fiyat',
-    width: 120,
+    field: 'isMinibar',
+    headerName: 'Minibar',
+    width: 90,
+    align: 'center' as const,
+    headerAlign: 'center' as const,
     renderCell: (params: GridRenderCellParams) =>
-      params.value ? `${parseFloat(params.value).toLocaleString('tr-TR')} ₺` : '-',
+      params.value ? <Chip label="Evet" size="small" color="primary" variant="outlined" /> : '—',
+  },
+  {
+    field: 'minibarPrice',
+    headerName: 'Minibar Fiyatı',
+    width: 130,
+    renderCell: (params: GridRenderCellParams) =>
+      params.value ? `${parseFloat(params.value).toLocaleString('tr-TR')} ₺` : '—',
   },
 ];
 
@@ -110,8 +122,9 @@ const StockManagement: React.FC = () => {
   const fetchItems = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await stockApi.getAll(categoryFilter || undefined);
-      setItems(data);
+      const apiFilter = categoryFilter === 'minibar' ? undefined : (categoryFilter || undefined);
+      const data = await stockApi.getAll(apiFilter);
+      setItems(categoryFilter === 'minibar' ? data.filter((d) => d.isMinibar) : data);
     } catch (err) {
       console.error('Stok verileri yüklenemedi:', err);
     } finally {
@@ -136,7 +149,8 @@ const StockManagement: React.FC = () => {
       category: item.category,
       unit: item.unit,
       quantity: String(item.quantity),
-      price: item.minibarPrice ? String(parseFloat(item.minibarPrice)) : '',
+      isMinibar: item.isMinibar,
+      minibarPrice: item.minibarPrice ? String(parseFloat(item.minibarPrice)) : '',
     });
     setFormErrors({});
     setFormOpen(true);
@@ -147,7 +161,7 @@ const StockManagement: React.FC = () => {
     const errs: Partial<StockForm> = {};
     if (!form.name.trim()) errs.name = 'Ürün adı zorunlu';
     if (!form.quantity || isNaN(Number(form.quantity))) errs.quantity = 'Geçerli miktar girin';
-    if (form.category === 'minibar' && (!form.price || isNaN(Number(form.price)))) errs.price = 'Fiyat zorunlu';
+    if (form.isMinibar && (!form.minibarPrice || isNaN(Number(form.minibarPrice)))) errs.minibarPrice = 'Minibar fiyatı zorunlu';
     setFormErrors(errs);
     if (Object.keys(errs).length > 0) return;
 
@@ -158,7 +172,8 @@ const StockManagement: React.FC = () => {
         category: form.category,
         unit: form.unit,
         quantity: Number(form.quantity),
-        price: form.price ? Number(form.price) : undefined,
+        isMinibar: form.isMinibar,
+        minibarPrice: form.isMinibar && form.minibarPrice ? Number(form.minibarPrice) : undefined,
       };
 
       if (editingItem) {
@@ -228,8 +243,8 @@ const StockManagement: React.FC = () => {
       />
 
       {/* Kategori filtre */}
-      <Box sx={{ mb: 2, display: 'flex', gap: 1 }}>
-        {['', 'minibar', 'cleaning', 'kitchen', 'office', 'other'].map((cat) => (
+      <Box sx={{ mb: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+        {['', 'cleaning', 'kitchen', 'office', 'other'].map((cat) => (
           <Chip
             key={cat}
             label={cat ? CATEGORY_LABELS[cat] : 'Tümü'}
@@ -239,6 +254,13 @@ const StockManagement: React.FC = () => {
             size="small"
           />
         ))}
+        <Chip
+          label="Minibar Ürünleri"
+          variant={categoryFilter === 'minibar' ? 'filled' : 'outlined'}
+          color={categoryFilter === 'minibar' ? 'secondary' : 'default'}
+          onClick={() => setCategoryFilter(categoryFilter === 'minibar' ? '' : 'minibar')}
+          size="small"
+        />
       </Box>
 
       {loading ? (
@@ -309,17 +331,27 @@ const StockManagement: React.FC = () => {
             sx={{ mb: 2 }}
             slotProps={{ htmlInput: { min: 0 } }}
           />
-          {form.category === 'minibar' && (
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={form.isMinibar}
+                onChange={(e) => setForm((p) => ({ ...p, isMinibar: e.target.checked, minibarPrice: e.target.checked ? p.minibarPrice : '' }))}
+              />
+            }
+            label="Minibarda satılsın"
+            sx={{ mb: 1 }}
+          />
+          {form.isMinibar && (
             <TextField
-              label="Satış Fiyatı (₺)"
+              label="Minibar Satış Fiyatı (₺)"
               type="number"
               fullWidth
               size="small"
               required
-              value={form.price}
-              onChange={(e) => { setForm((p) => ({ ...p, price: e.target.value })); setFormErrors((p) => ({ ...p, price: '' })); }}
-              error={!!formErrors.price}
-              helperText={formErrors.price}
+              value={form.minibarPrice}
+              onChange={(e) => { setForm((p) => ({ ...p, minibarPrice: e.target.value })); setFormErrors((p) => ({ ...p, minibarPrice: '' })); }}
+              error={!!formErrors.minibarPrice}
+              helperText={formErrors.minibarPrice}
               slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
             />
           )}
