@@ -28,6 +28,10 @@ const CompanyList = React.lazy(() => import('../pages/guests/CompanyList'));
 const ShiftHandover = React.lazy(() => import('../pages/shift/ShiftHandover'));
 const InvoiceList = React.lazy(() => import('../pages/invoices/InvoiceList'));
 const HotelManagement = React.lazy(() => import('../pages/hotel-management/HotelManagement'));
+const DailyReport = React.lazy(() => import('../pages/reports/DailyReport'));
+const RoomReport = React.lazy(() => import('../pages/reports/RoomReport'));
+const CompanyReport = React.lazy(() => import('../pages/reports/CompanyReport'));
+const GeneralReport = React.lazy(() => import('../pages/reports/GeneralReport'));
 
 /* Public Booking Sayfaları */
 const BookingLayout = React.lazy(() => import('../components/booking/BookingLayout'));
@@ -212,9 +216,10 @@ const router = createBrowserRouter([
               </React.Suspense>
             ),
           },
-          { path: '/reports/daily', element: <ComingSoon /> },
-          { path: '/reports/rooms', element: <ComingSoon /> },
-          { path: '/reports/companies', element: <ComingSoon /> },
+          { path: '/reports/daily', element: <React.Suspense fallback={<div>Yükleniyor...</div>}><DailyReport /></React.Suspense> },
+          { path: '/reports/rooms', element: <React.Suspense fallback={<div>Yükleniyor...</div>}><RoomReport /></React.Suspense> },
+          { path: '/reports/companies', element: <React.Suspense fallback={<div>Yükleniyor...</div>}><CompanyReport /></React.Suspense> },
+          { path: '/reports/general', element: <React.Suspense fallback={<div>Yükleniyor...</div>}><GeneralReport /></React.Suspense> },
           {
             path: '/shift-handover',
             element: (

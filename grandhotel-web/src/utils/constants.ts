@@ -415,6 +415,7 @@ export const MENU_ITEMS: MenuItem[] = [
       { id: 'daily-report', label: 'Günlük Özet', path: '/reports/daily' },
       { id: 'room-report', label: 'Oda Raporu', path: '/reports/rooms' },
       { id: 'company-report', label: 'Firma Raporu', path: '/reports/companies' },
+      { id: 'general-report', label: 'Genel Rapor', path: '/reports/general' },
     ],
   },
   {

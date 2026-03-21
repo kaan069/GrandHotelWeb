@@ -277,11 +277,21 @@ export const reportsApi = {
     return api.get<any>(`/reports/company/${id}/${qs ? '?' + qs : ''}`).then((r) => r.data);
   },
 
-  guest: (id: number) =>
-    api.get<any>(`/reports/guest/${id}/`).then((r) => r.data),
+  guest: (id: number, filters?: { dateFrom?: string; dateTo?: string }) => {
+    const params = new URLSearchParams();
+    if (filters?.dateFrom) params.append('dateFrom', filters.dateFrom);
+    if (filters?.dateTo) params.append('dateTo', filters.dateTo);
+    const qs = params.toString();
+    return api.get<any>(`/reports/guest/${id}/${qs ? '?' + qs : ''}`).then((r) => r.data);
+  },
 
-  room: (id: number) =>
-    api.get<any>(`/reports/room/${id}/`).then((r) => r.data),
+  room: (id: number, filters?: { dateFrom?: string; dateTo?: string }) => {
+    const params = new URLSearchParams();
+    if (filters?.dateFrom) params.append('dateFrom', filters.dateFrom);
+    if (filters?.dateTo) params.append('dateTo', filters.dateTo);
+    const qs = params.toString();
+    return api.get<any>(`/reports/room/${id}/${qs ? '?' + qs : ''}`).then((r) => r.data);
+  },
 };
 
 /* ==================== KAZANÇ (GELİR) API ==================== */
