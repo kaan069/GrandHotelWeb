@@ -436,6 +436,13 @@ export const MENU_ITEMS: MenuItem[] = [
     roles: [ROLES.PATRON, ROLES.MANAGER],
   },
   {
+    id: 'kbs',
+    label: 'KBS',
+    path: '/kbs',
+    icon: 'Badge',
+    roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.RECEPTION],
+  },
+  {
     id: 'shift-handover',
     label: 'Mesai Devir',
     path: '/shift-handover',

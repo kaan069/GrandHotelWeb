@@ -17,7 +17,8 @@ import {
   ROOM_STATUS,
   FOLIO_CATEGORY_LABELS,
 } from '../../utils/constants';
-import { companiesApi, guestsApi, foliosApi, roomsApi, reservationsApi } from '../../api/services';
+import { companiesApi, guestsApi, foliosApi, roomsApi, reservationsApi, auditApi } from '../../api/services';
+import usePermission from '../../hooks/usePermission';
 import type { ApiRoomMinibarItem } from '../../api/services';
 import { ConfirmDialog } from '../common';
 import GuestSearchDialog from './GuestSearchDialog';
@@ -62,6 +63,7 @@ interface RoomDetailContentProps {
 }
 
 const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdate, onRoomSwitch, onClose, allRoomNumbers = [] }) => {
+  const { isAdmin } = usePermission();
   /* === State === */
   /* Tarihler backend'den gelir — reservationCheckIn/Out alanları */
   const formatDateForInput = (isoStr?: string | null) => {
@@ -96,6 +98,8 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
   const [guestCardData, setGuestCardData] = useState<Guest | null>(null);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
+  const [checkoutConfirmOpen, setCheckoutConfirmOpen] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   /* === Effects === */
   useEffect(() => {
@@ -266,8 +270,17 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
 
   const handleFolioDelete = async (folioId: number) => {
     try {
+      const deletedFolio = folios.find((f) => f.id === folioId);
       await foliosApi.delete(folioId);
       setFolios((prev) => prev.filter((f) => f.id !== folioId));
+      if (deletedFolio) {
+        await auditApi.create({
+          roomId: room.id,
+          action: 'folio_deleted',
+          description: `${deletedFolio.description || deletedFolio.category} (${Number(deletedFolio.amount).toLocaleString('tr-TR')} ₺) folio kalemi silindi`,
+          performedBy: '',
+        });
+      }
     } catch (err) {
       console.error('Folio silinirken hata:', err);
     }
@@ -358,13 +371,70 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
     }
   };
 
-  const handleCheckOut = async () => {
+  const handleCheckOutClick = () => {
+    if (folioTotal > 0) {
+      alert(`Odanın ${folioTotal.toLocaleString('tr-TR')} ₺ borcu bulunmaktadır. Lütfen ödeme yapınız.`);
+      return;
+    }
+    setCheckoutConfirmOpen(true);
+  };
+
+  const handleCheckOutConfirm = async () => {
+    setCheckoutLoading(true);
     try {
       await roomsApi.checkOut(room.id);
-      /* WebSocket broadcast → Dashboard otomatik güncellenir */
+      setCheckoutConfirmOpen(false);
     } catch (err: any) {
       console.error('Check-out hatası:', err);
       alert(err?.response?.data?.error || err.message || 'Check-out yapılamadı');
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
+
+  /** Check-in iptal — rezervasyon varsa reserved'a dön, yoksa available yap */
+  const handleRevertCheckin = async () => {
+    if (!window.confirm('Check-in iptal edilecek. Emin misiniz?')) return;
+    try {
+      if (room.reservationId) {
+        // Ön rezerve — backend oda + rezervasyon durumunu birlikte geri alır
+        await reservationsApi.revertCheckin(room.reservationId);
+        await auditApi.create({
+          roomId: room.id,
+          action: 'checkin_reversed',
+          description: `Oda ${room.roomNumber} check-in iptal edildi — rezervasyon tekrar aktif`,
+          performedBy: '',
+        });
+      } else {
+        // Kapı müşterisi — checkout + available yap
+        await roomsApi.checkOut(room.id);
+        await roomsApi.updateStatus(room.id, ROOM_STATUS.AVAILABLE);
+        await auditApi.create({
+          roomId: room.id,
+          action: 'checkin_reversed',
+          description: `Oda ${room.roomNumber} check-in iptal edildi`,
+          performedBy: '',
+        });
+      }
+    } catch (err: any) {
+      console.error('Check-in iptal hatası:', err);
+      alert(err?.response?.data?.error || err.message || 'Check-in iptal yapılamadı');
+    }
+  };
+
+  /** Check-out iptal — odayı tekrar occupied yap */
+  const handleRevertCheckout = async () => {
+    try {
+      await roomsApi.revertCheckout(room.id);
+      await auditApi.create({
+        roomId: room.id,
+        action: 'checkout_reversed',
+        description: `Oda ${room.roomNumber} check-out iptal edildi`,
+        performedBy: '',
+      });
+    } catch (err: any) {
+      console.error('Check-out iptal hatası:', err);
+      alert(err?.response?.data?.error || err.message || 'Check-out iptal yapılamadı');
     }
   };
 
@@ -403,7 +473,7 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
 
   const handleNoteSave = () => { onRoomUpdate(room.id, { notes: roomNote.trim() || undefined }); };
 
-  const handleGuestMenuAction = async (action: 'history' | 'card' | 'block', guestId: number) => {
+  const handleGuestMenuAction = async (action: 'history' | 'card' | 'block' | 'remove', guestId: number) => {
     try {
       if (action === 'history') {
         const roomGuest = (room.guests || []).find((g) => g.guestId === guestId);
@@ -438,6 +508,22 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
           });
           setGuestCardDialogOpen(true);
         }
+      } else if (action === 'remove') {
+        const guestName = (room.guests || []).find((g) => g.guestId === guestId)?.guestName || '';
+        if (!window.confirm(`${guestName} misafirini odadan çıkarmak istediğinize emin misiniz?`)) return;
+        await roomsApi.removeGuest(room.id, guestId);
+        await auditApi.create({
+          roomId: room.id,
+          action: 'guest_removed',
+          description: `${guestName} misafiri odadan çıkarıldı`,
+          performedBy: '',
+        });
+        const updatedGuests = (room.guests || []).filter((g) => g.guestId !== guestId);
+        onRoomUpdate(room.id, {
+          guests: updatedGuests,
+          guestName: updatedGuests.map((g) => g.guestName).join(', ') || '',
+          ...(updatedGuests.length === 0 ? { status: ROOM_STATUS.AVAILABLE } : {}),
+        });
       } else if (action === 'block') {
         const updatedGuest = await guestsApi.toggleBlock(guestId);
         if (updatedGuest && updatedGuest.isBlocked) {
@@ -489,8 +575,10 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
         onDetailOpen={() => setDetailDialogOpen(true)}
         onInvoiceOpen={() => setInvoiceDialogOpen(true)}
         onCheckIn={handleCheckIn}
-        onCheckOut={handleCheckOut}
+        onCheckOut={handleCheckOutClick}
         onCancel={handleCancelClick}
+        onRevertCheckout={handleRevertCheckout}
+        onRevertCheckin={handleRevertCheckin}
         onSaveReservation={handleSaveReservation}
         isSaveEnabled={hasReservationChanges}
         onRoomSwitch={onRoomSwitch}
@@ -511,6 +599,9 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
         onNoteChange={setRoomNote}
         onNoteSave={handleNoteSave}
         minibarItems={room.minibar || []}
+        roomId={room.id}
+        isOccupied={isOccupied}
+        isAdmin={isAdmin}
         checkInDate={checkInDate}
         onCheckInDateChange={setCheckInDate}
         checkOutDate={checkOutDate}
@@ -614,6 +705,18 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
         onConfirm={handleCancelConfirm}
         onCancel={() => setCancelConfirmOpen(false)}
         loading={cancelLoading}
+      />
+
+      {/* Check-out Onay */}
+      <ConfirmDialog
+        open={checkoutConfirmOpen}
+        title="Check-out"
+        message={`Oda ${room.roomNumber} için check-out yapmak istediğinize emin misiniz?`}
+        confirmText="Check-out Yap"
+        confirmColor="secondary"
+        onConfirm={handleCheckOutConfirm}
+        onCancel={() => setCheckoutConfirmOpen(false)}
+        loading={checkoutLoading}
       />
     </Box>
   );

@@ -154,6 +154,48 @@ export interface ApiFolioItem {
   createdBy?: string | null;
 }
 
+export interface ApiKbsResult {
+  guestName: string;
+  tcNo: string;
+  status: 'checked_in' | 'failed';
+  kbsReference: string;
+  message: string;
+}
+
+export interface ApiKbsSendResponse {
+  roomNumber: string;
+  results: ApiKbsResult[];
+}
+
+export interface ApiKbsRecord {
+  id: number;
+  roomId: number;
+  roomNumber: string;
+  guestName: string;
+  tcNo: string;
+  status: string;
+  kbsReference: string;
+  sentAt: string;
+  checkoutAt: string | null;
+  createdAt: string;
+}
+
+export interface ApiKbsSettings {
+  isActive: boolean;
+  facilityCode?: string;
+  username?: string;
+  password?: string;
+}
+
+export interface ApiAuditLog {
+  id: number;
+  roomId: number;
+  action: string;
+  description: string;
+  performedBy: string;
+  createdAt: string;
+}
+
 /* ==================== ROOMS API ==================== */
 
 export const roomsApi = {
@@ -177,6 +219,18 @@ export const roomsApi = {
 
   updateNotes: (roomId: number, notes: string) =>
     api.post<ApiRoom>(`/rooms/${roomId}/update_notes/`, { notes }).then((r) => r.data),
+
+  /** Oda taşıma — misafirleri ve rezervasyonu hedef odaya aktar */
+  moveGuests: (fromRoomId: number, toRoomId: number) =>
+    api.post<ApiRoom>(`/rooms/${fromRoomId}/move/`, { toRoomId }).then((r) => r.data),
+
+  /** Misafiri odadan çıkar */
+  removeGuest: (roomId: number, guestId: number) =>
+    api.post<ApiRoom>(`/rooms/${roomId}/remove_guest/`, { guestId }).then((r) => r.data),
+
+  /** Checkout iptal — odayı tekrar occupied yap */
+  revertCheckout: (roomId: number) =>
+    api.post<ApiRoom>(`/rooms/${roomId}/revert_checkout/`).then((r) => r.data),
 
   create: (data: { roomNumber: string; bedType: string; floor: number; capacity: number; view: string; price: number; beds?: { type: string }[] }) =>
     api.post<ApiRoom>('/rooms/', {
@@ -301,6 +355,10 @@ export const reservationsApi = {
   /** Rezerve → Check-in dönüşümü */
   checkIn: (id: number) =>
     api.post<ApiReservation>(`/reservations/${id}/check_in/`).then((r) => r.data),
+
+  /** Check-in iptal — checked_in → reserved geri dön */
+  revertCheckin: (id: number) =>
+    api.post<ApiReservation>(`/reservations/${id}/revert_checkin/`).then((r) => r.data),
 };
 
 /* ==================== FOLIOS API ==================== */
@@ -620,4 +678,45 @@ export const minibarApi = {
   /** Tüketim + folio charge */
   consume: (roomId: number, data: { productId: number; quantity: number; staffName?: string }) =>
     api.post<{ folioItem: ApiFolioItem }>(`/minibar/rooms/${roomId}/consume/`, data).then((r) => r.data),
+};
+
+/* ==================== AUDIT LOG API ==================== */
+
+export const auditApi = {
+  /** Denetim logu kaydet */
+  create: (data: { roomId: number; action: string; description: string; performedBy: string }) =>
+    api.post<ApiAuditLog>('/audit-logs/', data).then((r) => r.data),
+
+  /** Odanın denetim loglarını getir */
+  getByRoom: (roomId: number) =>
+    api.get<ApiAuditLog[]>(`/rooms/${roomId}/audit-logs/`).then((r) => r.data),
+};
+
+/* ==================== KBS API ==================== */
+
+export const kbsApi = {
+  /** Odadaki misafirleri KBS'ye bildir */
+  send: (roomId: number) =>
+    api.post<ApiKbsSendResponse>(`/kbs/send/${roomId}/`).then((r) => r.data),
+
+  /** Manuel KBS çıkışı */
+  checkout: (roomId: number) =>
+    api.post(`/kbs/checkout/${roomId}/`),
+
+  /** KBS kayıt listesi */
+  getRecords: (filters?: { status?: string; roomId?: number }) => {
+    const params = new URLSearchParams();
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.roomId) params.append('roomId', String(filters.roomId));
+    const qs = params.toString();
+    return api.get<ApiKbsRecord[]>(`/kbs/records/${qs ? '?' + qs : ''}`).then((r) => r.data);
+  },
+
+  /** KBS ayarlarını getir */
+  getSettings: () =>
+    api.get<ApiKbsSettings>('/kbs/settings/').then((r) => r.data),
+
+  /** KBS ayarlarını güncelle */
+  updateSettings: (data: Partial<ApiKbsSettings>) =>
+    api.put<ApiKbsSettings>('/kbs/settings/', data).then((r) => r.data),
 };

@@ -16,6 +16,7 @@ import {
   History as HistoryIcon,
   Person as PersonIcon,
   Block as BlockIcon,
+  PersonRemove as PersonRemoveIcon,
   KingBed as KingBedIcon,
   SingleBed as SingleBedIcon,
   DragIndicator as DragIcon,
@@ -35,7 +36,7 @@ interface BedAssignment {
 interface GuestListSectionProps {
   guests: RoomGuest[];
   beds: BedConfig[];
-  onMenuAction: (action: 'history' | 'card' | 'block', guestId: number) => void;
+  onMenuAction: (action: 'history' | 'card' | 'block' | 'remove', guestId: number) => void;
 }
 
 /** Yatak tipine göre genişlik oranı */
@@ -111,7 +112,7 @@ const GuestListSection: React.FC<GuestListSectionProps> = ({ guests, beds, onMen
     setMenuGuestId(null);
   };
 
-  const handleAction = (action: 'history' | 'card' | 'block') => {
+  const handleAction = (action: 'history' | 'card' | 'block' | 'remove') => {
     if (menuGuestId) {
       onMenuAction(action, menuGuestId);
     }
@@ -334,6 +335,10 @@ const GuestListSection: React.FC<GuestListSectionProps> = ({ guests, beds, onMen
           <ListItemText>Müşteri Kartı Aç</ListItemText>
         </MenuItem>
         <Divider />
+        <MenuItem onClick={() => handleAction('remove')} sx={{ color: 'warning.main' }}>
+          <ListItemIcon><PersonRemoveIcon fontSize="small" color="warning" /></ListItemIcon>
+          <ListItemText>Misafiri Odadan Çıkar</ListItemText>
+        </MenuItem>
         <MenuItem onClick={() => handleAction('block')} sx={{ color: 'error.main' }}>
           <ListItemIcon><BlockIcon fontSize="small" color="error" /></ListItemIcon>
           <ListItemText>Müşteriyi Engelle</ListItemText>

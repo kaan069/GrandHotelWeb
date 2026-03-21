@@ -6,6 +6,8 @@ import StayInfoPanel from './StayInfoPanel';
 import QuickReservationSection from './QuickReservationSection';
 import RoomNoteSection from './RoomNoteSection';
 import MinibarSection from './MinibarSection';
+import AuditLogSection from './AuditLogSection';
+import KbsSection from './KbsSection';
 import { RoomGuest, Company, FolioItem } from '../../../utils/constants';
 import type { ApiRoomMinibarItem } from '../../../api/services';
 
@@ -19,7 +21,7 @@ interface RoomDetailSectionsProps {
   /* GuestListSection */
   guests: RoomGuest[];
   beds: { type: string }[];
-  onMenuAction: (action: 'history' | 'card' | 'block', guestId: number) => void;
+  onMenuAction: (action: 'history' | 'card' | 'block' | 'remove', guestId: number) => void;
   /* CustomerManagementSection */
   customerMode: 'new' | 'registered';
   onCustomerModeChange: (mode: 'new' | 'registered') => void;
@@ -35,6 +37,10 @@ interface RoomDetailSectionsProps {
   onNoteSave: () => void;
   /* MinibarSection */
   minibarItems: ApiRoomMinibarItem[];
+  /* KbsSection + AuditLogSection */
+  roomId: number;
+  isOccupied: boolean;
+  isAdmin?: boolean;
   /* StayInfoPanel */
   checkInDate: string;
   onCheckInDateChange: (value: string) => void;
@@ -65,6 +71,9 @@ const RoomDetailSections: React.FC<RoomDetailSectionsProps> = ({
   onNoteChange,
   onNoteSave,
   minibarItems,
+  roomId,
+  isOccupied,
+  isAdmin = false,
   checkInDate,
   onCheckInDateChange,
   checkOutDate,
@@ -127,6 +136,10 @@ const RoomDetailSections: React.FC<RoomDetailSectionsProps> = ({
         />
 
         <MinibarSection items={minibarItems} />
+
+        <KbsSection roomId={roomId} isOccupied={isOccupied} />
+
+        {isAdmin && <AuditLogSection roomId={roomId} />}
       </Grid>
     </Grid>
   );

@@ -49,6 +49,7 @@ import {
   Receipt as ReceiptIcon,
   Business as BusinessIcon,
   LocalBar as LocalBarIcon,
+  Badge as BadgeIcon,
 } from '@mui/icons-material';
 
 import { MENU_ITEMS, SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH, APP_NAME, MenuItem, MenuChildItem } from '../../utils/constants';
@@ -75,6 +76,7 @@ const iconMap: Record<string, React.ElementType> = {
   Business: BusinessIcon,
   Settings: SettingsIcon,
   LocalBar: LocalBarIcon,
+  Badge: BadgeIcon,
 };
 
 const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {

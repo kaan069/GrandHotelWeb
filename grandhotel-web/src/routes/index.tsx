@@ -34,6 +34,8 @@ const CompanyReport = React.lazy(() => import('../pages/reports/CompanyReport'))
 const GeneralReport = React.lazy(() => import('../pages/reports/GeneralReport'));
 const StockManagement = React.lazy(() => import('../pages/minibar/StockManagement'));
 
+const KbsRecords = React.lazy(() => import('../pages/kbs/KbsRecords'));
+
 /* Public Booking Sayfaları */
 const BookingLayout = React.lazy(() => import('../components/booking/BookingLayout'));
 const BookingHome = React.lazy(() => import('../pages/booking/BookingHome'));
@@ -234,6 +236,14 @@ const router = createBrowserRouter([
             element: (
               <React.Suspense fallback={null}>
                 <StockManagement />
+              </React.Suspense>
+            ),
+          },
+          {
+            path: '/kbs',
+            element: (
+              <React.Suspense fallback={null}>
+                <KbsRecords />
               </React.Suspense>
             ),
           },

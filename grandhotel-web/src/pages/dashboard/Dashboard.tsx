@@ -19,6 +19,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { PageHeader } from '../../components/common';
 import RoomDetailContent from '../../components/rooms/RoomDetailContent';
+import RoomMoveDialog from '../../components/rooms/RoomMoveDialog';
 import usePermission from '../../hooks/usePermission';
 import usePageTabs from '../../hooks/usePageTabs';
 import useRoomWebSocket from '../../hooks/useRoomWebSocket';
@@ -126,6 +127,10 @@ const Dashboard: React.FC = () => {
   /* Tab sistemi */
   const [openTabs, setOpenTabs] = useState<RoomTab[]>([]);
   const [activeTabIndex, setActiveTabIndex] = useState<number>(-1);
+
+  /* Oda taşıma */
+  const [moveDialogOpen, setMoveDialogOpen] = useState(false);
+  const [moveSourceRoom, setMoveSourceRoom] = useState<{ id: number; roomNumber: string } | null>(null);
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [housekeepingReportOpen, setHousekeepingReportOpen] = useState(false);
   const [selectedFloor, setSelectedFloor] = useState<string>('');
@@ -153,7 +158,20 @@ const Dashboard: React.FC = () => {
   };
 
   const handleRoomAction = (roomId: string | number, actionType: string) => {
-    console.log(`Oda ${roomId} için aksiyon: ${actionType}`);
+    if (actionType === 'move') {
+      const room = rooms.find((r) => r.id === Number(roomId));
+      if (room) {
+        setMoveSourceRoom({ id: room.id, roomNumber: room.roomNumber });
+        setMoveDialogOpen(true);
+      }
+    }
+  };
+
+  const handleRoomMove = async (fromRoomId: number, toRoomId: number) => {
+    await roomsApi.moveGuests(fromRoomId, toRoomId);
+    // Oda listesini yenile
+    const updated = await roomsApi.getAll();
+    setRooms(updated.map(mapApiRoom));
   };
 
   const handleRoomClick = (room: { id: string | number; roomNumber: string | number }) => {
@@ -285,6 +303,14 @@ const Dashboard: React.FC = () => {
         onHousekeepingClose={() => setHousekeepingReportOpen(false)}
         rooms={rooms}
         canViewFinancials={canViewFinancials}
+      />
+
+      <RoomMoveDialog
+        open={moveDialogOpen}
+        onClose={() => { setMoveDialogOpen(false); setMoveSourceRoom(null); }}
+        sourceRoom={moveSourceRoom}
+        rooms={rooms.map((r) => ({ id: r.id, roomNumber: r.roomNumber, status: r.status, floor: r.floor, bedType: r.bedType }))}
+        onMove={handleRoomMove}
       />
     </div>
   );

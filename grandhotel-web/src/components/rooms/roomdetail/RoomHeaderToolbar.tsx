@@ -8,6 +8,11 @@ import {
   Tooltip,
   IconButton,
   Autocomplete,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
+  Divider,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -19,9 +24,11 @@ import {
   Cancel as CancelIcon,
   Check as CheckIcon,
   Edit as EditIcon,
+  ArrowDropDown as ArrowDropDownIcon,
+  Undo as UndoIcon,
 } from '@mui/icons-material';
 
-import { BED_TYPE_LABELS } from '../../../utils/constants';
+import { BED_TYPE_LABELS, ROOM_STATUS } from '../../../utils/constants';
 import { StatusBadge } from '../../common';
 
 interface RoomHeaderToolbarProps {
@@ -39,6 +46,8 @@ interface RoomHeaderToolbarProps {
   onCheckIn: () => void;
   onCheckOut: () => void;
   onCancel: () => void;
+  onRevertCheckout?: () => void;
+  onRevertCheckin?: () => void;
   onSaveReservation?: () => void;
   isSaveEnabled?: boolean;
   onRoomSwitch?: (roomNumber: string) => void;
@@ -59,12 +68,15 @@ const RoomHeaderToolbar: React.FC<RoomHeaderToolbarProps> = ({
   onCheckIn,
   onCheckOut,
   onCancel,
+  onRevertCheckout,
+  onRevertCheckin,
   onSaveReservation,
   isSaveEnabled = false,
   onRoomSwitch,
 }) => {
   const [editing, setEditing] = useState(false);
   const [inputValue, setInputValue] = useState(roomNumber);
+  const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
 
   const handleConfirm = () => {
     const trimmed = inputValue.trim();
@@ -76,6 +88,14 @@ const RoomHeaderToolbar: React.FC<RoomHeaderToolbarProps> = ({
     setEditing(false);
     setInputValue(roomNumber);
   };
+
+  const handleMenuAction = (action: () => void) => {
+    setMenuAnchor(null);
+    action();
+  };
+
+  const isAvailable = status === ROOM_STATUS.AVAILABLE;
+  const isDirty = status === ROOM_STATUS.DIRTY;
 
   return (
     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
@@ -146,20 +166,6 @@ const RoomHeaderToolbar: React.FC<RoomHeaderToolbarProps> = ({
         <Button variant="outlined" size="small" color="warning" startIcon={<ReceiptIcon />} onClick={onInvoiceOpen}>
           Fatura Kes
         </Button>
-        <Tooltip title={isCheckInDisabled && !hasGuests ? 'Önce misafir ekleyin' : isCheckInDisabled ? 'Ödeme yapılmadan check-in yapılamaz' : ''}>
-          <span>
-            <Button
-              variant="contained"
-              size="small"
-              color="success"
-              startIcon={<LoginIcon />}
-              onClick={onCheckIn}
-              disabled={isCheckInDisabled || isOccupied}
-            >
-              Check-in
-            </Button>
-          </span>
-        </Tooltip>
         {onSaveReservation && !isOccupied && (
           <Button
             variant="outlined"
@@ -171,26 +177,78 @@ const RoomHeaderToolbar: React.FC<RoomHeaderToolbarProps> = ({
             Kaydet
           </Button>
         )}
+
+        {/* İşlemler Dropdown */}
         <Button
           variant="contained"
           size="small"
-          color="secondary"
-          startIcon={<LogoutIcon />}
-          onClick={onCheckOut}
-          disabled={!isOccupied}
+          endIcon={<ArrowDropDownIcon />}
+          onClick={(e) => setMenuAnchor(e.currentTarget)}
         >
-          Check-out
+          İşlemler
         </Button>
-        <Button
-          variant="outlined"
-          size="small"
-          color="error"
-          startIcon={<CancelIcon />}
-          onClick={onCancel}
-          disabled={!hasGuests && !hasReservation}
+        <Menu
+          anchorEl={menuAnchor}
+          open={Boolean(menuAnchor)}
+          onClose={() => setMenuAnchor(null)}
         >
-          İptal Et
-        </Button>
+          {/* Check-in */}
+          <Tooltip title={isCheckInDisabled && !hasGuests ? 'Önce misafir ekleyin' : isCheckInDisabled ? 'Ödeme yapılmadan check-in yapılamaz' : ''} placement="left">
+            <span>
+              <MenuItem
+                onClick={() => handleMenuAction(onCheckIn)}
+                disabled={isCheckInDisabled || isOccupied}
+              >
+                <ListItemIcon><LoginIcon fontSize="small" color="success" /></ListItemIcon>
+                <ListItemText>Check-in Yap</ListItemText>
+              </MenuItem>
+            </span>
+          </Tooltip>
+
+          {/* Check-out */}
+          <MenuItem
+            onClick={() => handleMenuAction(onCheckOut)}
+            disabled={!isOccupied}
+          >
+            <ListItemIcon><LogoutIcon fontSize="small" color="secondary" /></ListItemIcon>
+            <ListItemText>Check-out Yap</ListItemText>
+          </MenuItem>
+
+          <Divider />
+
+          {/* Check-in İptal */}
+          {onRevertCheckin && (
+            <MenuItem
+              onClick={() => handleMenuAction(onRevertCheckin)}
+              disabled={!isOccupied}
+            >
+              <ListItemIcon><UndoIcon fontSize="small" color="warning" /></ListItemIcon>
+              <ListItemText>Check-in İptal</ListItemText>
+            </MenuItem>
+          )}
+
+          {/* Check-out İptal */}
+          {onRevertCheckout && (
+            <MenuItem
+              onClick={() => handleMenuAction(onRevertCheckout)}
+              disabled={isOccupied}
+            >
+              <ListItemIcon><UndoIcon fontSize="small" color="info" /></ListItemIcon>
+              <ListItemText>Check-out İptal</ListItemText>
+            </MenuItem>
+          )}
+
+          <Divider />
+
+          {/* Rezervasyon İptal */}
+          <MenuItem
+            onClick={() => handleMenuAction(onCancel)}
+            disabled={!hasGuests && !hasReservation}
+          >
+            <ListItemIcon><CancelIcon fontSize="small" color="error" /></ListItemIcon>
+            <ListItemText>Rezervasyon İptal</ListItemText>
+          </MenuItem>
+        </Menu>
       </Box>
     </Box>
   );
