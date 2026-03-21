@@ -199,7 +199,7 @@ const OccupancyReportDialog: React.FC<OccupancyReportDialogProps> = ({ open, onC
     if (mode === 'current') {
       fetchCurrentReport();
     }
-  }, [open, mode, rooms]);
+  }, [open, mode, rooms, fetchCurrentReport]);
 
   const handleSearch = () => {
     if (!dateFrom || !dateTo) return;

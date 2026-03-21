@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -66,7 +66,7 @@ const CompanyDetailContent: React.FC<CompanyDetailContentProps> = ({ company, on
   const [guestErrors, setGuestErrors] = useState<Partial<GuestFormData>>({});
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
 
-  const refreshData = async () => {
+  const refreshData = useCallback(async () => {
     try {
       const guestsData = await companiesApi.getGuests(company.id);
       const historyData = await reservationsApi.getAll({ companyId: company.id });
@@ -95,11 +95,11 @@ const CompanyDetailContent: React.FC<CompanyDetailContentProps> = ({ company, on
     } catch (err) {
       console.error('Firma verileri yüklenirken hata:', err);
     }
-  };
+  }, [company.id]);
 
   useEffect(() => {
     refreshData();
-  }, [company.id]);
+  }, [refreshData]);
 
   const totalRevenue = stayHistory.reduce((sum, s) => sum + s.totalAmount, 0);
   const totalPaid = stayHistory.reduce((sum, s) => sum + (s.paidAmount || 0), 0);
