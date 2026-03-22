@@ -17,6 +17,7 @@ import { NotificationContext } from '../contexts/NotificationContext';
 import { SnackbarKey } from 'notistack';
 
 /** NotificationContext tarafından sağlanan değerler */
+
 export interface NotificationContextValue {
   showSuccess: (message: string) => void;
   showError: (message: string) => void;
