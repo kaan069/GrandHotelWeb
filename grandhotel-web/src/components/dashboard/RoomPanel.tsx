@@ -30,6 +30,10 @@ interface RoomPanelRoom {
   status: string;
   guestName?: string;
   guests?: { guestId: number; guestName: string; phone?: string }[];
+  reservationStatus?: string | null;
+  reservationOwnerName?: string | null;
+  reservationCheckIn?: string | null;
+  reservationCheckOut?: string | null;
 }
 
 interface RoomPanelProps {

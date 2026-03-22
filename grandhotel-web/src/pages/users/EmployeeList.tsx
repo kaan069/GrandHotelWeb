@@ -16,6 +16,7 @@ import {
 import { GridRenderCellParams } from '@mui/x-data-grid';
 import { PageHeader, DataTable } from '../../components/common';
 import EmployeeAddDialog from '../../components/employees/EmployeeAddDialog';
+import EmployeeDetailDialog from '../../components/employees/EmployeeDetailDialog';
 import LeaveDialog from '../../components/employees/LeaveDialog';
 import { ROLE_LABELS } from '../../utils/constants';
 import { getYearsOfService } from '../../utils/leaveCalculator';
@@ -149,6 +150,8 @@ const EmployeeList: React.FC = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [leaveTarget, setLeaveTarget] = useState<ApiEmployee | null>(null);
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [detailEmployee, setDetailEmployee] = useState<ApiEmployee | null>(null);
 
   const fetchEmployees = useCallback(async () => {
     try {
@@ -185,6 +188,14 @@ const EmployeeList: React.FC = () => {
     } catch (err) {
       console.error('Eleman silinemedi:', err);
       alert('Eleman silinemedi');
+    }
+  };
+
+  const handleRowClick = (row: { id: string | number; [key: string]: unknown }) => {
+    const emp = employees.find((e) => e.id === row.id);
+    if (emp) {
+      setDetailEmployee(emp);
+      setDetailDialogOpen(true);
     }
   };
 
@@ -234,12 +245,19 @@ const EmployeeList: React.FC = () => {
         <DataTable
           rows={employees as unknown as { id: number; [key: string]: unknown }[]}
           columns={getColumns(handleDelete, handleLeaveOpen)}
+          onRowClick={handleRowClick}
           searchable
           searchPlaceholder="Ad, soyad veya personel no ara..."
         />
       </Box>
 
       <EmployeeAddDialog open={dialogOpen} onClose={() => setDialogOpen(false)} onSave={handleSave} />
+
+      <EmployeeDetailDialog
+        open={detailDialogOpen}
+        onClose={() => { setDetailDialogOpen(false); setDetailEmployee(null); }}
+        employee={detailEmployee}
+      />
 
       <LeaveDialog
         open={leaveDialogOpen}

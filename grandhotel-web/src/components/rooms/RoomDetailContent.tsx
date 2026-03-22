@@ -123,19 +123,15 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
           createdBy: f.createdBy ?? undefined,
         })));
 
-        // Eğer reserved bir rezervasyon varsa ve tarihi bugünse, sahibinin bilgisini hızlı rezervasyon alanına getir
+        // Rezervasyon varsa sahibinin bilgisini hızlı rezervasyon alanına getir
         if (room.reservationId) {
           const resDetail = await reservationsApi.getById(room.reservationId);
-          const today = new Date().toISOString().split('T')[0];
-          const resCheckIn = (resDetail.checkIn || '').split('T')[0];
-          if (resDetail.status === 'reserved' && resCheckIn === today && resDetail.stays && resDetail.stays.length > 0) {
+          if (resDetail.stays && resDetail.stays.length > 0) {
             const owner = resDetail.stays[0];
             const nameParts = (owner.guestName || '').split(' ');
-            const firstName = nameParts[0] || '';
-            const lastName = nameParts.slice(1).join(' ') || '';
             setQuickRes({
-              firstName,
-              lastName,
+              firstName: nameParts[0] || '',
+              lastName: nameParts.slice(1).join(' ') || '',
               phone: owner.phone || '',
             });
           }
