@@ -154,6 +154,39 @@ export interface ApiFolioItem {
   createdBy?: string | null;
 }
 
+export interface ApiHotelDocument {
+  id: number;
+  docType: string;
+  name: string;
+  url: string;
+  uploadedAt: string;
+}
+
+export interface ApiHotelImage {
+  id: number;
+  name: string;
+  url: string;
+  uploadedAt: string;
+}
+
+export interface ApiHotel {
+  id: number | null;
+  name: string;
+  address: string;
+  phone: string;
+  email: string;
+  taxNumber: string;
+  status: string;
+  rejectionReason: string;
+  roomCount: number;
+  businessLicense: ApiHotelDocument | null;
+  taxCertificate: ApiHotelDocument | null;
+  tourismLicense: ApiHotelDocument | null;
+  images: ApiHotelImage[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ApiKbsResult {
   guestName: string;
   tcNo: string;
@@ -719,4 +752,43 @@ export const kbsApi = {
   /** KBS ayarlarını güncelle */
   updateSettings: (data: Partial<ApiKbsSettings>) =>
     api.put<ApiKbsSettings>('/kbs/settings/', data).then((r) => r.data),
+};
+
+/* ==================== HOTEL API ==================== */
+
+export const hotelApi = {
+  /** Otel bilgilerini getir */
+  get: () =>
+    api.get<ApiHotel>('/hotel/').then((r) => r.data),
+
+  /** Otel bilgilerini güncelle */
+  update: (data: Partial<{ name: string; address: string; phone: string; email: string; taxNumber: string }>) =>
+    api.put<ApiHotel>('/hotel/', data).then((r) => r.data),
+
+  /** Belge yükle */
+  uploadDocument: (file: File, type: string) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('type', type);
+    return api.post<ApiHotelDocument>('/hotel/documents/', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then((r) => r.data);
+  },
+
+  /** Belge sil */
+  deleteDocument: (id: number) =>
+    api.delete(`/hotel/documents/${id}/`),
+
+  /** Görsel yükle */
+  uploadImage: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post<ApiHotelImage>('/hotel/images/', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then((r) => r.data);
+  },
+
+  /** Görsel sil */
+  deleteImage: (id: number) =>
+    api.delete(`/hotel/images/${id}/`),
 };
