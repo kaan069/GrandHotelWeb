@@ -426,6 +426,7 @@ export const MENU_ITEMS: MenuItem[] = [
       { id: 'room-report', label: 'Oda Raporu', path: '/reports/rooms' },
       { id: 'company-report', label: 'Firma Raporu', path: '/reports/companies' },
       { id: 'general-report', label: 'Genel Rapor', path: '/reports/general' },
+      { id: 'night-audit-report', label: 'Gün Sonu Raporları', path: '/reports/night-audit' },
     ],
   },
   {
@@ -541,6 +542,8 @@ export const INVOICE_ITEM_CATEGORY_LABELS: Record<InvoiceItemCategory, string> =
 export interface ShiftHandover {
   id: number;
   date: string;
+  fromEmployeeId: number;
+  toEmployeeId: number;
   fromUser: string;
   toUser: string;
   startTime: string;
@@ -549,7 +552,11 @@ export interface ShiftHandover {
   cashSales: number;
   totalSales: number;
   roomsSold: number;
+  roomsOccupied?: number;
+  roomsAvailable?: number;
+  notes?: string;
   status: 'active' | 'closed';
+  createdAt?: string;
 }
 
 /* ==================== GÜN SONU (NIGHT AUDIT) ==================== */

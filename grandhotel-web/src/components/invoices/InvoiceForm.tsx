@@ -32,6 +32,8 @@ import {
   ListItemButton,
   ListItemText,
   InputAdornment,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 import {
   Delete as DeleteIcon,
@@ -96,6 +98,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   const [dueDate, setDueDate] = useState('');
   const [taxRate, setTaxRate] = useState<number>(20);
   const [notes, setNotes] = useState('');
+  const [hasAccommodationTax, setHasAccommodationTax] = useState(false);
   const [items, setItems] = useState<InvoiceItem[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [companySearchOpen, setCompanySearchOpen] = useState(false);
@@ -133,7 +136,8 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
 
   const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
   const taxAmount = subtotal * (taxRate / 100);
-  const total = subtotal + taxAmount;
+  const accommodationTaxAmount = hasAccommodationTax ? subtotal * 0.02 : 0;
+  const total = subtotal + taxAmount + accommodationTaxAmount;
 
   const addItem = useCallback((category: InvoiceItemCategory) => {
     const newItem: InvoiceItem = {
@@ -465,6 +469,21 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
                 />
               </Box>
               <Typography variant="body2" fontWeight={500}>{formatCurrency(taxAmount)}</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={hasAccommodationTax}
+                    onChange={(e) => setHasAccommodationTax(e.target.checked)}
+                    size="small"
+                  />
+                }
+                label={<Typography variant="body2" color="text.secondary">Konaklama Vergisi (%2)</Typography>}
+              />
+              <Typography variant="body2" fontWeight={500}>
+                {hasAccommodationTax ? formatCurrency(accommodationTaxAmount) : '—'}
+              </Typography>
             </Box>
             <Divider sx={{ my: 1 }} />
             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>

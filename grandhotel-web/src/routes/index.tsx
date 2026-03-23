@@ -32,6 +32,7 @@ const DailyReport = React.lazy(() => import('../pages/reports/DailyReport'));
 const RoomReport = React.lazy(() => import('../pages/reports/RoomReport'));
 const CompanyReport = React.lazy(() => import('../pages/reports/CompanyReport'));
 const GeneralReport = React.lazy(() => import('../pages/reports/GeneralReport'));
+const NightAuditReport = React.lazy(() => import('../pages/reports/NightAuditReport'));
 const StockManagement = React.lazy(() => import('../pages/minibar/StockManagement'));
 
 const KbsRecords = React.lazy(() => import('../pages/kbs/KbsRecords'));
@@ -223,6 +224,7 @@ const router = createBrowserRouter([
           { path: '/reports/rooms', element: <React.Suspense fallback={<div>Yükleniyor...</div>}><RoomReport /></React.Suspense> },
           { path: '/reports/companies', element: <React.Suspense fallback={<div>Yükleniyor...</div>}><CompanyReport /></React.Suspense> },
           { path: '/reports/general', element: <React.Suspense fallback={<div>Yükleniyor...</div>}><GeneralReport /></React.Suspense> },
+          { path: '/reports/night-audit', element: <React.Suspense fallback={<div>Yükleniyor...</div>}><NightAuditReport /></React.Suspense> },
           {
             path: '/shift-handover',
             element: (

@@ -792,3 +792,29 @@ export const hotelApi = {
   deleteImage: (id: number) =>
     api.delete(`/hotel/images/${id}/`),
 };
+
+/* ──────────────────────────────────────────────────────────
+   SHIFT HANDOVER (Mesai Devir)
+   ────────────────────────────────────────────────────────── */
+
+export const shiftApi = {
+  /** Tüm mesai kayıtları */
+  getAll: (params?: { status?: string; date?: string }) =>
+    api.get('/shifts/', { params }).then((r) => r.data),
+
+  /** Aktif mesaiyi getir */
+  getActive: () =>
+    api.get('/shifts/active/').then((r) => r.data),
+
+  /** Mesai devret */
+  create: (data: { fromEmployeeId: number; toEmployeeId: number; notes?: string }) =>
+    api.post('/shifts/', data).then((r) => r.data),
+
+  /** Mesai kapat */
+  close: (id: number, data: { cardSales?: number; cashSales?: number; notes?: string }) =>
+    api.post(`/shifts/${id}/close/`, data).then((r) => r.data),
+
+  /** Mesai detayı */
+  getById: (id: number) =>
+    api.get(`/shifts/${id}/`).then((r) => r.data),
+};

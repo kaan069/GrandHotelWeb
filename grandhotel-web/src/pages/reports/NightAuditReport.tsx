@@ -1,24 +1,19 @@
 /**
- * ShiftHandover Sayfası - Mesai Devir İşlemleri
+ * NightAuditReport - Gün Sonu Raporları
  *
- * Mesai devir kayıtlarını görüntüler ve yönetir.
- * Backend API ile entegre çalışır.
+ * Mesai devir kayıtlarını tarih bazlı listeler.
+ * Her devir kaydının satış, oda ve kasa bilgilerini gösterir.
+ * API: shiftApi.getAll()
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
+  Typography,
   Card,
   CardContent,
-  Typography,
-  Button,
   Grid,
-  Divider,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Chip,
+  TextField,
   Table,
   TableBody,
   TableCell,
@@ -26,24 +21,29 @@ import {
   TableHead,
   TableRow,
   Paper,
+  Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
   CircularProgress,
-  TextField,
+  Divider,
 } from '@mui/material';
 import {
-  SwapHoriz as SwapHorizIcon,
+  NightsStay as NightsStayIcon,
   CreditCard as CardIcon,
   Payments as CashIcon,
   AttachMoney as TotalIcon,
   MeetingRoom as RoomIcon,
-  CheckCircle as CheckIcon,
-  AccessTime as TimeIcon,
   Hotel as OccupiedIcon,
   DoorFront as AvailableIcon,
+  SwapHoriz as SwapHorizIcon,
 } from '@mui/icons-material';
 
 import { PageHeader, StatCard } from '../../components/common';
-import { ShiftHandover as ShiftHandoverType } from '../../utils/constants';
-import { loadShifts, closeShift, getActiveShift } from '../../utils/shiftStorage';
+import { ShiftHandover } from '../../utils/constants';
+import { shiftApi } from '../../api/services';
 
 const formatDate = (dateStr: string): string => {
   const d = new Date(dateStr);
@@ -59,72 +59,39 @@ const formatCurrency = (amount: number): string => {
   return `${Number(amount).toLocaleString('tr-TR')} ₺`;
 };
 
-const ShiftHandover: React.FC = () => {
-  const [shifts, setShifts] = useState<ShiftHandoverType[]>([]);
-  const [activeShift, setActiveShift] = useState<ShiftHandoverType | null>(null);
-  const [selectedShift, setSelectedShift] = useState<ShiftHandoverType | null>(null);
-  const [detailOpen, setDetailOpen] = useState(false);
+const NightAuditReport: React.FC = () => {
+  const [shifts, setShifts] = useState<ShiftHandover[]>([]);
   const [loading, setLoading] = useState(true);
-  const [closing, setClosing] = useState(false);
-  const [closeDialogOpen, setCloseDialogOpen] = useState(false);
-  const [cardSalesInput, setCardSalesInput] = useState('');
-  const [cashSalesInput, setCashSalesInput] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
+  const [selectedShift, setSelectedShift] = useState<ShiftHandover | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
 
-  const refreshData = useCallback(async () => {
+  const fetchShifts = useCallback(async () => {
     setLoading(true);
     try {
-      const allShifts = await loadShifts();
-      const active = await getActiveShift();
-      setShifts(allShifts);
-      setActiveShift(active);
+      const params: Record<string, string> = { status: 'closed' };
+      if (dateFilter) params.date = dateFilter;
+      const data = await shiftApi.getAll(params);
+      setShifts(data);
     } catch {
       setShifts([]);
-      setActiveShift(null);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [dateFilter]);
 
   useEffect(() => {
-    refreshData();
-  }, [refreshData]);
+    fetchShifts();
+  }, [fetchShifts]);
 
-  const handleCloseShift = async () => {
-    if (!activeShift) return;
-    setClosing(true);
-    try {
-      await closeShift(
-        activeShift.id,
-        Number(cardSalesInput) || 0,
-        Number(cashSalesInput) || 0
-      );
-      setCloseDialogOpen(false);
-      setCardSalesInput('');
-      setCashSalesInput('');
-      await refreshData();
-    } finally {
-      setClosing(false);
-    }
-  };
+  // Özet istatistikler
+  const totalCardSales = shifts.reduce((sum, s) => sum + Number(s.cardSales), 0);
+  const totalCashSales = shifts.reduce((sum, s) => sum + Number(s.cashSales), 0);
+  const totalSales = shifts.reduce((sum, s) => sum + Number(s.totalSales), 0);
+  const totalRoomsSold = shifts.reduce((sum, s) => sum + s.roomsSold, 0);
 
-  const handleOpenDetail = (shift: ShiftHandoverType) => {
-    setSelectedShift(shift);
-    setDetailOpen(true);
-  };
-
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  const closedShifts = shifts
-    .filter((s) => s.status === 'closed')
-    .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
-
-  const groupedByDate = closedShifts.reduce<Record<string, ShiftHandoverType[]>>((acc, shift) => {
+  // Tarihe göre grupla
+  const groupedByDate = shifts.reduce<Record<string, ShiftHandover[]>>((acc, shift) => {
     const date = shift.date;
     if (!acc[date]) acc[date] = [];
     acc[date].push(shift);
@@ -134,90 +101,70 @@ const ShiftHandover: React.FC = () => {
   return (
     <div>
       <PageHeader
-        title="Mesai Devir İşlemleri"
-        subtitle="Mesai devir kayıtlarını görüntüleyin ve yönetin"
+        title="Gün Sonu Raporları"
+        subtitle="Mesai devir kayıtlarını ve gün sonu istatistiklerini görüntüleyin"
       />
 
-      {/* Aktif Mesai */}
-      {activeShift && (
-        <Card sx={{ mb: 3, border: '2px solid', borderColor: 'success.main' }}>
-          <CardContent>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h4" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <SwapHorizIcon color="success" />
-                Aktif Mesai
-                <Chip label="Devam Ediyor" color="success" size="small" />
-              </Typography>
-              <Button
-                variant="contained"
-                color="error"
-                onClick={() => setCloseDialogOpen(true)}
-                startIcon={<CheckIcon />}
-              >
-                Mesaiyi Kapat
-              </Button>
-            </Box>
-
-            <Divider sx={{ mb: 2 }} />
-
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Devreden</Typography>
-                  <Typography variant="body1" fontWeight={600}>{activeShift.fromUser}</Typography>
-                </Box>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Devralan</Typography>
-                  <Typography variant="body1" fontWeight={600}>{activeShift.toUser}</Typography>
-                </Box>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Başlangıç</Typography>
-                  <Typography variant="body1" fontWeight={600}>
-                    {formatDate(activeShift.startTime)} {formatTime(activeShift.startTime)}
-                  </Typography>
-                </Box>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Tarih</Typography>
-                  <Typography variant="body1" fontWeight={600}>{formatDate(activeShift.date)}</Typography>
-                </Box>
-              </Grid>
-            </Grid>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Aktif mesai yoksa bilgi */}
-      {!activeShift && (
-        <Card sx={{ mb: 3 }}>
-          <CardContent sx={{ textAlign: 'center', py: 4 }}>
-            <SwapHorizIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
-            <Typography variant="body1" color="text.secondary">
-              Aktif mesai devri bulunmuyor. Header'daki "Mesai Devret" butonunu kullanarak yeni bir devir başlatabilirsiniz.
-            </Typography>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Geçmiş Devirler */}
-      <Card>
-        <CardContent>
-          <Typography variant="h4" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <TimeIcon color="primary" />
-            Geçmiş Devirler
+      {/* Filtre */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 2, '&:last-child': { pb: 2 } }}>
+          <NightsStayIcon color="primary" />
+          <TextField
+            label="Tarih Filtresi"
+            type="date"
+            size="small"
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.target.value)}
+            InputLabelProps={{ shrink: true }}
+            sx={{ width: 200 }}
+          />
+          {dateFilter && (
+            <Button size="small" onClick={() => setDateFilter('')}>
+              Temizle
+            </Button>
+          )}
+          <Typography variant="body2" color="text.secondary" sx={{ ml: 'auto' }}>
+            {shifts.length} kayıt
           </Typography>
+        </CardContent>
+      </Card>
 
-          {Object.keys(groupedByDate).length === 0 ? (
-            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
-              Henüz geçmiş devir kaydı bulunmuyor.
+      {/* Özet istatistikler */}
+      {shifts.length > 0 && (
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          <Grid size={{ xs: 6, sm: 3 }}>
+            <StatCard title="Kart Satışı" value={formatCurrency(totalCardSales)} icon={<CardIcon />} color="primary" />
+          </Grid>
+          <Grid size={{ xs: 6, sm: 3 }}>
+            <StatCard title="Nakit Satışı" value={formatCurrency(totalCashSales)} icon={<CashIcon />} color="success" />
+          </Grid>
+          <Grid size={{ xs: 6, sm: 3 }}>
+            <StatCard title="Toplam Satış" value={formatCurrency(totalSales)} icon={<TotalIcon />} color="secondary" />
+          </Grid>
+          <Grid size={{ xs: 6, sm: 3 }}>
+            <StatCard title="Satılan Oda" value={totalRoomsSold} icon={<RoomIcon />} color="info" />
+          </Grid>
+        </Grid>
+      )}
+
+      {/* Kayıtlar */}
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+          <CircularProgress />
+        </Box>
+      ) : Object.keys(groupedByDate).length === 0 ? (
+        <Card>
+          <CardContent sx={{ textAlign: 'center', py: 4 }}>
+            <NightsStayIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
+            <Typography variant="body1" color="text.secondary">
+              {dateFilter ? 'Bu tarihte kayıt bulunamadı.' : 'Henüz gün sonu kaydı bulunmuyor.'}
             </Typography>
-          ) : (
-            Object.entries(groupedByDate).map(([date, dateShifts]) => (
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardContent>
+            {Object.entries(groupedByDate).map(([date, dateShifts]) => (
               <Box key={date} sx={{ mb: 3 }}>
                 <Chip
                   label={formatDate(date)}
@@ -234,7 +181,9 @@ const ShiftHandover: React.FC = () => {
                         <TableCell>Devralan</TableCell>
                         <TableCell>Başlangıç</TableCell>
                         <TableCell>Bitiş</TableCell>
-                        <TableCell align="right">Toplam Satış</TableCell>
+                        <TableCell align="right">Kart</TableCell>
+                        <TableCell align="right">Nakit</TableCell>
+                        <TableCell align="right">Toplam</TableCell>
                         <TableCell align="right">Oda</TableCell>
                         <TableCell align="center">Detay</TableCell>
                       </TableRow>
@@ -245,20 +194,18 @@ const ShiftHandover: React.FC = () => {
                           key={shift.id}
                           hover
                           sx={{ cursor: 'pointer' }}
-                          onClick={() => handleOpenDetail(shift)}
+                          onClick={() => { setSelectedShift(shift); setDetailOpen(true); }}
                         >
                           <TableCell>{shift.fromUser}</TableCell>
                           <TableCell>{shift.toUser}</TableCell>
                           <TableCell>{formatTime(shift.startTime)}</TableCell>
                           <TableCell>{shift.endTime ? formatTime(shift.endTime) : '-'}</TableCell>
-                          <TableCell align="right" sx={{ fontWeight: 600 }}>
-                            {formatCurrency(shift.totalSales)}
-                          </TableCell>
+                          <TableCell align="right">{formatCurrency(shift.cardSales)}</TableCell>
+                          <TableCell align="right">{formatCurrency(shift.cashSales)}</TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 600 }}>{formatCurrency(shift.totalSales)}</TableCell>
                           <TableCell align="right">{shift.roomsSold}</TableCell>
                           <TableCell align="center">
-                            <Button size="small" onClick={() => handleOpenDetail(shift)}>
-                              Görüntüle
-                            </Button>
+                            <Button size="small">Görüntüle</Button>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -266,49 +213,18 @@ const ShiftHandover: React.FC = () => {
                   </Table>
                 </TableContainer>
               </Box>
-            ))
-          )}
-        </CardContent>
-      </Card>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Mesai Kapat Dialog */}
-      <Dialog open={closeDialogOpen} onClose={() => setCloseDialogOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Mesaiyi Kapat</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Kasa bilgilerini girin. Toplam satış backend'den otomatik hesaplanacaktır.
-          </Typography>
-          <TextField
-            label="Kart Satışı (₺)"
-            type="number"
-            fullWidth
-            value={cardSalesInput}
-            onChange={(e) => setCardSalesInput(e.target.value)}
-            sx={{ mb: 2 }}
-          />
-          <TextField
-            label="Nakit Satışı (₺)"
-            type="number"
-            fullWidth
-            value={cashSalesInput}
-            onChange={(e) => setCashSalesInput(e.target.value)}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCloseDialogOpen(false)} color="inherit">İptal</Button>
-          <Button onClick={handleCloseShift} variant="contained" color="error" disabled={closing}>
-            {closing ? <CircularProgress size={20} /> : 'Mesaiyi Kapat'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Detay Popup */}
+      {/* Detay Dialog */}
       <Dialog open={detailOpen} onClose={() => setDetailOpen(false)} maxWidth="sm" fullWidth>
         {selectedShift && (
           <>
             <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <SwapHorizIcon color="primary" />
-              Mesai Devir Detayı - {formatDate(selectedShift.date)}
+              Gün Sonu Detayı — {formatDate(selectedShift.date)}
             </DialogTitle>
             <DialogContent>
               <Grid container spacing={2} sx={{ mb: 2 }}>
@@ -331,14 +247,14 @@ const ShiftHandover: React.FC = () => {
                   <Typography variant="body1" fontWeight={600}>
                     {selectedShift.endTime
                       ? `${formatDate(selectedShift.endTime)} ${formatTime(selectedShift.endTime)}`
-                      : 'Devam ediyor'}
+                      : '-'}
                   </Typography>
                 </Grid>
               </Grid>
 
               <Divider sx={{ my: 2 }} />
 
-              <Typography variant="h6" sx={{ mb: 2 }}>Satış Özeti</Typography>
+              <Typography variant="h6" sx={{ mb: 2 }}>Kasa Özeti</Typography>
               <Grid container spacing={2}>
                 <Grid size={{ xs: 6 }}>
                   <Card variant="outlined">
@@ -378,7 +294,7 @@ const ShiftHandover: React.FC = () => {
                 </Grid>
               </Grid>
 
-              {((selectedShift as any).roomsOccupied !== undefined) && (
+              {(selectedShift.roomsOccupied !== undefined) && (
                 <>
                   <Divider sx={{ my: 2 }} />
                   <Typography variant="h6" sx={{ mb: 2 }}>Oda Durumu</Typography>
@@ -388,7 +304,7 @@ const ShiftHandover: React.FC = () => {
                         <CardContent sx={{ textAlign: 'center', py: 2 }}>
                           <OccupiedIcon color="warning" sx={{ fontSize: 28 }} />
                           <Typography variant="caption" display="block" color="text.secondary">Dolu Oda</Typography>
-                          <Typography variant="h6" fontWeight={700}>{(selectedShift as any).roomsOccupied}</Typography>
+                          <Typography variant="h6" fontWeight={700}>{selectedShift.roomsOccupied}</Typography>
                         </CardContent>
                       </Card>
                     </Grid>
@@ -397,7 +313,7 @@ const ShiftHandover: React.FC = () => {
                         <CardContent sx={{ textAlign: 'center', py: 2 }}>
                           <AvailableIcon color="success" sx={{ fontSize: 28 }} />
                           <Typography variant="caption" display="block" color="text.secondary">Boş Oda</Typography>
-                          <Typography variant="h6" fontWeight={700}>{(selectedShift as any).roomsAvailable}</Typography>
+                          <Typography variant="h6" fontWeight={700}>{selectedShift.roomsAvailable}</Typography>
                         </CardContent>
                       </Card>
                     </Grid>
@@ -423,4 +339,4 @@ const ShiftHandover: React.FC = () => {
   );
 };
 
-export default ShiftHandover;
+export default NightAuditReport;
