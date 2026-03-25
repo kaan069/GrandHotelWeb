@@ -36,6 +36,7 @@ const NightAuditReport = React.lazy(() => import('../pages/reports/NightAuditRep
 const StockManagement = React.lazy(() => import('../pages/minibar/StockManagement'));
 
 const KbsRecords = React.lazy(() => import('../pages/kbs/KbsRecords'));
+const ParasutIntegration = React.lazy(() => import('../pages/integrations/ParasutIntegration'));
 
 /* Public Booking Sayfaları */
 const BookingLayout = React.lazy(() => import('../components/booking/BookingLayout'));
@@ -275,6 +276,14 @@ const router = createBrowserRouter([
             element: (
               <React.Suspense fallback={null}>
                 <HotelManagement />
+              </React.Suspense>
+            ),
+          },
+          {
+            path: '/integrations/parasut',
+            element: (
+              <React.Suspense fallback={null}>
+                <ParasutIntegration />
               </React.Suspense>
             ),
           },

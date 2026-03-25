@@ -175,7 +175,7 @@ const GuestListSection: React.FC<GuestListSectionProps> = ({ guests, beds, onMen
 
   return (
     <>
-      <Card sx={{ mb: 2 }}>
+      <Card sx={{ height: '100%' }}>
         <CardContent>
           <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
             <KingBedIcon sx={{ fontSize: 20 }} />

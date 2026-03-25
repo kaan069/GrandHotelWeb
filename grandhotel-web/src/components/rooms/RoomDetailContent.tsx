@@ -17,12 +17,13 @@ import {
   ROOM_STATUS,
   FOLIO_CATEGORY_LABELS,
 } from '../../utils/constants';
-import { companiesApi, guestsApi, foliosApi, roomsApi, reservationsApi, auditApi } from '../../api/services';
+import { companiesApi, guestsApi, foliosApi, roomsApi, reservationsApi, auditApi, minibarApi } from '../../api/services';
 import usePermission from '../../hooks/usePermission';
 import type { ApiRoomMinibarItem } from '../../api/services';
 import { ConfirmDialog } from '../common';
 import GuestSearchDialog from './GuestSearchDialog';
 import FolioAddDialog from './FolioAddDialog';
+import type { FolioAddData } from './FolioAddDialog';
 import DetailDialog from './DetailDialog';
 import { InvoiceCreateDialog } from '../invoices';
 
@@ -235,19 +236,34 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
     }
   };
 
-  const handleFolioAdd = async (data: { category: string; description: string; amount: number }) => {
+  const handleFolioAdd = async (data: FolioAddData) => {
     try {
       if (!room.reservationId) {
         console.error('Folio eklemek için aktif rezervasyon gerekli');
         return;
       }
-      const apiFolio = await foliosApi.create({
-        reservationId: room.reservationId,
-        category: data.category,
-        description: data.description,
-        amount: data.amount,
-        date: new Date().toISOString().split('T')[0],
-      });
+
+      let apiFolio;
+
+      if (data.isMinibarConsume && data.productId && data.quantity) {
+        // Minibar — consume API çağır (stok düşer + folio otomatik oluşur)
+        const result = await minibarApi.consume(room.id, {
+          productId: data.productId,
+          quantity: data.quantity,
+          staffName: '',
+        });
+        apiFolio = result.folioItem;
+      } else {
+        // Normal folio ekleme
+        apiFolio = await foliosApi.create({
+          reservationId: room.reservationId,
+          category: data.category,
+          description: data.description,
+          amount: data.amount,
+          date: new Date().toISOString().split('T')[0],
+        });
+      }
+
       const folio: FolioItem = {
         id: apiFolio.id,
         reservationId: apiFolio.reservationId,
@@ -259,6 +275,14 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
         createdBy: apiFolio.createdBy ?? undefined,
       };
       setFolios((prev) => [...prev, folio]);
+
+      // Minibar ise oda bilgisini yenile (stok güncellendi)
+      if (data.isMinibarConsume) {
+        try {
+          const updatedRoom = await roomsApi.getById(room.id);
+          onRoomUpdate(room.id, { minibar: updatedRoom.minibar });
+        } catch { /* minibar güncelleme hatası görmezden gel */ }
+      }
     } catch (err) {
       console.error('Folio eklenirken hata:', err);
     }

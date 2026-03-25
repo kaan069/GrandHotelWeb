@@ -437,6 +437,16 @@ export const MENU_ITEMS: MenuItem[] = [
     roles: [ROLES.PATRON, ROLES.MANAGER],
   },
   {
+    id: 'integrations',
+    label: 'Entegrasyonlar',
+    path: '/integrations',
+    icon: 'Extension',
+    roles: [ROLES.PATRON, ROLES.MANAGER],
+    children: [
+      { id: 'parasut', label: 'Paraşüt e-Fatura', path: '/integrations/parasut' },
+    ],
+  },
+  {
     id: 'kbs',
     label: 'KBS',
     path: '/kbs',

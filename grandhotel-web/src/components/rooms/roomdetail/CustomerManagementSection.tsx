@@ -4,11 +4,8 @@ import {
   CardContent,
   Typography,
   Button,
-  RadioGroup,
-  Radio,
-  FormControlLabel,
-  Divider,
   Box,
+  ButtonGroup,
 } from '@mui/material';
 import {
   PersonAdd as PersonAddIcon,
@@ -29,53 +26,50 @@ const CustomerManagementSection: React.FC<CustomerManagementSectionProps> = ({
   onSearchGuestClick,
 }) => {
   return (
-    <Card>
-      <CardContent>
-        <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>
+    <Card sx={{ height: '100%' }}>
+      <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+        <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5 }}>
           Müşteri İşlemleri
         </Typography>
 
-        <RadioGroup
-          row
-          value={customerMode}
-          onChange={(e) => onCustomerModeChange(e.target.value as 'new' | 'registered')}
-          sx={{ mb: 2 }}
-        >
-          <FormControlLabel value="new" control={<Radio />} label="Yeni Müşteri" />
-          <FormControlLabel value="registered" control={<Radio />} label="Kayıtlı Müşteri" />
-        </RadioGroup>
+        <ButtonGroup size="small" fullWidth sx={{ mb: 1.5 }}>
+          <Button
+            variant={customerMode === 'new' ? 'contained' : 'outlined'}
+            onClick={() => onCustomerModeChange('new')}
+          >
+            Yeni
+          </Button>
+          <Button
+            variant={customerMode === 'registered' ? 'contained' : 'outlined'}
+            onClick={() => onCustomerModeChange('registered')}
+          >
+            Kayıtlı
+          </Button>
+        </ButtonGroup>
 
-        <Divider sx={{ mb: 2 }} />
-
-        {customerMode === 'new' ? (
-          <Box sx={{ textAlign: 'center', py: 3 }}>
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-              Yeni bir müşteri kaydı oluşturup odaya ekleyin.
-            </Typography>
+        <Box sx={{ textAlign: 'center' }}>
+          {customerMode === 'new' ? (
             <Button
-              variant="contained"
+              variant="outlined"
               startIcon={<PersonAddIcon />}
               onClick={onNewGuestClick}
-              size="large"
+              size="small"
+              fullWidth
             >
               Yeni Müşteri Ekle
             </Button>
-          </Box>
-        ) : (
-          <Box sx={{ textAlign: 'center', py: 3 }}>
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-              Sistemde kayıtlı bir müşteriyi bu odaya atamak için arama yapın.
-            </Typography>
+          ) : (
             <Button
-              variant="contained"
+              variant="outlined"
               startIcon={<SearchIcon />}
               onClick={onSearchGuestClick}
-              size="large"
+              size="small"
+              fullWidth
             >
               Müşteri Ara
             </Button>
-          </Box>
-        )}
+          )}
+        </Box>
       </CardContent>
     </Card>
   );

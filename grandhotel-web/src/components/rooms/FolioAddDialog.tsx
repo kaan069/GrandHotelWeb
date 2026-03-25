@@ -2,7 +2,8 @@
  * FolioAddDialog - Folio Ekleme Dialog'u
  *
  * Oda hesabına yeni folio kalemi ekler.
- * Minibar kategorisi seçildiğinde stoktan ürün listesi gösterilir.
+ * Minibar kategorisi seçildiğinde stoktan ürün listesi gösterilir,
+ * adet seçimi yapılır ve consume API çağrılarak stoktan düşülür.
  */
 
 import React, { useState, useEffect } from 'react';
@@ -14,18 +15,35 @@ import {
   Button,
   TextField,
   MenuItem,
+  Box,
+  Typography,
+  IconButton,
 } from '@mui/material';
-import { Receipt as ReceiptIcon } from '@mui/icons-material';
+import {
+  Receipt as ReceiptIcon,
+  Add as AddIcon,
+  Remove as RemoveIcon,
+} from '@mui/icons-material';
 
 import { FOLIO_CATEGORIES, FOLIO_CATEGORY_LABELS } from '../../utils/constants';
 import { minibarApi } from '../../api/services';
 import type { ApiMinibarProduct } from '../../api/services';
 
+export interface FolioAddData {
+  category: string;
+  description: string;
+  amount: number;
+  /** Minibar ise — consume API çağrılacak */
+  isMinibarConsume?: boolean;
+  productId?: number;
+  quantity?: number;
+}
+
 interface FolioAddDialogProps {
   open: boolean;
   roomId: number;
   onClose: () => void;
-  onSave: (data: { category: string; description: string; amount: number }) => void;
+  onSave: (data: FolioAddData) => void;
 }
 
 const FolioAddDialog: React.FC<FolioAddDialogProps> = ({
@@ -37,6 +55,7 @@ const FolioAddDialog: React.FC<FolioAddDialogProps> = ({
   const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
+  const [quantity, setQuantity] = useState(1);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   /* Minibar ürünleri */
@@ -54,9 +73,9 @@ const FolioAddDialog: React.FC<FolioAddDialogProps> = ({
   const handleCategoryChange = (value: string) => {
     setCategory(value);
     setErrors((p) => ({ ...p, category: '' }));
-    // Minibar'dan çıkılırsa seçimi temizle
     if (value !== FOLIO_CATEGORIES.MINIBAR) {
       setSelectedProductId('');
+      setQuantity(1);
     }
   };
 
@@ -65,17 +84,36 @@ const FolioAddDialog: React.FC<FolioAddDialogProps> = ({
     const product = minibarProducts.find((p) => String(p.id) === productId);
     if (product) {
       setDescription(product.name);
-      setAmount(String(parseFloat(product.price)));
-      setErrors((p) => ({ ...p, description: '', amount: '' }));
+      const unitPrice = parseFloat(product.price);
+      setAmount(String(unitPrice * quantity));
+      setErrors((p) => ({ ...p, description: '', amount: '', product: '' }));
+    }
+  };
+
+  const handleQuantityChange = (delta: number) => {
+    const newQty = Math.max(1, quantity + delta);
+    setQuantity(newQty);
+    // Tutarı güncelle
+    const product = minibarProducts.find((p) => String(p.id) === selectedProductId);
+    if (product) {
+      setAmount(String(parseFloat(product.price) * newQty));
     }
   };
 
   const handleSave = () => {
     const newErrors: Record<string, string> = {};
     if (!category) newErrors.category = 'Kategori seçiniz';
-    if (category === FOLIO_CATEGORIES.MINIBAR && !selectedProductId) newErrors.product = 'Ürün seçiniz';
+    if (isMinibar && !selectedProductId) newErrors.product = 'Ürün seçiniz';
     if (!description.trim()) newErrors.description = 'Açıklama giriniz';
     if (!amount || parseFloat(amount) <= 0) newErrors.amount = 'Geçerli tutar giriniz';
+
+    // Minibar stok kontrolü
+    if (isMinibar && selectedProductId) {
+      const product = minibarProducts.find((p) => String(p.id) === selectedProductId);
+      if (product && quantity > product.availableStock) {
+        newErrors.product = `Yetersiz stok (mevcut: ${product.availableStock})`;
+      }
+    }
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -86,6 +124,9 @@ const FolioAddDialog: React.FC<FolioAddDialogProps> = ({
       category,
       description: description.trim(),
       amount: parseFloat(amount),
+      isMinibarConsume: isMinibar,
+      productId: isMinibar ? Number(selectedProductId) : undefined,
+      quantity: isMinibar ? quantity : undefined,
     });
 
     resetForm();
@@ -97,6 +138,7 @@ const FolioAddDialog: React.FC<FolioAddDialogProps> = ({
     setDescription('');
     setAmount('');
     setSelectedProductId('');
+    setQuantity(1);
     setErrors({});
   };
 
@@ -106,6 +148,7 @@ const FolioAddDialog: React.FC<FolioAddDialogProps> = ({
   };
 
   const isMinibar = category === FOLIO_CATEGORIES.MINIBAR;
+  const selectedProduct = minibarProducts.find((p) => String(p.id) === selectedProductId);
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="xs" fullWidth>
@@ -145,9 +188,47 @@ const FolioAddDialog: React.FC<FolioAddDialogProps> = ({
             {minibarProducts.map((p) => (
               <MenuItem key={p.id} value={String(p.id)}>
                 {p.name} — {parseFloat(p.price).toLocaleString('tr-TR')} ₺
+                {p.availableStock !== undefined && (
+                  <Typography variant="caption" sx={{ ml: 1, color: 'text.secondary' }}>
+                    (stok: {p.availableStock})
+                  </Typography>
+                )}
               </MenuItem>
             ))}
           </TextField>
+        )}
+
+        {/* Minibar adet seçimi */}
+        {isMinibar && selectedProductId && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Typography variant="body2" color="text.secondary">Adet:</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <IconButton
+                size="small"
+                onClick={() => handleQuantityChange(-1)}
+                disabled={quantity <= 1}
+                sx={{ border: '1px solid', borderColor: 'divider' }}
+              >
+                <RemoveIcon fontSize="small" />
+              </IconButton>
+              <Typography variant="h6" sx={{ minWidth: 32, textAlign: 'center', fontWeight: 700 }}>
+                {quantity}
+              </Typography>
+              <IconButton
+                size="small"
+                onClick={() => handleQuantityChange(1)}
+                disabled={selectedProduct ? quantity >= selectedProduct.availableStock : false}
+                sx={{ border: '1px solid', borderColor: 'divider' }}
+              >
+                <AddIcon fontSize="small" />
+              </IconButton>
+            </Box>
+            {selectedProduct && (
+              <Typography variant="caption" color="text.secondary">
+                Birim: {parseFloat(selectedProduct.price).toLocaleString('tr-TR')} ₺
+              </Typography>
+            )}
+          </Box>
         )}
 
         <TextField
@@ -171,6 +252,7 @@ const FolioAddDialog: React.FC<FolioAddDialogProps> = ({
           helperText={errors.amount}
           fullWidth
           inputProps={{ min: 0, step: 0.01 }}
+          slotProps={{ input: { readOnly: isMinibar } }}
         />
       </DialogContent>
 

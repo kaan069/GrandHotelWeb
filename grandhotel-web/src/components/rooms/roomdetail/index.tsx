@@ -91,18 +91,23 @@ const RoomDetailSections: React.FC<RoomDetailSectionsProps> = ({
     <Grid container spacing={2.5}>
       {/* Sol Panel - Odada Kalanlar + Müşteri Yönetimi */}
       <Grid size={{ xs: 12, md: 8 }}>
-        <GuestListSection
-          guests={guests}
-          beds={beds}
-          onMenuAction={onMenuAction}
-        />
-
-        <CustomerManagementSection
-          customerMode={customerMode}
-          onCustomerModeChange={onCustomerModeChange}
-          onNewGuestClick={onNewGuestClick}
-          onSearchGuestClick={onSearchGuestClick}
-        />
+        <Grid container spacing={2}>
+          <Grid size={{ xs: 12, md: 8 }}>
+            <GuestListSection
+              guests={guests}
+              beds={beds}
+              onMenuAction={onMenuAction}
+            />
+          </Grid>
+          <Grid size={{ xs: 12, md: 4 }}>
+            <CustomerManagementSection
+              customerMode={customerMode}
+              onCustomerModeChange={onCustomerModeChange}
+              onNewGuestClick={onNewGuestClick}
+              onSearchGuestClick={onSearchGuestClick}
+            />
+          </Grid>
+        </Grid>
 
         <QuickReservationSection
           quickRes={quickRes}
