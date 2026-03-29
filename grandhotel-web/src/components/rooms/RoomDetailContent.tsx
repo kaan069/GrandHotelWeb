@@ -104,6 +104,8 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
 
   /* === Effects === */
   useEffect(() => {
+    setQuickRes({ firstName: '', lastName: '', phone: '' });
+
     const fetchData = async () => {
       try {
         const [companiesData, foliosData] = await Promise.all([
@@ -331,6 +333,18 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
           companyId: selectedCompanyId ? Number(selectedCompanyId) : null,
           totalAmount: nightlyRate ? Number(nightlyRate) : undefined,
         });
+        // Gecelik ücret değiştiyse Room.price'ı da güncelle
+        const newPrice = nightlyRate ? Number(nightlyRate) : room.price;
+        if (newPrice !== room.price) {
+          await roomsApi.updatePrice(room.id, newPrice!);
+        }
+        // State'i senkronize et
+        onRoomUpdate(room.id, {
+          reservationCheckIn: checkInDate ? new Date(checkInDate + 'T14:00:00').toISOString() : room.reservationCheckIn,
+          reservationCheckOut: checkOutDate ? new Date(checkOutDate + 'T12:00:00').toISOString() : room.reservationCheckOut,
+          notes: roomNote,
+          price: newPrice,
+        });
         alert('Rezervasyon güncellendi.');
       } catch (err: any) {
         console.error('Rezervasyon güncelleme hatası:', err);
@@ -351,7 +365,11 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
           checkOut: checkOutDate || undefined,
           notes: roomNote,
         });
-        alert('Rezervasyon kaydedildi. Oda durumu değişmedi.');
+        // Misafirleri odaya ekle (addGuest check_in=now set eder → oda düzeninde görünür)
+        for (const g of guests) {
+          try { await roomsApi.addGuest(room.id, g.guestId); } catch { /* ilk misafir zaten var, güncellenir */ }
+        }
+        alert('Rezervasyon kaydedildi.');
       } catch (err: any) {
         console.error('Rezervasyon kayıt hatası:', err);
         alert(err?.response?.data?.error || err.message || 'Rezervasyon kaydedilemedi');
@@ -485,15 +503,11 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
 
   const handleNightlyRateChange = (value: string) => {
     setNightlyRate(value);
-    const numVal = Number(value);
-    if (!isNaN(numVal) && numVal >= 0) {
-      onRoomUpdate(room.id, { price: numVal });
-    }
   };
 
   const handleNoteSave = () => { onRoomUpdate(room.id, { notes: roomNote.trim() || undefined }); };
 
-  const handleGuestMenuAction = async (action: 'history' | 'card' | 'block' | 'remove', guestId: number) => {
+  const handleGuestMenuAction = async (action: 'history' | 'card' | 'block' | 'remove' | 'checkout', guestId: number) => {
     try {
       if (action === 'history') {
         const roomGuest = (room.guests || []).find((g) => g.guestId === guestId);
@@ -528,6 +542,25 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
           });
           setGuestCardDialogOpen(true);
         }
+      } else if (action === 'checkout') {
+        const guestName = (room.guests || []).find((g) => g.guestId === guestId)?.guestName || '';
+        if (!window.confirm(`${guestName} için check-out yapılsın mı?`)) return;
+        await roomsApi.checkOut(room.id, { guestId });
+        await auditApi.create({
+          roomId: room.id,
+          action: 'guest_checkout',
+          description: `${guestName} check-out yapıldı`,
+          performedBy: '',
+        });
+        const now = new Date().toISOString();
+        const updatedGuests = (room.guests || []).map((g) =>
+          g.guestId === guestId ? { ...g, isActive: false, checkOut: now } : g
+        );
+        const activeGuests = updatedGuests.filter((g) => g.isActive !== false);
+        onRoomUpdate(room.id, {
+          guests: updatedGuests,
+          guestName: activeGuests.map((g) => g.guestName).join(', ') || '',
+        });
       } else if (action === 'remove') {
         const guestName = (room.guests || []).find((g) => g.guestId === guestId)?.guestName || '';
         if (!window.confirm(`${guestName} misafirini odadan çıkarmak istediğinize emin misiniz?`)) return;
@@ -569,7 +602,7 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
 
   const hasGuests = room.guests && room.guests.length > 0;
   const hasPayment = folios.some((f) => f.category === 'payment');
-  const isCheckInDisabled = !hasGuests || (!hasPayment || folioTotal > 0);
+  const isCheckInDisabled = !hasGuests;
   const isOccupied = room.status === ROOM_STATUS.OCCUPIED;
 
   /* Mevcut rezervasyonda değişiklik var mı? */

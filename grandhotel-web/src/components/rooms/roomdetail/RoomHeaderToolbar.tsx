@@ -166,7 +166,7 @@ const RoomHeaderToolbar: React.FC<RoomHeaderToolbarProps> = ({
         <Button variant="outlined" size="small" color="warning" startIcon={<ReceiptIcon />} onClick={onInvoiceOpen}>
           Fatura Kes
         </Button>
-        {onSaveReservation && !isOccupied && (
+        {onSaveReservation && (
           <Button
             variant="outlined"
             size="small"

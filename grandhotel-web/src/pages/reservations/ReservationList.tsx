@@ -31,7 +31,7 @@ import usePermission from '../../hooks/usePermission';
 import usePageTabs from '../../hooks/usePageTabs';
 import { formatDate, formatCurrency } from '../../utils/formatters';
 import {
-  RESERVATION_STATUS_LABELS,
+  RESERVATION_FILTER_LABELS,
 } from '../../utils/constants';
 import { reservationsApi, roomsApi, companiesApi } from '../../api/services';
 import type { ApiReservation, ApiRoom, ApiCompany, ApiRoomMinibarItem } from '../../api/services';
@@ -54,7 +54,7 @@ interface RoomForDetail {
   price?: number;
   status: string;
   guestName?: string;
-  guests?: { guestId: number; guestName: string; phone: string; checkIn: string; checkOut: string | null; isActive: boolean }[];
+  guests?: { guestId: number; guestName: string; phone: string; checkIn: string; checkOut?: string; isActive: boolean }[];
   notes?: string;
   reservationId?: number | null;
   reservationCheckIn?: string | null;
@@ -87,7 +87,7 @@ const mapApiRoomToDetail = (r: ApiRoom): RoomForDetail => ({
     guestName: g.guestName,
     phone: g.phone,
     checkIn: g.checkIn,
-    checkOut: g.checkOut,
+    checkOut: g.checkOut ?? undefined,
     isActive: g.isActive,
   })),
   notes: r.notes ?? undefined,
@@ -195,7 +195,7 @@ const columns: GridColDef[] = [
 /* ==================== ANA BİLEŞEN ==================== */
 
 interface Filters {
-  status: string;
+  filter: string;
   dateStart: Dayjs | null;
   dateEnd: Dayjs | null;
 }
@@ -227,7 +227,7 @@ const ReservationList: React.FC = () => {
 
   /* Filtre state'leri */
   const [filters, setFilters] = useState<Filters>({
-    status: '',
+    filter: '',
     dateStart: null,
     dateEnd: null,
   });
@@ -248,13 +248,13 @@ const ReservationList: React.FC = () => {
     setError(null);
     try {
       const apiFilters: {
-        status?: string;
+        filter?: string;
         dateFrom?: string;
         dateTo?: string;
       } = {};
 
-      if (filters.status) {
-        apiFilters.status = filters.status;
+      if (filters.filter) {
+        apiFilters.filter = filters.filter;
       }
       if (filters.dateStart) {
         apiFilters.dateFrom = filters.dateStart.format('YYYY-MM-DD');
@@ -271,7 +271,7 @@ const ReservationList: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [filters.status, filters.dateStart, filters.dateEnd]);
+  }, [filters.filter, filters.dateStart, filters.dateEnd]);
 
   useEffect(() => {
     fetchReservations();
@@ -284,7 +284,7 @@ const ReservationList: React.FC = () => {
 
   /** Tüm filtreleri temizle */
   const handleClearFilters = () => {
-    setFilters({ status: '', dateStart: null, dateEnd: null });
+    setFilters({ filter: '', dateStart: null, dateEnd: null });
   };
 
   /** Rezervasyon satırına tıklayınca oda tabı aç */
@@ -359,14 +359,14 @@ const ReservationList: React.FC = () => {
   /** Filtre tanımları */
   const filterConfig = [
     {
-      id: 'status',
-      label: 'Durum',
-      options: Object.entries(RESERVATION_STATUS_LABELS).map(([value, label]) => ({
+      id: 'filter',
+      label: 'Filtre',
+      options: Object.entries(RESERVATION_FILTER_LABELS).map(([value, label]) => ({
         value,
         label,
       })),
-      value: filters.status,
-      onChange: (value: string) => handleFilterChange('status', value),
+      value: filters.filter,
+      onChange: (value: string) => handleFilterChange('filter', value),
     },
   ];
 

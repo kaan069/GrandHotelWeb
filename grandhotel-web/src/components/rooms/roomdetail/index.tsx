@@ -21,7 +21,7 @@ interface RoomDetailSectionsProps {
   /* GuestListSection */
   guests: RoomGuest[];
   beds: { type: string }[];
-  onMenuAction: (action: 'history' | 'card' | 'block' | 'remove', guestId: number) => void;
+  onMenuAction: (action: 'history' | 'card' | 'block' | 'remove' | 'checkout', guestId: number) => void;
   /* CustomerManagementSection */
   customerMode: 'new' | 'registered';
   onCustomerModeChange: (mode: 'new' | 'registered') => void;

@@ -26,6 +26,7 @@ import {
 } from '@mui/icons-material';
 
 import { FolioItem, FOLIO_CATEGORY_LABELS } from '../../../utils/constants';
+import { formatDateTime } from '../../../utils/formatters';
 
 interface FolioDetailDialogProps {
   open: boolean;
@@ -87,7 +88,7 @@ const FolioDetailDialog: React.FC<FolioDetailDialogProps> = ({
                       />
                     </TableCell>
                     <TableCell>{folio.description || '-'}</TableCell>
-                    <TableCell>{folio.date || '-'}</TableCell>
+                    <TableCell>{folio.createdAt ? formatDateTime(folio.createdAt) : (folio.date || '-')}</TableCell>
                     <TableCell align="right" sx={{ fontWeight: 500 }}>
                       {(folio.category === 'discount' || folio.category === 'payment' ? '-' : '')}
                       {folio.amount.toLocaleString('tr-TR')} ₺

@@ -17,12 +17,14 @@ import {
   Person as PersonIcon,
   Block as BlockIcon,
   PersonRemove as PersonRemoveIcon,
+  ExitToApp as ExitToAppIcon,
   KingBed as KingBedIcon,
   SingleBed as SingleBedIcon,
   DragIndicator as DragIcon,
 } from '@mui/icons-material';
 
 import { RoomGuest, BED_TYPE_LABELS } from '../../../utils/constants';
+import { formatDateTime } from '../../../utils/formatters';
 
 interface BedConfig {
   type: string;
@@ -36,7 +38,7 @@ interface BedAssignment {
 interface GuestListSectionProps {
   guests: RoomGuest[];
   beds: BedConfig[];
-  onMenuAction: (action: 'history' | 'card' | 'block' | 'remove', guestId: number) => void;
+  onMenuAction: (action: 'history' | 'card' | 'block' | 'remove' | 'checkout', guestId: number) => void;
 }
 
 /** Yatak tipine göre genişlik oranı */
@@ -112,7 +114,7 @@ const GuestListSection: React.FC<GuestListSectionProps> = ({ guests, beds, onMen
     setMenuGuestId(null);
   };
 
-  const handleAction = (action: 'history' | 'card' | 'block' | 'remove') => {
+  const handleAction = (action: 'history' | 'card' | 'block' | 'remove' | 'checkout') => {
     if (menuGuestId) {
       onMenuAction(action, menuGuestId);
     }
@@ -259,55 +261,73 @@ const GuestListSection: React.FC<GuestListSectionProps> = ({ guests, beds, onMen
                         {isDragOver ? 'Buraya bırak' : 'Boş'}
                       </Typography>
                     ) : (
-                      bedGuests.map((guest) => (
-                        <Box
-                          key={guest.guestId}
-                          draggable
-                          onDragStart={(e) => handleDragStart(e, guest.guestId)}
-                          onDragEnd={handleDragEnd}
-                          sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 0.5,
-                            width: '100%',
-                            justifyContent: 'center',
-                            bgcolor: dragGuestId === guest.guestId
-                              ? 'rgba(33, 150, 243, 0.18)'
-                              : 'rgba(33, 150, 243, 0.08)',
-                            borderRadius: 1.5,
-                            px: 1.5,
-                            py: 0.75,
-                            cursor: 'grab',
-                            opacity: dragGuestId === guest.guestId ? 0.5 : 1,
-                            transition: 'opacity 0.15s, background-color 0.15s',
-                            '&:active': { cursor: 'grabbing' },
-                          }}
-                        >
-                          <DragIcon sx={{ fontSize: 14, color: 'text.disabled', mr: 0.25 }} />
-                          <PersonIcon sx={{ fontSize: 16, color: 'primary.main' }} />
-                          <Typography
-                            variant="body2"
-                            fontWeight={600}
+                      bedGuests.map((guest) => {
+                        const isCheckedOut = guest.isActive === false;
+                        return (
+                          <Box
+                            key={guest.guestId}
+                            draggable={!isCheckedOut}
+                            onDragStart={isCheckedOut ? undefined : (e) => handleDragStart(e, guest.guestId)}
+                            onDragEnd={isCheckedOut ? undefined : handleDragEnd}
                             sx={{
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                              flex: 1,
-                              textAlign: 'center',
-                              userSelect: 'none',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              width: '100%',
+                              bgcolor: isCheckedOut
+                                ? 'rgba(0, 0, 0, 0.04)'
+                                : dragGuestId === guest.guestId
+                                  ? 'rgba(33, 150, 243, 0.18)'
+                                  : 'rgba(33, 150, 243, 0.08)',
+                              borderRadius: 1.5,
+                              px: 1.5,
+                              py: 0.75,
+                              cursor: isCheckedOut ? 'default' : 'grab',
+                              opacity: isCheckedOut ? 0.45 : dragGuestId === guest.guestId ? 0.5 : 1,
+                              transition: 'opacity 0.15s, background-color 0.15s',
+                              '&:active': { cursor: isCheckedOut ? 'default' : 'grabbing' },
                             }}
                           >
-                            {guest.guestName}
-                          </Typography>
-                          <IconButton
-                            size="small"
-                            onClick={(e) => handleMenuOpen(e, guest.guestId)}
-                            sx={{ p: 0.25 }}
-                          >
-                            <MoreVertIcon sx={{ fontSize: 16 }} />
-                          </IconButton>
-                        </Box>
-                      ))
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'center' }}>
+                              {!isCheckedOut && <DragIcon sx={{ fontSize: 14, color: 'text.disabled', mr: 0.25 }} />}
+                              <PersonIcon sx={{ fontSize: 16, color: isCheckedOut ? 'text.disabled' : 'primary.main' }} />
+                              <Typography
+                                variant="body2"
+                                fontWeight={600}
+                                sx={{
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                  flex: 1,
+                                  textAlign: 'center',
+                                  userSelect: 'none',
+                                  textDecoration: isCheckedOut ? 'line-through' : 'none',
+                                }}
+                              >
+                                {guest.guestName}
+                              </Typography>
+                              {!isCheckedOut && (
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => handleMenuOpen(e, guest.guestId)}
+                                  sx={{ p: 0.25 }}
+                                >
+                                  <MoreVertIcon sx={{ fontSize: 16 }} />
+                                </IconButton>
+                              )}
+                            </Box>
+                            {guest.checkIn && !isCheckedOut && (
+                              <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', mt: 0.25 }}>
+                                Giriş: {formatDateTime(guest.checkIn)}
+                              </Typography>
+                            )}
+                            {isCheckedOut && guest.checkOut && (
+                              <Typography variant="caption" color="text.disabled" sx={{ textAlign: 'center', mt: 0.25 }}>
+                                Çıkış: {formatDateTime(guest.checkOut)}
+                              </Typography>
+                            )}
+                          </Box>
+                        );
+                      })
                     )}
                   </Box>
                 </Box>
@@ -335,6 +355,10 @@ const GuestListSection: React.FC<GuestListSectionProps> = ({ guests, beds, onMen
           <ListItemText>Müşteri Kartı Aç</ListItemText>
         </MenuItem>
         <Divider />
+        <MenuItem onClick={() => handleAction('checkout')} sx={{ color: 'info.main' }}>
+          <ListItemIcon><ExitToAppIcon fontSize="small" color="info" /></ListItemIcon>
+          <ListItemText>Check Out Yap</ListItemText>
+        </MenuItem>
         <MenuItem onClick={() => handleAction('remove')} sx={{ color: 'warning.main' }}>
           <ListItemIcon><PersonRemoveIcon fontSize="small" color="warning" /></ListItemIcon>
           <ListItemText>Misafiri Odadan Çıkar</ListItemText>

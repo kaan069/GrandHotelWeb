@@ -52,6 +52,9 @@ export interface RoomGuest {
   guestId: number;
   guestName: string;
   phone?: string;
+  checkIn?: string;
+  checkOut?: string;
+  isActive?: boolean;
 }
 
 /** Firma */
@@ -74,6 +77,7 @@ export interface FolioItem {
   amount: number;
   date: string;
   createdBy?: string;
+  createdAt?: string;
 }
 
 /** Konaklama geçmişi — backend Reservation response'una uyumlu */
@@ -246,6 +250,24 @@ export const RESERVATION_STATUS_COLORS: Record<string, ChipColor> = {
   [RESERVATION_STATUS.CHECKED_OUT]: 'default',
   [RESERVATION_STATUS.CANCELLED]: 'error',
   [RESERVATION_STATUS.NO_SHOW]: 'secondary',
+};
+
+/* ==================== REZERVASYON FİLTRE PRESET'LERİ ==================== */
+
+export const RESERVATION_FILTERS: Record<string, string> = {
+  TODAY_CHECKIN: 'today_checkin',
+  TODAY_CHECKOUT: 'today_checkout',
+  TODAY_CHECKED_OUT: 'today_checked_out',
+  TOMORROW_CHECKIN: 'tomorrow_checkin',
+  UNPAID_CHECKOUT: 'unpaid_checkout',
+};
+
+export const RESERVATION_FILTER_LABELS: Record<string, string> = {
+  [RESERVATION_FILTERS.TODAY_CHECKIN]: 'Bugün Girecekler',
+  [RESERVATION_FILTERS.TODAY_CHECKOUT]: 'Bugün Çıkacaklar',
+  [RESERVATION_FILTERS.TODAY_CHECKED_OUT]: 'Bugün Çıkanlar',
+  [RESERVATION_FILTERS.TOMORROW_CHECKIN]: 'Yarın Girecekler',
+  [RESERVATION_FILTERS.UNPAID_CHECKOUT]: 'Çıkış Yapıp Ödeme Yapmayanlar',
 };
 
 /* ==================== ÖDEME DURUMLARI ==================== */
@@ -452,6 +474,13 @@ export const MENU_ITEMS: MenuItem[] = [
     path: '/kbs',
     icon: 'Badge',
     roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.RECEPTION],
+  },
+  {
+    id: 'cameras',
+    label: 'Kameralar',
+    path: '/cameras',
+    icon: 'Videocam',
+    roles: [ROLES.PATRON, ROLES.MANAGER],
   },
   {
     id: 'shift-handover',

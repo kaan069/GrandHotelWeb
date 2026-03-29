@@ -253,6 +253,10 @@ export const roomsApi = {
   updateNotes: (roomId: number, notes: string) =>
     api.post<ApiRoom>(`/rooms/${roomId}/update_notes/`, { notes }).then((r) => r.data),
 
+  /** Odanın gecelik ücretini güncelle */
+  updatePrice: (roomId: number, price: number) =>
+    api.patch<ApiRoom>(`/rooms/${roomId}/`, { price: String(price) }).then((r) => r.data),
+
   /** Oda taşıma — misafirleri ve rezervasyonu hedef odaya aktar */
   moveGuests: (fromRoomId: number, toRoomId: number) =>
     api.post<ApiRoom>(`/rooms/${fromRoomId}/move/`, { toRoomId }).then((r) => r.data),
@@ -345,6 +349,7 @@ export const reservationsApi = {
     roomId?: number; guestId?: number; companyId?: number;
     isActive?: boolean; status?: string;
     dateFrom?: string; dateTo?: string;
+    filter?: string; search?: string;
   }) => {
     const params = new URLSearchParams();
     if (filters?.roomId) params.append('roomId', String(filters.roomId));
@@ -354,6 +359,8 @@ export const reservationsApi = {
     if (filters?.status) params.append('status', filters.status);
     if (filters?.dateFrom) params.append('dateFrom', filters.dateFrom);
     if (filters?.dateTo) params.append('dateTo', filters.dateTo);
+    if (filters?.filter) params.append('filter', filters.filter);
+    if (filters?.search) params.append('search', filters.search);
     const qs = params.toString();
     return api.get<ApiReservation[]>(`/reservations/${qs ? '?' + qs : ''}`).then((r) => r.data);
   },
@@ -465,6 +472,46 @@ export interface DashboardStats {
   todayCheckouts: { guest: string; room: string; time: string }[];
 }
 
+export interface NightAuditPreviewRoom {
+  roomId: number;
+  roomNumber: string;
+  guestName: string;
+  price: number;
+  checkIn: string | null;
+  nights: number;
+  companyName: string | null;
+  reservationId: number;
+}
+
+export interface NightAuditNoShowRoom {
+  reservationId: number;
+  roomId: number;
+  roomNumber: string;
+  guestName: string;
+  checkIn: string | null;
+  companyName: string | null;
+}
+
+export interface NightAuditPreviewResponse {
+  date: string;
+  alreadyProcessed: boolean;
+  occupiedRooms: NightAuditPreviewRoom[];
+  totalCharge: number;
+  roomCount: number;
+  noShowRooms: NightAuditNoShowRoom[];
+  noShowCount: number;
+}
+
+export interface NightAuditExecuteResponse {
+  date: string;
+  processedRooms: number;
+  skippedRooms: number;
+  totalCharged: number;
+  details: { roomNumber: string; guestName: string; amount: number; companyName: string | null }[];
+  noShowCount: number;
+  noShowCancelled: number;
+}
+
 export const kazancApi = {
   /** Dashboard özet istatistikler (doluluk + ciro + check-in/out) */
   dashboardStats: () =>
@@ -486,13 +533,41 @@ export const kazancApi = {
     return api.get<any>(`/kazanc/daily-summary/${qs}`).then((r) => r.data);
   },
 
-  /** Gün sonu önizleme — hangi odalara ücret yansıyacak */
+  /** Gün sonu önizleme — konaklayan odalar + no-show tespiti */
   nightAuditPreview: () =>
-    api.get<any>('/kazanc/night-audit-preview/').then((r) => r.data),
+    api.get<NightAuditPreviewResponse>('/kazanc/night-audit-preview/').then((r) => r.data),
 
-  /** Gün sonu uygula — oda ücretlerini folio'ya yaz */
-  nightAuditExecute: () =>
-    api.post<any>('/kazanc/night-audit/').then((r) => r.data),
+  /** Gün sonu uygula — oda ücretlerini folio'ya yaz + rapor kaydet */
+  nightAuditExecute: (processedBy?: string) =>
+    api.post<NightAuditExecuteResponse>('/kazanc/night-audit/', { processedBy }).then((r) => r.data),
+
+  /** No-show rezervasyon iptal et */
+  cancelNoShow: (reservationId: number) =>
+    api.post<{ reservationId: number; status: string; roomNumber: string }>(
+      '/kazanc/night-audit-cancel-noshow/', { reservationId }
+    ).then((r) => r.data),
+
+  /** Otomatik gün sonu saatini getir */
+  getNightAuditSchedule: () =>
+    api.get<{ nightAuditTime: string | null; enabled: boolean }>(
+      '/kazanc/night-audit-schedule/'
+    ).then((r) => r.data),
+
+  /** Otomatik gün sonu saatini ayarla (null = kapat) */
+  setNightAuditSchedule: (time: string | null) =>
+    api.post<{ nightAuditTime: string | null; enabled: boolean }>(
+      '/kazanc/night-audit-schedule/',
+      { time }
+    ).then((r) => r.data),
+
+  /** Geçmiş gün sonu raporları */
+  nightAuditReports: (filters?: { dateFrom?: string; dateTo?: string }) => {
+    const params = new URLSearchParams();
+    if (filters?.dateFrom) params.append('dateFrom', filters.dateFrom);
+    if (filters?.dateTo) params.append('dateTo', filters.dateTo);
+    const qs = params.toString();
+    return api.get<any[]>(`/kazanc/night-audit-reports/${qs ? '?' + qs : ''}`).then((r) => r.data);
+  },
 
   /** Gelişmiş kazanç raporu (çoklu filtreleme) */
   advancedReport: (filters?: {
@@ -817,4 +892,35 @@ export const shiftApi = {
   /** Mesai detayı */
   getById: (id: number) =>
     api.get(`/shifts/${id}/`).then((r) => r.data),
+};
+
+/* ==================== CAMERA API ==================== */
+
+export interface ApiCamera {
+  id: number;
+  name: string;
+  location: string;
+  streamUrl: string;
+  snapshotUrl?: string;
+  status: 'online' | 'offline';
+  type: string;
+  order: number;
+}
+
+export const cameraApi = {
+  /** Tüm kameraları getir */
+  getAll: () =>
+    api.get<ApiCamera[]>('/cameras/').then((r) => r.data),
+
+  /** Kamera ekle */
+  create: (data: { name: string; location: string; streamUrl: string; snapshotUrl?: string; type?: string; order?: number }) =>
+    api.post<ApiCamera>('/cameras/', data).then((r) => r.data),
+
+  /** Kamera güncelle */
+  update: (id: number, data: Partial<ApiCamera>) =>
+    api.put<ApiCamera>(`/cameras/${id}/`, data).then((r) => r.data),
+
+  /** Kamera sil */
+  delete: (id: number) =>
+    api.delete(`/cameras/${id}/`),
 };

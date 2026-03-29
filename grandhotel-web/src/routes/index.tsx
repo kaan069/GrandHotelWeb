@@ -36,6 +36,7 @@ const NightAuditReport = React.lazy(() => import('../pages/reports/NightAuditRep
 const StockManagement = React.lazy(() => import('../pages/minibar/StockManagement'));
 
 const KbsRecords = React.lazy(() => import('../pages/kbs/KbsRecords'));
+const CameraView = React.lazy(() => import('../pages/cameras/CameraView'));
 const ParasutIntegration = React.lazy(() => import('../pages/integrations/ParasutIntegration'));
 
 /* Public Booking Sayfaları */
@@ -247,6 +248,14 @@ const router = createBrowserRouter([
             element: (
               <React.Suspense fallback={null}>
                 <KbsRecords />
+              </React.Suspense>
+            ),
+          },
+          {
+            path: '/cameras',
+            element: (
+              <React.Suspense fallback={null}>
+                <CameraView />
               </React.Suspense>
             ),
           },
