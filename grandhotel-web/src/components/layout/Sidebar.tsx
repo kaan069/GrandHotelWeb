@@ -51,6 +51,10 @@ import {
   LocalBar as LocalBarIcon,
   Badge as BadgeIcon,
   Videocam as VideocamIcon,
+  TableRestaurant as TableRestaurantIcon,
+  SoupKitchen as SoupKitchenIcon,
+  PointOfSale as PointOfSaleIcon,
+  RestaurantMenu as RestaurantMenuIcon,
 } from '@mui/icons-material';
 
 import { MENU_ITEMS, SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH, APP_NAME, MenuItem, MenuChildItem } from '../../utils/constants';
@@ -79,6 +83,10 @@ const iconMap: Record<string, React.ElementType> = {
   LocalBar: LocalBarIcon,
   Badge: BadgeIcon,
   Videocam: VideocamIcon,
+  TableRestaurant: TableRestaurantIcon,
+  SoupKitchen: SoupKitchenIcon,
+  PointOfSale: PointOfSaleIcon,
+  RestaurantMenu: RestaurantMenuIcon,
 };
 
 const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {

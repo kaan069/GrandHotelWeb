@@ -8,7 +8,7 @@
 /* ==================== TİP TANIMLARI ==================== */
 
 /** Kullanıcı rol tipi */
-export type Role = 'patron' | 'manager' | 'reception' | 'reception_manager' | 'waiter' | 'chef' | 'restaurant_manager' | 'technician' | 'housekeeper' | 'housekeeping_manager' | 'security' | 'accountant' | 'lobby' | 'barista' | 'barman' | 'minibar';
+export type Role = 'patron' | 'manager' | 'reception' | 'reception_manager' | 'waiter' | 'chef' | 'restaurant_manager' | 'technician' | 'housekeeper' | 'housekeeping_manager' | 'security' | 'accountant' | 'lobby' | 'barista' | 'barman' | 'minibar' | 'cashier';
 
 /** Oda durumu tipi */
 export type RoomStatus = 'available' | 'occupied' | 'dirty' | 'maintenance' | 'blocked';
@@ -157,6 +157,7 @@ export const ROLES: Record<string, Role> = {
   BARISTA: 'barista',
   BARMAN: 'barman',
   MINIBAR: 'minibar',
+  CASHIER: 'cashier',
 };
 
 /** Rol etiketleri (Türkçe gösterim) */
@@ -177,6 +178,7 @@ export const ROLE_LABELS: Record<string, string> = {
   [ROLES.BARISTA]: 'Barista',
   [ROLES.BARMAN]: 'Barmen',
   [ROLES.MINIBAR]: 'Minibar Görevlisi',
+  [ROLES.CASHIER]: 'Kasiyer',
 };
 
 /* ==================== ODA DURUMLARI ==================== */
@@ -490,11 +492,32 @@ export const MENU_ITEMS: MenuItem[] = [
     roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.CHEF, ROLES.RESTAURANT_MANAGER],
   },
   {
+    id: 'tables',
+    label: 'Masa Yönetimi',
+    path: '/tables',
+    icon: 'TableRestaurant',
+    roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.WAITER, ROLES.RESTAURANT_MANAGER, ROLES.CASHIER, ROLES.BARISTA, ROLES.BARMAN],
+  },
+  {
     id: 'adisyonlar',
     label: 'Adisyonlar',
     path: '/adisyonlar',
     icon: 'Receipt',
-    roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.RECEPTION, ROLES.WAITER, ROLES.BARISTA, ROLES.BARMAN, ROLES.RESTAURANT_MANAGER],
+    roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.RECEPTION, ROLES.WAITER, ROLES.BARISTA, ROLES.BARMAN, ROLES.RESTAURANT_MANAGER, ROLES.CASHIER],
+  },
+  {
+    id: 'kitchen',
+    label: 'Mutfak Ekranı',
+    path: '/kitchen',
+    icon: 'SoupKitchen',
+    roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.CHEF, ROLES.RESTAURANT_MANAGER],
+  },
+  {
+    id: 'kasa',
+    label: 'Kasa',
+    path: '/kasa',
+    icon: 'PointOfSale',
+    roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.CASHIER, ROLES.RESTAURANT_MANAGER],
   },
   {
     id: 'shift-handover',

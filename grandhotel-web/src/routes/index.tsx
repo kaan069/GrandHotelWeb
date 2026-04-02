@@ -40,6 +40,10 @@ const AdisyonList = React.lazy(() => import('../pages/adisyon/AdisyonList'));
 const KbsRecords = React.lazy(() => import('../pages/kbs/KbsRecords'));
 const CameraView = React.lazy(() => import('../pages/cameras/CameraView'));
 const ParasutIntegration = React.lazy(() => import('../pages/integrations/ParasutIntegration'));
+const KitchenDisplay = React.lazy(() => import('../pages/kitchen/KitchenDisplay'));
+const TableManagement = React.lazy(() => import('../pages/tables/TableManagement'));
+const CashRegisterPage = React.lazy(() => import('../pages/kasa/CashRegisterPage'));
+const QROrderPage = React.lazy(() => import('../pages/qr-order/QROrderPage'));
 
 /* Public Booking Sayfaları */
 const BookingLayout = React.lazy(() => import('../components/booking/BookingLayout'));
@@ -77,6 +81,16 @@ const router = createBrowserRouter([
     element: (
       <React.Suspense fallback={<div>Yükleniyor...</div>}>
         <Login />
+      </React.Suspense>
+    ),
+  },
+
+  /* === Public QR Sipariş (auth yok, layout yok) === */
+  {
+    path: '/qr-order/:token',
+    element: (
+      <React.Suspense fallback={<div>Yükleniyor...</div>}>
+        <QROrderPage />
       </React.Suspense>
     ),
   },
@@ -274,6 +288,30 @@ const router = createBrowserRouter([
             element: (
               <React.Suspense fallback={null}>
                 <AdisyonList />
+              </React.Suspense>
+            ),
+          },
+          {
+            path: '/kitchen',
+            element: (
+              <React.Suspense fallback={null}>
+                <KitchenDisplay />
+              </React.Suspense>
+            ),
+          },
+          {
+            path: '/tables',
+            element: (
+              <React.Suspense fallback={null}>
+                <TableManagement />
+              </React.Suspense>
+            ),
+          },
+          {
+            path: '/kasa',
+            element: (
+              <React.Suspense fallback={null}>
+                <CashRegisterPage />
               </React.Suspense>
             ),
           },

@@ -283,7 +283,7 @@ const AdisyonList: React.FC = () => {
             <TableHead>
               <TableRow sx={{ bgcolor: 'grey.50' }}>
                 <TableCell sx={{ fontWeight: 600 }}>Adisyon No</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Oda</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Oda/Masa</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Misafir</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Hizmet Noktası</TableCell>
                 <TableCell sx={{ fontWeight: 600 }} align="right">Tutar</TableCell>
@@ -303,7 +303,9 @@ const AdisyonList: React.FC = () => {
                   <TableCell>
                     <strong style={{ color: '#1565C0' }}>{tab.tabNo}</strong>
                   </TableCell>
-                  <TableCell>{tab.roomNumber || '-'}</TableCell>
+                  <TableCell>
+                    {tab.roomNumber ? `Oda ${tab.roomNumber}` : tab.tableNumber ? `Masa ${tab.tableNumber}` : '-'}
+                  </TableCell>
                   <TableCell>{tab.guestName || '-'}</TableCell>
                   <TableCell>
                     <Chip label={SERVICE_POINT_LABELS[tab.servicePoint] || tab.servicePoint} size="small" variant="outlined" />
@@ -406,7 +408,7 @@ const AdisyonList: React.FC = () => {
                 </Typography>
               </Box>
               <Typography variant="body2" color="text.secondary">
-                {detailTab.guestName} | {detailTab.roomNumber ? `Oda ${detailTab.roomNumber}` : 'Dış Müşteri'} | {SERVICE_POINT_LABELS[detailTab.servicePoint]}
+                {detailTab.guestName} | {detailTab.roomNumber ? `Oda ${detailTab.roomNumber}` : detailTab.tableNumber ? `Masa ${detailTab.tableNumber}` : 'Dış Müşteri'} | {SERVICE_POINT_LABELS[detailTab.servicePoint]}
               </Typography>
             </DialogTitle>
             <DialogContent dividers>

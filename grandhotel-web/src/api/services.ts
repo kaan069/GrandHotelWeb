@@ -963,6 +963,8 @@ export interface ApiTab {
   reservationId: number | null;
   roomId: number | null;
   roomNumber: string | null;
+  tableId: number | null;
+  tableNumber: string | null;
   guestName: string;
   servicePoint: string;
   status: string;
@@ -1008,9 +1010,13 @@ export const tabsApi = {
   /** Kalem ekle */
   addItem: (tabId: number, data: {
     menuItemId?: number; stockItemId?: number;
-    description?: string; quantity: number; unitPrice: number;
+    description?: string; quantity: number; unitPrice: number; notes?: string;
   }) =>
     api.post<ApiTabItem>(`/tabs/${tabId}/add_item/`, data).then((r) => r.data),
+
+  /** Kalem adeti güncelle */
+  updateItem: (tabId: number, itemId: number, quantity: number) =>
+    api.post<ApiTabItem>(`/tabs/${tabId}/update_item/`, { itemId, quantity }).then((r) => r.data),
 
   /** Kalem sil */
   removeItem: (tabId: number, itemId: number) =>
@@ -1021,12 +1027,20 @@ export const tabsApi = {
     api.post<ApiTab>(`/tabs/${tabId}/close/`, { closedById }).then((r) => r.data),
 
   /** Ödeme yap */
-  pay: (tabId: number, paymentMethod: 'room_charge' | 'cash' | 'card') =>
-    api.post<ApiTab>(`/tabs/${tabId}/pay/`, { paymentMethod }).then((r) => r.data),
+  pay: (tabId: number, paymentMethod: 'room_charge' | 'cash' | 'card', registerId?: number) =>
+    api.post<ApiTab>(`/tabs/${tabId}/pay/`, { paymentMethod, registerId }).then((r) => r.data),
 
   /** İptal */
   cancel: (tabId: number) =>
     api.post<ApiTab>(`/tabs/${tabId}/cancel/`).then((r) => r.data),
+
+  /** Adisyon böl */
+  split: (tabId: number, itemIds: number[], guestName?: string) =>
+    api.post(`/tabs/${tabId}/split/`, { itemIds, guestName }).then((r) => r.data),
+
+  /** İade */
+  refund: (tabId: number, reason?: string) =>
+    api.post<ApiTab>(`/tabs/${tabId}/refund/`, { reason }).then((r) => r.data),
 };
 
 /* ──────────────────────────────────────────────────────────
@@ -1084,4 +1098,233 @@ export const cameraApi = {
   /** Kamera sil */
   delete: (id: number) =>
     api.delete(`/cameras/${id}/`),
+};
+
+/* ==================== RESTORAN / CAFE API ==================== */
+
+/* --- Service Area --- */
+
+export interface ApiServiceArea {
+  id: number;
+  name: string;
+  areaType: string;
+  isActive: boolean;
+  hasKitchen: boolean;
+  printerName: string;
+  tableCount: number;
+  createdAt: string;
+}
+
+export const serviceAreasApi = {
+  getAll: () =>
+    api.get<ApiServiceArea[]>('/service-areas/').then((r) => r.data),
+  create: (data: { name: string; areaType: string; hasKitchen?: boolean }) =>
+    api.post<ApiServiceArea>('/service-areas/', data).then((r) => r.data),
+  update: (id: number, data: Partial<ApiServiceArea>) =>
+    api.patch<ApiServiceArea>(`/service-areas/${id}/`, data).then((r) => r.data),
+  delete: (id: number) =>
+    api.delete(`/service-areas/${id}/`),
+};
+
+/* --- Table (Masa) --- */
+
+export interface ApiTable {
+  id: number;
+  tableNumber: string;
+  serviceAreaId: number;
+  serviceAreaName: string;
+  capacity: number;
+  status: string;
+  isActive: boolean;
+  positionX: number;
+  positionY: number;
+  qrToken: string;
+  currentTabId: number | null;
+  currentTotal: string;
+  createdAt: string;
+  currentTab?: ApiTab;
+}
+
+export const tablesApi = {
+  getAll: (filters?: { serviceAreaId?: number; status?: string }) => {
+    const params = new URLSearchParams();
+    if (filters?.serviceAreaId) params.append('serviceAreaId', String(filters.serviceAreaId));
+    if (filters?.status) params.append('status', filters.status);
+    const qs = params.toString();
+    return api.get<ApiTable[]>(`/tables/${qs ? '?' + qs : ''}`).then((r) => r.data);
+  },
+  getById: (id: number) =>
+    api.get<ApiTable>(`/tables/${id}/`).then((r) => r.data),
+  create: (data: { tableNumber: string; serviceAreaId: number; capacity?: number }) =>
+    api.post<ApiTable>('/tables/', data).then((r) => r.data),
+  update: (id: number, data: Partial<ApiTable>) =>
+    api.patch<ApiTable>(`/tables/${id}/`, data).then((r) => r.data),
+  delete: (id: number) =>
+    api.delete(`/tables/${id}/`),
+  open: (id: number, data: { guestName?: string; openedById?: number }) =>
+    api.post<ApiTab>(`/tables/${id}/open/`, data).then((r) => r.data),
+  close: (id: number) =>
+    api.post<ApiTable>(`/tables/${id}/close/`).then((r) => r.data),
+  transfer: (id: number, toTableId: number) =>
+    api.post(`/tables/${id}/transfer/`, { toTableId }).then((r) => r.data),
+};
+
+/* --- Kitchen / Order Items --- */
+
+export interface ApiOrderItemStatus {
+  id: number;
+  tabItemId: number;
+  itemDescription: string;
+  itemQuantity: number;
+  itemUnitPrice: string;
+  tabId: number;
+  tabNo: string;
+  tableNumber: string | null;
+  roomNumber: string | null;
+  servicePoint: string;
+  guestName: string;
+  status: string;
+  notes: string;
+  sentToKitchenAt: string;
+  startedAt: string | null;
+  readyAt: string | null;
+  servedAt: string | null;
+  preparedByName: string | null;
+}
+
+export interface ApiKitchenSummary {
+  pending: number;
+  preparing: number;
+  ready: number;
+  served: number;
+  cancelled: number;
+  total: number;
+}
+
+export const kitchenApi = {
+  getOrders: (filters?: { status?: string; serviceAreaId?: number; tabId?: number }) => {
+    const params = new URLSearchParams();
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.serviceAreaId) params.append('serviceAreaId', String(filters.serviceAreaId));
+    if (filters?.tabId) params.append('tabId', String(filters.tabId));
+    const qs = params.toString();
+    return api.get<ApiOrderItemStatus[]>(`/order-items/${qs ? '?' + qs : ''}`).then((r) => r.data);
+  },
+  startPreparing: (id: number, preparedById?: number) =>
+    api.post<ApiOrderItemStatus>(`/order-items/${id}/start/`, { preparedById }).then((r) => r.data),
+  markReady: (id: number) =>
+    api.post<ApiOrderItemStatus>(`/order-items/${id}/ready/`).then((r) => r.data),
+  markServed: (id: number) =>
+    api.post<ApiOrderItemStatus>(`/order-items/${id}/serve/`).then((r) => r.data),
+  cancelItem: (id: number, reason?: string) =>
+    api.post<ApiOrderItemStatus>(`/order-items/${id}/cancel/`, { reason }).then((r) => r.data),
+  getSummary: () =>
+    api.get<ApiKitchenSummary>('/order-items/kitchen-summary/').then((r) => r.data),
+};
+
+/* --- Cash Register (Kasa) --- */
+
+export interface ApiCashRegister {
+  id: number;
+  name: string;
+  registerType: string;
+  serviceAreaId: number | null;
+  serviceAreaName: string | null;
+  status: string;
+  openedByName: string | null;
+  closedByName: string | null;
+  openingBalance: string;
+  closingBalance: string | null;
+  openedAt: string | null;
+  closedAt: string | null;
+  createdAt: string;
+  todayTotals: {
+    cash: string;
+    card: string;
+    roomCharge: string;
+    expense: string;
+    total: string;
+  };
+}
+
+export interface ApiCashTransaction {
+  id: number;
+  registerId: number;
+  tabId: number | null;
+  tabNo: string | null;
+  transactionType: string;
+  amount: string;
+  description: string;
+  processedByName: string | null;
+  createdAt: string;
+}
+
+export interface ApiCashSummary {
+  date: string;
+  registerName: string;
+  status: string;
+  openingBalance: string;
+  closingBalance: string | null;
+  cashSales: string;
+  cardSales: string;
+  roomChargeSales: string;
+  totalSales: string;
+  expenses: string;
+  expectedCash: string;
+  actualCash: string | null;
+  difference: string | null;
+  transactionCount: number;
+}
+
+export const kasaApi = {
+  getAll: () =>
+    api.get<ApiCashRegister[]>('/cash-registers/').then((r) => r.data),
+  create: (data: { name: string; registerType: string; serviceAreaId?: number }) =>
+    api.post<ApiCashRegister>('/cash-registers/', data).then((r) => r.data),
+  open: (id: number, data: { openingBalance: number; openedById?: number }) =>
+    api.post<ApiCashRegister>(`/cash-registers/${id}/open/`, data).then((r) => r.data),
+  close: (id: number, data: { closingBalance: number; closedById?: number }) =>
+    api.post<ApiCashRegister>(`/cash-registers/${id}/close/`, data).then((r) => r.data),
+  getSummary: (id: number) =>
+    api.get<ApiCashSummary>(`/cash-registers/${id}/summary/`).then((r) => r.data),
+  getTransactions: (id: number, filters?: { dateFrom?: string; dateTo?: string; type?: string }) => {
+    const params = new URLSearchParams();
+    if (filters?.dateFrom) params.append('dateFrom', filters.dateFrom);
+    if (filters?.dateTo) params.append('dateTo', filters.dateTo);
+    if (filters?.type) params.append('type', filters.type);
+    const qs = params.toString();
+    return api.get<ApiCashTransaction[]>(`/cash-registers/${id}/transactions/${qs ? '?' + qs : ''}`).then((r) => r.data);
+  },
+  addExpense: (id: number, data: { amount: number; description: string; processedById?: number }) =>
+    api.post<ApiCashTransaction>(`/cash-registers/${id}/add-expense/`, data).then((r) => r.data),
+};
+
+/* --- QR Sipariş (Public, auth olmadan) --- */
+
+export interface ApiQRMenu {
+  table: { id: number; tableNumber: string; serviceArea: string };
+  categories: Array<{
+    id: number;
+    name: string;
+    items: Array<{
+      id: number;
+      name: string;
+      description: string;
+      price: string;
+      imageUrl: string | null;
+    }>;
+  }>;
+}
+
+export const qrApi = {
+  getMenu: (token: string) =>
+    api.get<ApiQRMenu>(`/restaurant/qr/${token}/menu/`).then((r) => r.data),
+  placeOrder: (token: string, data: { guestName?: string; items: Array<{ menuItemId: number; quantity: number; notes?: string }> }) =>
+    api.post(`/restaurant/qr/${token}/order/`, data).then((r) => r.data),
+  getStatus: (token: string) =>
+    api.get(`/restaurant/qr/${token}/status/`).then((r) => r.data),
+  getRoomMenu: (roomNumber: string) =>
+    api.get(`/restaurant/qr/room/${roomNumber}/menu/`).then((r) => r.data),
+  placeRoomOrder: (roomNumber: string, data: { items: Array<{ menuItemId: number; quantity: number; notes?: string }> }) =>
+    api.post(`/restaurant/qr/room/${roomNumber}/order/`, data).then((r) => r.data),
 };
