@@ -35,6 +35,8 @@ const GeneralReport = React.lazy(() => import('../pages/reports/GeneralReport'))
 const NightAuditReport = React.lazy(() => import('../pages/reports/NightAuditReport'));
 const StockManagement = React.lazy(() => import('../pages/minibar/StockManagement'));
 
+const MenuManagement = React.lazy(() => import('../pages/menu/MenuManagement'));
+const AdisyonList = React.lazy(() => import('../pages/adisyon/AdisyonList'));
 const KbsRecords = React.lazy(() => import('../pages/kbs/KbsRecords'));
 const CameraView = React.lazy(() => import('../pages/cameras/CameraView'));
 const ParasutIntegration = React.lazy(() => import('../pages/integrations/ParasutIntegration'));
@@ -256,6 +258,22 @@ const router = createBrowserRouter([
             element: (
               <React.Suspense fallback={null}>
                 <CameraView />
+              </React.Suspense>
+            ),
+          },
+          {
+            path: '/menu',
+            element: (
+              <React.Suspense fallback={null}>
+                <MenuManagement />
+              </React.Suspense>
+            ),
+          },
+          {
+            path: '/adisyonlar',
+            element: (
+              <React.Suspense fallback={null}>
+                <AdisyonList />
               </React.Suspense>
             ),
           },

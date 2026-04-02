@@ -36,6 +36,15 @@ import RoomDetailSections, {
   GuestCardDialog,
 } from './roomdetail';
 
+/* Firma verisi cache — promise tabanlı, StrictMode'da bile tek çağrı */
+let companiesPromise: Promise<Company[]> | null = null;
+const getCompanies = (): Promise<Company[]> => {
+  if (!companiesPromise) {
+    companiesPromise = companiesApi.getAll() as unknown as Promise<Company[]>;
+  }
+  return companiesPromise;
+};
+
 interface RoomDetailContentRoom {
   id: number;
   roomNumber: string;
@@ -109,7 +118,7 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
     const fetchData = async () => {
       try {
         const [companiesData, foliosData] = await Promise.all([
-          companiesApi.getAll(),
+          getCompanies(),
           room.reservationId
             ? foliosApi.getForReservation(room.reservationId)
             : foliosApi.getForRoom(Number(room.id)),

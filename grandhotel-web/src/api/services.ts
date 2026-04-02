@@ -868,6 +868,167 @@ export const hotelApi = {
     api.delete(`/hotel/images/${id}/`),
 };
 
+/* ==================== MENÜ API ==================== */
+
+export interface ApiMenuCategory {
+  id: number;
+  name: string;
+  sortOrder: number;
+  isActive: boolean;
+  itemCount?: number;
+  items?: ApiMenuItem[];
+}
+
+export interface ApiMenuItem {
+  id: number;
+  categoryId: number;
+  categoryName: string;
+  name: string;
+  description: string;
+  price: string;
+  image: string | null;
+  imageUrl: string | null;
+  isAvailable: boolean;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
+}
+
+export const menuApi = {
+  /** Kategori listesi */
+  getCategories: () =>
+    api.get<ApiMenuCategory[]>('/menu-categories/').then((r) => r.data),
+
+  /** Kategori detayı (ürünlerle) */
+  getCategoryById: (id: number) =>
+    api.get<ApiMenuCategory>(`/menu-categories/${id}/`).then((r) => r.data),
+
+  /** Kategori oluştur */
+  createCategory: (data: { name: string; sortOrder?: number }) =>
+    api.post<ApiMenuCategory>('/menu-categories/', data).then((r) => r.data),
+
+  /** Kategori güncelle */
+  updateCategory: (id: number, data: Partial<ApiMenuCategory>) =>
+    api.patch<ApiMenuCategory>(`/menu-categories/${id}/`, data).then((r) => r.data),
+
+  /** Kategori sil */
+  deleteCategory: (id: number) =>
+    api.delete(`/menu-categories/${id}/`),
+
+  /** Ürün listesi */
+  getItems: (filters?: { categoryId?: number; isAvailable?: boolean }) => {
+    const params = new URLSearchParams();
+    if (filters?.categoryId) params.append('categoryId', String(filters.categoryId));
+    if (filters?.isAvailable !== undefined) params.append('isAvailable', String(filters.isAvailable));
+    const qs = params.toString();
+    return api.get<ApiMenuItem[]>(`/menu-items/${qs ? '?' + qs : ''}`).then((r) => r.data);
+  },
+
+  /** Ürün oluştur */
+  createItem: (data: FormData) =>
+    api.post<ApiMenuItem>('/menu-items/', data, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then((r) => r.data),
+
+  /** Ürün güncelle */
+  updateItem: (id: number, data: FormData | Record<string, unknown>) =>
+    api.patch<ApiMenuItem>(`/menu-items/${id}/`, data).then((r) => r.data),
+
+  /** Ürün sil */
+  deleteItem: (id: number) =>
+    api.delete(`/menu-items/${id}/`),
+
+  /** Public menü (QR kod) */
+  getPublicMenu: () =>
+    api.get<ApiMenuCategory[]>('/menu/public/').then((r) => r.data),
+};
+
+/* ==================== ADİSYON (TAB) API ==================== */
+
+export interface ApiTabItem {
+  id: number;
+  menuItemId: number | null;
+  stockItemId: number | null;
+  menuItemName: string | null;
+  description: string;
+  quantity: number;
+  unitPrice: string;
+  totalPrice: string;
+  createdAt: string;
+}
+
+export interface ApiTab {
+  id: number;
+  tabNo: string;
+  reservationId: number | null;
+  roomId: number | null;
+  roomNumber: string | null;
+  guestName: string;
+  servicePoint: string;
+  status: string;
+  openedById: number | null;
+  openedByName: string | null;
+  closedByName: string | null;
+  totalAmount: string;
+  paymentMethod: string | null;
+  notes: string;
+  openedAt: string;
+  closedAt: string | null;
+  paidAt: string | null;
+  items?: ApiTabItem[];
+}
+
+export const tabsApi = {
+  /** Adisyon listesi */
+  getAll: (filters?: {
+    status?: string; roomId?: number; servicePoint?: string;
+    dateFrom?: string; dateTo?: string;
+  }) => {
+    const params = new URLSearchParams();
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.roomId) params.append('roomId', String(filters.roomId));
+    if (filters?.servicePoint) params.append('servicePoint', filters.servicePoint);
+    if (filters?.dateFrom) params.append('dateFrom', filters.dateFrom);
+    if (filters?.dateTo) params.append('dateTo', filters.dateTo);
+    const qs = params.toString();
+    return api.get<ApiTab[]>(`/tabs/${qs ? '?' + qs : ''}`).then((r) => r.data);
+  },
+
+  /** Adisyon detayı (kalemlerle) */
+  getById: (id: number) =>
+    api.get<ApiTab>(`/tabs/${id}/`).then((r) => r.data),
+
+  /** Yeni adisyon aç */
+  create: (data: {
+    roomId?: number; guestName: string;
+    servicePoint: string; openedById?: number; notes?: string;
+  }) =>
+    api.post<ApiTab>('/tabs/', data).then((r) => r.data),
+
+  /** Kalem ekle */
+  addItem: (tabId: number, data: {
+    menuItemId?: number; stockItemId?: number;
+    description?: string; quantity: number; unitPrice: number;
+  }) =>
+    api.post<ApiTabItem>(`/tabs/${tabId}/add_item/`, data).then((r) => r.data),
+
+  /** Kalem sil */
+  removeItem: (tabId: number, itemId: number) =>
+    api.post(`/tabs/${tabId}/remove_item/`, { itemId }).then((r) => r.data),
+
+  /** Adisyonu kapat */
+  close: (tabId: number, closedById?: number) =>
+    api.post<ApiTab>(`/tabs/${tabId}/close/`, { closedById }).then((r) => r.data),
+
+  /** Ödeme yap */
+  pay: (tabId: number, paymentMethod: 'room_charge' | 'cash' | 'card') =>
+    api.post<ApiTab>(`/tabs/${tabId}/pay/`, { paymentMethod }).then((r) => r.data),
+
+  /** İptal */
+  cancel: (tabId: number) =>
+    api.post<ApiTab>(`/tabs/${tabId}/cancel/`).then((r) => r.data),
+};
+
 /* ──────────────────────────────────────────────────────────
    SHIFT HANDOVER (Mesai Devir)
    ────────────────────────────────────────────────────────── */

@@ -120,6 +120,22 @@ const NightAuditDialog: React.FC<NightAuditDialogProps> = ({ open, onClose }) =>
     }
   };
 
+  /** Tüm no-show rezervasyonları toplu iptal */
+  const handleCancelAllNoShows = async () => {
+    const pending = noShowRooms.filter((r) => noShowStatus[r.reservationId] !== 'cancelled');
+    if (pending.length === 0) return;
+    if (!window.confirm(`${pending.length} rezervasyonu iptal etmek istediğinize emin misiniz?`)) return;
+    for (const room of pending) {
+      setNoShowStatus((prev) => ({ ...prev, [room.reservationId]: 'cancelling' }));
+      try {
+        await kazancApi.cancelNoShow(room.reservationId);
+        setNoShowStatus((prev) => ({ ...prev, [room.reservationId]: 'cancelled' }));
+      } catch {
+        setNoShowStatus((prev) => ({ ...prev, [room.reservationId]: 'error' }));
+      }
+    }
+  };
+
   /** Otomatik saati kaydet */
   const handleScheduleSave = async () => {
     setScheduleSaving(true);
@@ -236,10 +252,21 @@ const NightAuditDialog: React.FC<NightAuditDialogProps> = ({ open, onClose }) =>
             {/* ── Bölüm 1: No-Show Odalar ── */}
             {noShowRooms.length > 0 && (
               <Box sx={{ mb: 3 }}>
-                <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <EventBusyIcon color="error" fontSize="small" />
-                  Bugün Gelmeyen Rezervasyonlar ({noShowRooms.length})
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="subtitle1" fontWeight={700} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <EventBusyIcon color="error" fontSize="small" />
+                    Giriş Yapmamış Rezervasyonlar ({noShowRooms.length})
+                  </Typography>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    color="error"
+                    onClick={handleCancelAllNoShows}
+                    disabled={alreadyProcessed || noShowRooms.every((r) => noShowStatus[r.reservationId] === 'cancelled')}
+                  >
+                    Tümünü İptal Et
+                  </Button>
+                </Box>
 
                 <TableContainer component={Paper} variant="outlined">
                   <Table size="small">

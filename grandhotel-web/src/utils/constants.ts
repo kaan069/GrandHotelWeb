@@ -483,6 +483,20 @@ export const MENU_ITEMS: MenuItem[] = [
     roles: [ROLES.PATRON, ROLES.MANAGER],
   },
   {
+    id: 'menu',
+    label: 'Menü',
+    path: '/menu',
+    icon: 'RestaurantMenu',
+    roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.CHEF, ROLES.RESTAURANT_MANAGER],
+  },
+  {
+    id: 'adisyonlar',
+    label: 'Adisyonlar',
+    path: '/adisyonlar',
+    icon: 'Receipt',
+    roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.RECEPTION, ROLES.WAITER, ROLES.BARISTA, ROLES.BARMAN, ROLES.RESTAURANT_MANAGER],
+  },
+  {
     id: 'shift-handover',
     label: 'Mesai Devir',
     path: '/shift-handover',
