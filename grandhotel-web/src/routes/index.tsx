@@ -44,6 +44,7 @@ const KitchenDisplay = React.lazy(() => import('../pages/kitchen/KitchenDisplay'
 const TableManagement = React.lazy(() => import('../pages/tables/TableManagement'));
 const CashRegisterPage = React.lazy(() => import('../pages/kasa/CashRegisterPage'));
 const QROrderPage = React.lazy(() => import('../pages/qr-order/QROrderPage'));
+const CustomerDisplay = React.lazy(() => import('../pages/kasa/CustomerDisplay'));
 
 /* Public Booking Sayfaları */
 const BookingLayout = React.lazy(() => import('../components/booking/BookingLayout'));
@@ -91,6 +92,16 @@ const router = createBrowserRouter([
     element: (
       <React.Suspense fallback={<div>Yükleniyor...</div>}>
         <QROrderPage />
+      </React.Suspense>
+    ),
+  },
+
+  /* === Kasa Müşteri Ekranı (2. monitör, auth yok) === */
+  {
+    path: '/kasa/display/:tableId',
+    element: (
+      <React.Suspense fallback={<div>Yükleniyor...</div>}>
+        <CustomerDisplay />
       </React.Suspense>
     ),
   },

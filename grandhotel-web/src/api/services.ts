@@ -1027,8 +1027,8 @@ export const tabsApi = {
     api.post<ApiTab>(`/tabs/${tabId}/close/`, { closedById }).then((r) => r.data),
 
   /** Ödeme yap */
-  pay: (tabId: number, paymentMethod: 'room_charge' | 'cash' | 'card', registerId?: number) =>
-    api.post<ApiTab>(`/tabs/${tabId}/pay/`, { paymentMethod, registerId }).then((r) => r.data),
+  pay: (tabId: number, paymentMethod: 'room_charge' | 'cash' | 'card', registerId?: number, roomId?: number) =>
+    api.post<ApiTab>(`/tabs/${tabId}/pay/`, { paymentMethod, registerId, roomId }).then((r) => r.data),
 
   /** İptal */
   cancel: (tabId: number) =>
@@ -1163,6 +1163,9 @@ export const tablesApi = {
     api.delete(`/tables/${id}/`),
   open: (id: number, data: { guestName?: string; openedById?: number }) =>
     api.post<ApiTab>(`/tables/${id}/open/`, data).then((r) => r.data),
+  /** Masaya direkt ürün ekle (tab yoksa otomatik oluşur) */
+  addItem: (tableId: number, data: { menuItemId: number; quantity: number; notes?: string; openedById?: number }) =>
+    api.post(`/tables/${tableId}/add_item/`, data).then((r) => r.data),
   close: (id: number) =>
     api.post<ApiTable>(`/tables/${id}/close/`).then((r) => r.data),
   transfer: (id: number, toTableId: number) =>

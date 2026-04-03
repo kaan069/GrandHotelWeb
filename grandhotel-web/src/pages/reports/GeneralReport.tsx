@@ -77,8 +77,17 @@ const GeneralReport: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState(String(now.getFullYear()));
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  const categoryMap: Record<string, string | undefined> = {
+    all: undefined,
+    hotel: 'room_charge',
+    restaurant: 'restaurant',
+    minibar: 'minibar',
+    service: 'service',
+  };
 
   // Ay seçimi değişince tarih aralığını hesapla
   useEffect(() => {
@@ -89,23 +98,23 @@ const GeneralReport: React.FC = () => {
       const lastDay = new Date(y, m, 0).getDate();
       const end = `${y}-${selectedMonth}-${String(lastDay).padStart(2, '0')}`;
       setLoading(true);
-      kazancApi.advancedReport({ dateFrom: start, dateTo: end, includeDebtors: true })
+      kazancApi.advancedReport({ dateFrom: start, dateTo: end, includeDebtors: true, categories: categoryMap[categoryFilter] })
         .then(setData)
         .catch(console.error)
         .finally(() => setLoading(false));
     }
-  }, [selectedMonth, selectedYear]);
+  }, [selectedMonth, selectedYear, categoryFilter]);
 
   // Tarih aralığı değişince
   useEffect(() => {
     if (dateFrom && dateTo) {
       setLoading(true);
-      kazancApi.advancedReport({ dateFrom, dateTo, includeDebtors: true })
+      kazancApi.advancedReport({ dateFrom, dateTo, includeDebtors: true, categories: categoryMap[categoryFilter] })
         .then(setData)
         .catch(console.error)
         .finally(() => setLoading(false));
     }
-  }, [dateFrom, dateTo]);
+  }, [dateFrom, dateTo, categoryFilter]);
 
   const summary = data?.summary || {};
   const sales = data?.salesCounts || {};
@@ -131,6 +140,18 @@ const GeneralReport: React.FC = () => {
         <Divider orientation="vertical" flexItem />
         <TextField type="date" size="small" label="veya Başlangıç" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} InputLabelProps={{ shrink: true }} />
         <TextField type="date" size="small" label="Bitiş" value={dateTo} onChange={(e) => setDateTo(e.target.value)} InputLabelProps={{ shrink: true }} />
+        <Divider orientation="vertical" flexItem />
+        <TextField
+          select size="small" label="Gelir Kaynağı" value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value)}
+          sx={{ width: 160 }}
+        >
+          <MenuItem value="all">Tüm Kazançlar</MenuItem>
+          <MenuItem value="hotel">Otel (Oda Ücreti)</MenuItem>
+          <MenuItem value="restaurant">Kafe / Restoran</MenuItem>
+          <MenuItem value="minibar">Minibar</MenuItem>
+          <MenuItem value="service">Ekstra Hizmet</MenuItem>
+        </TextField>
       </Box>
 
       {loading && <Typography>Yükleniyor...</Typography>}
