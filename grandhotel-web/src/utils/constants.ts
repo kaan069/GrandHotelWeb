@@ -120,8 +120,29 @@ export interface MenuItem {
   path: string;
   icon: string;
   roles: Role[];
+  module?: string;
   children?: MenuChildItem[];
 }
+
+/* ==================== MODÜL TANIMLARI ==================== */
+
+export interface ModuleDefinition {
+  id: string;
+  label: string;
+  description: string;
+  alwaysOn: boolean;
+  dependsOn: string[];
+}
+
+export const MODULE_DEFINITIONS: ModuleDefinition[] = [
+  { id: 'base', label: 'Temel Otel', description: 'Otel yönetimi, odalar, rezervasyonlar, misafirler, dashboard, raporlar', alwaysOn: true, dependsOn: [] },
+  { id: 'staff', label: 'Eleman Yönetimi', description: 'Çalışanlar, görevler, izinler, mesai devir, mobil erişim', alwaysOn: false, dependsOn: [] },
+  { id: 'restaurant', label: 'Restoran / Kafe', description: 'Masalar, adisyonlar, mutfak ekranı, kasa, menü, QR sipariş', alwaysOn: false, dependsOn: ['staff'] },
+  { id: 'minibar', label: 'Minibar', description: 'Minibar stok takibi ve tüketim', alwaysOn: false, dependsOn: [] },
+  { id: 'kbs', label: 'KBS', description: 'Misafir kimlik bildirim sistemi', alwaysOn: false, dependsOn: [] },
+  { id: 'invoices', label: 'Faturalar', description: 'Fatura yönetimi, Paraşüt entegrasyonu', alwaysOn: false, dependsOn: [] },
+  { id: 'cameras', label: 'Kameralar', description: 'Kamera sistemi entegrasyonu', alwaysOn: false, dependsOn: [] },
+];
 
 /* ==================== LAYOUT ==================== */
 
@@ -375,6 +396,7 @@ export const MENU_ITEMS: MenuItem[] = [
     path: '/dashboard',
     icon: 'Dashboard',
     roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.RECEPTION],
+    module: 'base',
   },
   {
     id: 'rooms',
@@ -382,6 +404,7 @@ export const MENU_ITEMS: MenuItem[] = [
     path: '/rooms',
     icon: 'Hotel',
     roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.RECEPTION],
+    module: 'base',
     children: [
       { id: 'room-list', label: 'Oda Listesi', path: '/rooms' },
       { id: 'room-settings', label: 'Oda Tipi Ayarları', path: '/rooms/settings' },
@@ -393,6 +416,7 @@ export const MENU_ITEMS: MenuItem[] = [
     path: '/reservations',
     icon: 'BookOnline',
     roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.RECEPTION],
+    module: 'base',
     children: [
       { id: 'reservation-list', label: 'Rezervasyon Listesi', path: '/reservations' },
       { id: 'reservation-chart', label: 'Rezervasyon Çizelgesi', path: '/reservations/chart' },
@@ -404,6 +428,7 @@ export const MENU_ITEMS: MenuItem[] = [
     path: '/guests',
     icon: 'People',
     roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.RECEPTION],
+    module: 'base',
     children: [
       { id: 'guest-list', label: 'Müşteri Listesi', path: '/guests' },
       { id: 'companies', label: 'Firmalar', path: '/guests/companies' },
@@ -415,6 +440,7 @@ export const MENU_ITEMS: MenuItem[] = [
     path: '/invoices',
     icon: 'Receipt',
     roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.RECEPTION],
+    module: 'invoices',
     children: [
       { id: 'invoice-sales', label: 'Satış Faturaları', path: '/invoices/sales' },
       { id: 'invoice-purchase', label: 'Alış Faturaları', path: '/invoices/purchase' },
@@ -428,6 +454,7 @@ export const MENU_ITEMS: MenuItem[] = [
     path: '/minibar',
     icon: 'LocalBar',
     roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.MINIBAR],
+    module: 'minibar',
     children: [
       { id: 'stock-management', label: 'Stok Yönetimi', path: '/minibar/stock' },
     ],
@@ -438,6 +465,7 @@ export const MENU_ITEMS: MenuItem[] = [
     path: '/users',
     icon: 'AdminPanelSettings',
     roles: [ROLES.PATRON],
+    module: 'staff',
   },
   {
     id: 'reports',
@@ -445,6 +473,7 @@ export const MENU_ITEMS: MenuItem[] = [
     path: '/reports',
     icon: 'Assessment',
     roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.RECEPTION],
+    module: 'base',
     children: [
       { id: 'daily-report', label: 'Günlük Özet', path: '/reports/daily' },
       { id: 'room-report', label: 'Oda Raporu', path: '/reports/rooms' },
@@ -459,6 +488,7 @@ export const MENU_ITEMS: MenuItem[] = [
     path: '/hotel-management',
     icon: 'Business',
     roles: [ROLES.PATRON, ROLES.MANAGER],
+    module: 'base',
   },
   {
     id: 'integrations',
@@ -466,6 +496,7 @@ export const MENU_ITEMS: MenuItem[] = [
     path: '/integrations',
     icon: 'Extension',
     roles: [ROLES.PATRON, ROLES.MANAGER],
+    module: 'invoices',
     children: [
       { id: 'parasut', label: 'Paraşüt e-Fatura', path: '/integrations/parasut' },
     ],
@@ -476,6 +507,7 @@ export const MENU_ITEMS: MenuItem[] = [
     path: '/kbs',
     icon: 'Badge',
     roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.RECEPTION],
+    module: 'kbs',
   },
   {
     id: 'cameras',
@@ -483,41 +515,22 @@ export const MENU_ITEMS: MenuItem[] = [
     path: '/cameras',
     icon: 'Videocam',
     roles: [ROLES.PATRON, ROLES.MANAGER],
+    module: 'cameras',
   },
   {
-    id: 'menu',
-    label: 'Menü',
-    path: '/menu',
-    icon: 'RestaurantMenu',
-    roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.CHEF, ROLES.RESTAURANT_MANAGER],
-  },
-  {
-    id: 'tables',
-    label: 'Masa Yönetimi',
+    id: 'restaurant',
+    label: 'Restoran / Kafe',
     path: '/tables',
-    icon: 'TableRestaurant',
-    roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.WAITER, ROLES.RESTAURANT_MANAGER, ROLES.CASHIER, ROLES.BARISTA, ROLES.BARMAN],
-  },
-  {
-    id: 'adisyonlar',
-    label: 'Adisyonlar',
-    path: '/adisyonlar',
-    icon: 'Receipt',
-    roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.RECEPTION, ROLES.WAITER, ROLES.BARISTA, ROLES.BARMAN, ROLES.RESTAURANT_MANAGER, ROLES.CASHIER],
-  },
-  {
-    id: 'kitchen',
-    label: 'Mutfak Ekranı',
-    path: '/kitchen',
-    icon: 'SoupKitchen',
-    roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.CHEF, ROLES.RESTAURANT_MANAGER],
-  },
-  {
-    id: 'kasa',
-    label: 'Kasa',
-    path: '/kasa',
-    icon: 'PointOfSale',
-    roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.CASHIER, ROLES.RESTAURANT_MANAGER],
+    icon: 'Storefront',
+    roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.CHEF, ROLES.WAITER, ROLES.RESTAURANT_MANAGER, ROLES.CASHIER, ROLES.BARISTA, ROLES.BARMAN, ROLES.RECEPTION],
+    module: 'restaurant',
+    children: [
+      { id: 'tables', label: 'Masa Yönetimi', path: '/tables' },
+      { id: 'menu', label: 'Menü', path: '/menu' },
+      { id: 'adisyonlar', label: 'Adisyonlar', path: '/adisyonlar' },
+      { id: 'kitchen', label: 'Mutfak Ekranı', path: '/kitchen' },
+      { id: 'kasa', label: 'Kasa', path: '/kasa' },
+    ],
   },
   {
     id: 'shift-handover',
@@ -525,6 +538,7 @@ export const MENU_ITEMS: MenuItem[] = [
     path: '/shift-handover',
     icon: 'SwapHoriz',
     roles: [ROLES.RECEPTION],
+    module: 'staff',
   },
   {
     id: 'settings',
@@ -532,6 +546,7 @@ export const MENU_ITEMS: MenuItem[] = [
     path: '/settings',
     icon: 'Settings',
     roles: [ROLES.PATRON, ROLES.MANAGER],
+    module: 'base',
   },
 ];
 

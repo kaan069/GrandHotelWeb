@@ -217,152 +217,112 @@ const router = createBrowserRouter([
             ),
           },
           { path: '/guests/:id', element: <ComingSoon /> },
-          {
-            path: '/invoices/sales',
-            element: (
-              <React.Suspense fallback={null}>
-                <InvoiceList />
-              </React.Suspense>
-            ),
-          },
-          {
-            path: '/invoices/purchase',
-            element: (
-              <React.Suspense fallback={null}>
-                <InvoiceList />
-              </React.Suspense>
-            ),
-          },
-          {
-            path: '/invoices/return',
-            element: (
-              <React.Suspense fallback={null}>
-                <InvoiceList />
-              </React.Suspense>
-            ),
-          },
-          {
-            path: '/invoices/incoming',
-            element: (
-              <React.Suspense fallback={null}>
-                <InvoiceList />
-              </React.Suspense>
-            ),
-          },
           { path: '/reports/daily', element: <React.Suspense fallback={<div>Yükleniyor...</div>}><DailyReport /></React.Suspense> },
           { path: '/reports/rooms', element: <React.Suspense fallback={<div>Yükleniyor...</div>}><RoomReport /></React.Suspense> },
           { path: '/reports/companies', element: <React.Suspense fallback={<div>Yükleniyor...</div>}><CompanyReport /></React.Suspense> },
           { path: '/reports/general', element: <React.Suspense fallback={<div>Yükleniyor...</div>}><GeneralReport /></React.Suspense> },
           { path: '/reports/night-audit', element: <React.Suspense fallback={<div>Yükleniyor...</div>}><NightAuditReport /></React.Suspense> },
-          {
-            path: '/shift-handover',
-            element: (
-              <React.Suspense fallback={null}>
-                <ShiftHandover />
-              </React.Suspense>
-            ),
-          },
-          {
-            path: '/minibar/stock',
-            element: (
-              <React.Suspense fallback={null}>
-                <StockManagement />
-              </React.Suspense>
-            ),
-          },
-          {
-            path: '/kbs',
-            element: (
-              <React.Suspense fallback={null}>
-                <KbsRecords />
-              </React.Suspense>
-            ),
-          },
-          {
-            path: '/cameras',
-            element: (
-              <React.Suspense fallback={null}>
-                <CameraView />
-              </React.Suspense>
-            ),
-          },
-          {
-            path: '/menu',
-            element: (
-              <React.Suspense fallback={null}>
-                <MenuManagement />
-              </React.Suspense>
-            ),
-          },
-          {
-            path: '/adisyonlar',
-            element: (
-              <React.Suspense fallback={null}>
-                <AdisyonList />
-              </React.Suspense>
-            ),
-          },
-          {
-            path: '/kitchen',
-            element: (
-              <React.Suspense fallback={null}>
-                <KitchenDisplay />
-              </React.Suspense>
-            ),
-          },
-          {
-            path: '/tables',
-            element: (
-              <React.Suspense fallback={null}>
-                <TableManagement />
-              </React.Suspense>
-            ),
-          },
-          {
-            path: '/kasa',
-            element: (
-              <React.Suspense fallback={null}>
-                <CashRegisterPage />
-              </React.Suspense>
-            ),
-          },
           { path: '/settings', element: <ComingSoon /> },
         ],
       },
     ],
   },
 
-  /* === Sadece Patron ve Müdür erişebilen route'lar === */
+  /* === Fatura modülü route'ları === */
+  {
+    element: <ProtectedRoute requiredModule="invoices" />,
+    children: [
+      {
+        element: <MainLayout />,
+        children: [
+          { path: '/invoices/sales', element: <React.Suspense fallback={null}><InvoiceList /></React.Suspense> },
+          { path: '/invoices/purchase', element: <React.Suspense fallback={null}><InvoiceList /></React.Suspense> },
+          { path: '/invoices/return', element: <React.Suspense fallback={null}><InvoiceList /></React.Suspense> },
+          { path: '/invoices/incoming', element: <React.Suspense fallback={null}><InvoiceList /></React.Suspense> },
+        ],
+      },
+    ],
+  },
+
+  /* === Eleman yönetimi modülü route'ları === */
+  {
+    element: <ProtectedRoute allowedRoles={['patron', 'manager']} requiredModule="staff" />,
+    children: [
+      {
+        element: <MainLayout />,
+        children: [
+          { path: '/users', element: <React.Suspense fallback={null}><EmployeeList /></React.Suspense> },
+          { path: '/shift-handover', element: <React.Suspense fallback={null}><ShiftHandover /></React.Suspense> },
+        ],
+      },
+    ],
+  },
+
+  /* === Restoran / Kafe modülü route'ları === */
+  {
+    element: <ProtectedRoute requiredModule="restaurant" />,
+    children: [
+      {
+        element: <MainLayout />,
+        children: [
+          { path: '/menu', element: <React.Suspense fallback={null}><MenuManagement /></React.Suspense> },
+          { path: '/tables', element: <React.Suspense fallback={null}><TableManagement /></React.Suspense> },
+          { path: '/adisyonlar', element: <React.Suspense fallback={null}><AdisyonList /></React.Suspense> },
+          { path: '/kitchen', element: <React.Suspense fallback={null}><KitchenDisplay /></React.Suspense> },
+          { path: '/kasa', element: <React.Suspense fallback={null}><CashRegisterPage /></React.Suspense> },
+        ],
+      },
+    ],
+  },
+
+  /* === Minibar modülü route'ları === */
+  {
+    element: <ProtectedRoute requiredModule="minibar" />,
+    children: [
+      {
+        element: <MainLayout />,
+        children: [
+          { path: '/minibar/stock', element: <React.Suspense fallback={null}><StockManagement /></React.Suspense> },
+        ],
+      },
+    ],
+  },
+
+  /* === KBS modülü route'ları === */
+  {
+    element: <ProtectedRoute requiredModule="kbs" />,
+    children: [
+      {
+        element: <MainLayout />,
+        children: [
+          { path: '/kbs', element: <React.Suspense fallback={null}><KbsRecords /></React.Suspense> },
+        ],
+      },
+    ],
+  },
+
+  /* === Kamera modülü route'ları === */
+  {
+    element: <ProtectedRoute requiredModule="cameras" />,
+    children: [
+      {
+        element: <MainLayout />,
+        children: [
+          { path: '/cameras', element: <React.Suspense fallback={null}><CameraView /></React.Suspense> },
+        ],
+      },
+    ],
+  },
+
+  /* === Sadece Patron ve Müdür erişebilen route'lar (base) === */
   {
     element: <ProtectedRoute allowedRoles={['patron', 'manager']} />,
     children: [
       {
         element: <MainLayout />,
         children: [
-          {
-            path: '/users',
-            element: (
-              <React.Suspense fallback={null}>
-                <EmployeeList />
-              </React.Suspense>
-            ),
-          },
-          {
-            path: '/hotel-management',
-            element: (
-              <React.Suspense fallback={null}>
-                <HotelManagement />
-              </React.Suspense>
-            ),
-          },
-          {
-            path: '/integrations/parasut',
-            element: (
-              <React.Suspense fallback={null}>
-                <ParasutIntegration />
-              </React.Suspense>
-            ),
-          },
+          { path: '/hotel-management', element: <React.Suspense fallback={null}><HotelManagement /></React.Suspense> },
+          { path: '/integrations/parasut', element: <React.Suspense fallback={null}><ParasutIntegration /></React.Suspense> },
         ],
       },
     ],

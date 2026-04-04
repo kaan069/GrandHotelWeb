@@ -13,9 +13,10 @@ import { LoadingSpinner } from '../components/common';
 
 interface ProtectedRouteProps {
   allowedRoles?: string[];
+  requiredModule?: string;
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles = [] }) => {
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles = [], requiredModule }) => {
   const { isAuthenticated, loading, user } = useAuth();
   const location = useLocation();
 
@@ -31,6 +32,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles = [] }) =>
 
   /* Rol kontrolü */
   if (allowedRoles.length > 0 && !allowedRoles.includes(user?.role || '')) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  /* Modül kontrolü */
+  if (requiredModule && !user?.enabledModules?.includes(requiredModule)) {
     return <Navigate to="/dashboard" replace />;
   }
 

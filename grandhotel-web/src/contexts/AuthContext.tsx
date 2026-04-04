@@ -19,6 +19,7 @@ export interface User {
   lastName: string;
   role: Role;          // İlk rol (eski uyumluluk — menü/yetki kontrolü için)
   roles: string[];     // Tüm roller
+  enabledModules: string[];  // Otel'in aktif modülleri
   branchCode: string;
   staffNumber: string;
   hotelId: number;
@@ -82,6 +83,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       lastName: employee.lastName,
       role: primaryRole,
       roles: employee.roles || [],
+      enabledModules: employee.enabledModules || ['base'],
       branchCode: '001',
       staffNumber: employee.staffNumber,
       hotelId: 1,

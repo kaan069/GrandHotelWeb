@@ -602,6 +602,7 @@ export interface ApiEmployee {
   status: string;
   roles: string[];
   roleLabels: string[];
+  enabledModules?: string[];
   annualLeaveEntitlement: number;
   usedAnnualLeave: number;
   remainingAnnualLeave: number;
@@ -866,6 +867,14 @@ export const hotelApi = {
   /** Görsel sil */
   deleteImage: (id: number) =>
     api.delete(`/hotel/images/${id}/`),
+
+  /** Modül bilgilerini getir */
+  getModules: () =>
+    api.get('/hotel/modules/').then((r) => r.data),
+
+  /** Modülleri güncelle */
+  updateModules: (data: { enabledModules: string[] }) =>
+    api.put('/hotel/modules/', data).then((r) => r.data),
 };
 
 /* ==================== MENÜ API ==================== */

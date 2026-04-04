@@ -55,6 +55,8 @@ import {
   SoupKitchen as SoupKitchenIcon,
   PointOfSale as PointOfSaleIcon,
   RestaurantMenu as RestaurantMenuIcon,
+  Storefront as StorefrontIcon,
+  Extension as ExtensionIcon,
 } from '@mui/icons-material';
 
 import { MENU_ITEMS, SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH, APP_NAME, MenuItem, MenuChildItem } from '../../utils/constants';
@@ -87,6 +89,8 @@ const iconMap: Record<string, React.ElementType> = {
   SoupKitchen: SoupKitchenIcon,
   PointOfSale: PointOfSaleIcon,
   RestaurantMenu: RestaurantMenuIcon,
+  Storefront: StorefrontIcon,
+  Extension: ExtensionIcon,
 };
 
 const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
@@ -105,8 +109,9 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
    * Kullanıcının rolüne göre menü öğelerini filtreler.
    * Sadece kullanıcının yetkili olduğu menü öğeleri gösterilir.
    */
+  const enabledModules = user?.enabledModules || ['base'];
   const filteredMenuItems = MENU_ITEMS.filter(
-    (item: MenuItem) => item.roles.includes(userRole)
+    (item: MenuItem) => item.roles.includes(userRole) && (!item.module || enabledModules.includes(item.module))
   );
 
   /**
