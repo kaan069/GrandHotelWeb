@@ -29,22 +29,44 @@ import {
   TrendingUp as TrendingIcon,
 } from '@mui/icons-material';
 import { kazancApi } from '../../api/services';
+import { FOLIO_CATEGORY_LABELS, BED_TYPE_LABELS } from '../../utils/constants';
 
-const FOLIO_CATEGORY_LABELS: Record<string, string> = {
-  room_charge: 'Oda Ücreti',
-  minibar: 'Minibar',
-  restaurant: 'Restoran',
-  service: 'Ekstra Hizmet',
-  discount: 'İndirim',
-  payment: 'Ödeme',
-};
+interface DailyReportOccupancy {
+  totalRooms: number;
+  occupiedRooms: number;
+  availableRooms: number;
+  reservedRooms: number;
+  dirtyRooms: number;
+  occupancyRate: number;
+  singleOccupied: number;
+  doubleOccupied: number;
+}
 
-const BED_TYPE_LABELS: Record<string, string> = {
-  single: 'Tek Kişilik',
-  double: 'Çift Kişilik',
-  twin: 'Twin',
-  king: 'King',
-};
+interface DailyReportRevenue {
+  net: number;
+  payments: number;
+  balance: number;
+}
+
+interface DailyReportRoomDetail {
+  roomNumber: string;
+  bedType: string;
+  guestName: string;
+  companyName?: string;
+  checkIn?: string;
+  totalAmount: number;
+  paidAmount: number;
+  balance: number;
+}
+
+interface DailyReportData {
+  occupancy: DailyReportOccupancy;
+  revenue: DailyReportRevenue;
+  folioBreakdown: Record<string, number>;
+  occupiedRoomDetails: DailyReportRoomDetail[];
+  checkinCount: number;
+  checkoutCount: number;
+}
 
 const StatCard: React.FC<{
   title: string;
@@ -65,7 +87,7 @@ const StatCard: React.FC<{
 
 const DailyReport: React.FC = () => {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<DailyReportData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -80,8 +102,8 @@ const DailyReport: React.FC = () => {
     return <Box sx={{ p: 3 }}><Typography>Yükleniyor...</Typography></Box>;
   }
 
-  const occ = data.occupancy || {};
-  const rev = data.revenue || {};
+  const occ = data.occupancy ?? { totalRooms: 0, occupiedRooms: 0, availableRooms: 0, reservedRooms: 0, dirtyRooms: 0, occupancyRate: 0, singleOccupied: 0, doubleOccupied: 0 };
+  const rev = data.revenue ?? { net: 0, payments: 0, balance: 0 };
   const breakdown = data.folioBreakdown || {};
   const rooms = data.occupiedRoomDetails || [];
 
@@ -192,7 +214,7 @@ const DailyReport: React.FC = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {rooms.map((r: any, i: number) => (
+            {rooms.map((r, i) => (
               <TableRow key={i}>
                 <TableCell><strong>{r.roomNumber}</strong></TableCell>
                 <TableCell>{BED_TYPE_LABELS[r.bedType] || r.bedType}</TableCell>

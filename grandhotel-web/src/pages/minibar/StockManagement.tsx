@@ -20,6 +20,8 @@ import {
   MenuItem,
   FormControlLabel,
   Checkbox,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
 import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
@@ -118,6 +120,7 @@ const StockManagement: React.FC = () => {
 
   const [deleteTarget, setDeleteTarget] = useState<ApiStockItem | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'warning' });
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
@@ -183,8 +186,9 @@ const StockManagement: React.FC = () => {
       }
       setFormOpen(false);
       fetchItems();
-    } catch (err: any) {
-      alert(err?.response?.data?.error || 'Kayıt başarısız');
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } } };
+      setSnackbar({ open: true, message: axiosErr?.response?.data?.error || 'Kayıt başarısız', severity: 'error' });
     } finally {
       setFormLoading(false);
     }
@@ -198,8 +202,9 @@ const StockManagement: React.FC = () => {
       await stockApi.delete(deleteTarget.id);
       setDeleteTarget(null);
       fetchItems();
-    } catch (err: any) {
-      alert(err?.response?.data?.error || 'Silme başarısız');
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } } };
+      setSnackbar({ open: true, message: axiosErr?.response?.data?.error || 'Silme başarısız', severity: 'error' });
     } finally {
       setDeleteLoading(false);
     }
@@ -270,7 +275,7 @@ const StockManagement: React.FC = () => {
         </Box>
       ) : (
         <DataTable
-          rows={items as any}
+          rows={items as unknown as Array<{ id: string | number; [key: string]: unknown }>}
           columns={columns}
           searchable
           searchPlaceholder="Ürün adı ara..."
@@ -363,6 +368,17 @@ const StockManagement: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar(s => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setSnackbar(s => ({ ...s, open: false }))} severity={snackbar.severity} variant="filled">
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
 
       {/* Silme Onay */}
       <ConfirmDialog

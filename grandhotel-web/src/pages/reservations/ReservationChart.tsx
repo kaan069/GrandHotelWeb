@@ -152,7 +152,7 @@ const ReservationChart: React.FC = () => {
   };
 
   /* RoomDetailContent check-in/out sonrası çağırır. Tüm veriyi tazele. */
-  const handleRoomUpdate = (_roomId: number, _updates: any) => {
+  const handleRoomUpdate = (_roomId: number, _updates: Record<string, unknown>) => {
     fetchData();
   };
 

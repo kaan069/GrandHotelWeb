@@ -22,6 +22,7 @@ import {
   Chip,
   CircularProgress,
   Alert,
+  Snackbar,
 } from '@mui/material';
 import {
   SwapHoriz as SwapIcon,
@@ -65,6 +66,7 @@ const RoomMoveDialog: React.FC<RoomMoveDialogProps> = ({
   const [selectedRoomId, setSelectedRoomId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [warning, setWarning] = useState('');
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'warning' });
 
   const handleOpen = () => {
     setSearchValue('');
@@ -110,14 +112,16 @@ const RoomMoveDialog: React.FC<RoomMoveDialogProps> = ({
     try {
       await onMove(sourceRoom.id, selectedRoomId);
       onClose();
-    } catch (err: any) {
-      alert(err?.response?.data?.error || err.message || 'Taşıma yapılamadı');
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } }; message?: string };
+      setSnackbar({ open: true, message: axiosErr?.response?.data?.error || axiosErr?.message || 'Taşıma yapılamadı', severity: 'error' });
     } finally {
       setLoading(false);
     }
   };
 
   return (
+    <>
     <Dialog
       open={open}
       onClose={onClose}
@@ -200,6 +204,18 @@ const RoomMoveDialog: React.FC<RoomMoveDialogProps> = ({
         </Button>
       </DialogActions>
     </Dialog>
+
+    <Snackbar
+      open={snackbar.open}
+      autoHideDuration={4000}
+      onClose={() => setSnackbar(s => ({ ...s, open: false }))}
+      anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+    >
+      <Alert onClose={() => setSnackbar(s => ({ ...s, open: false }))} severity={snackbar.severity} variant="filled">
+        {snackbar.message}
+      </Alert>
+    </Snackbar>
+    </>
   );
 };
 

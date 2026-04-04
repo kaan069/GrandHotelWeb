@@ -29,11 +29,34 @@ const STATUS_COLORS: Record<string, 'success' | 'default' | 'error'> = {
   failed: 'error',
 };
 
+const SYSTEM_LABELS: Record<string, string> = {
+  egm: 'EGM',
+  jandarma: 'Jandarma',
+};
+
+const SYSTEM_COLORS: Record<string, 'primary' | 'secondary'> = {
+  egm: 'primary',
+  jandarma: 'secondary',
+};
+
 const columns: GridColDef[] = [
   { field: 'id', headerName: 'ID', width: 70 },
   { field: 'roomNumber', headerName: 'Oda', width: 80, align: 'center' as const, headerAlign: 'center' as const },
   { field: 'guestName', headerName: 'Misafir', width: 200, flex: 1 },
   { field: 'tcNo', headerName: 'TC No', width: 140 },
+  {
+    field: 'systemType',
+    headerName: 'Sistem',
+    width: 120,
+    renderCell: (params: GridRenderCellParams) => (
+      <Chip
+        label={SYSTEM_LABELS[params.value] || params.value || '-'}
+        size="small"
+        color={SYSTEM_COLORS[params.value] || 'default'}
+        variant="filled"
+      />
+    ),
+  },
   {
     field: 'status',
     headerName: 'Durum',
@@ -112,7 +135,7 @@ const KbsRecords: React.FC = () => {
         </Box>
       ) : (
         <DataTable
-          rows={records as any}
+          rows={records as unknown as Array<{ id: string | number; [key: string]: unknown }>}
           columns={columns}
           searchable
           searchPlaceholder="Misafir adı veya oda numarası ara..."

@@ -30,6 +30,8 @@ import {
   ListItemButton,
   ListItemText,
   MenuItem,
+  Snackbar,
+  Alert,
   Table,
   TableBody,
   TableCell,
@@ -66,6 +68,8 @@ const TABLE_COLORS: Record<string, string> = {
 const CashRegisterPage: React.FC = () => {
   const { user } = useAuth();
   const canPay = ['cashier', 'patron', 'manager', 'restaurant_manager'].includes(user?.role || '');
+
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'warning' });
 
   /* Kasalar */
   const [registers, setRegisters] = useState<ApiCashRegister[]>([]);
@@ -235,7 +239,7 @@ const CashRegisterPage: React.FC = () => {
       setCheckedInRooms(res);
       setShowRoomSelect(true);
     } catch {
-      alert('Aktif konaklamalar yüklenemedi');
+      setSnackbar({ open: true, message: 'Aktif konaklamalar yüklenemedi', severity: 'error' });
     }
   };
 
@@ -249,8 +253,9 @@ const CashRegisterPage: React.FC = () => {
       setTableDetail(null);
       refreshTables();
       fetchRegisters();
-    } catch (err: any) {
-      alert(err?.response?.data?.error || 'Ödeme hatası');
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } } };
+      setSnackbar({ open: true, message: axiosErr?.response?.data?.error || 'Ödeme hatası', severity: 'error' });
     }
   };
 
@@ -518,6 +523,17 @@ const CashRegisterPage: React.FC = () => {
           </Grid>
         )}
       </Grid>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar(s => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setSnackbar(s => ({ ...s, open: false }))} severity={snackbar.severity} variant="filled">
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
 
       {/* Özet Dialog */}
       <Dialog open={summaryOpen} onClose={() => setSummaryOpen(false)} maxWidth="sm" fullWidth>

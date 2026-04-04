@@ -22,6 +22,8 @@ import {
   TableRow,
   CircularProgress,
   Box,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -65,6 +67,7 @@ const RoomSettings: React.FC = () => {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'warning' });
 
   /** API'den odaları çek */
   const fetchRooms = useCallback(async () => {
@@ -96,9 +99,10 @@ const RoomSettings: React.FC = () => {
         beds: newRoom.beds,
       });
       fetchRooms();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Oda eklenirken hata:', err);
-      alert(err?.response?.data?.roomNumber?.[0] || err?.response?.data?.error || 'Oda eklenemedi');
+      const axiosErr = err as { response?: { data?: { roomNumber?: string[]; error?: string } } };
+      setSnackbar({ open: true, message: axiosErr?.response?.data?.roomNumber?.[0] || axiosErr?.response?.data?.error || 'Oda eklenemedi', severity: 'error' });
     }
   };
 
@@ -109,7 +113,7 @@ const RoomSettings: React.FC = () => {
       setRooms((prev) => prev.filter((r) => r.id !== roomId));
     } catch (err) {
       console.error('Oda silinirken hata:', err);
-      alert('Oda silinemedi. Aktif rezervasyonu olan odalar silinemez.');
+      setSnackbar({ open: true, message: 'Oda silinemedi. Aktif rezervasyonu olan odalar silinemez.', severity: 'error' });
     }
   };
 
@@ -197,6 +201,17 @@ const RoomSettings: React.FC = () => {
         onClose={() => setDialogOpen(false)}
         onSave={handleAddRoom}
       />
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar(s => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setSnackbar(s => ({ ...s, open: false }))} severity={snackbar.severity} variant="filled">
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </div>
   );
 };

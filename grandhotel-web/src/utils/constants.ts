@@ -508,6 +508,10 @@ export const MENU_ITEMS: MenuItem[] = [
     icon: 'Badge',
     roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.RECEPTION],
     module: 'kbs',
+    children: [
+      { id: 'kbs-records', label: 'KBS Kayıtları', path: '/kbs' },
+      { id: 'kbs-settings', label: 'KBS Ayarları', path: '/kbs/settings' },
+    ],
   },
   {
     id: 'cameras',

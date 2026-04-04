@@ -30,6 +30,8 @@ import {
   ListItemButton,
   ListItemText,
   MenuItem,
+  Snackbar,
+  Alert,
   Tab,
   Tabs,
   TextField,
@@ -73,6 +75,9 @@ const TableManagement: React.FC = () => {
   const [categories, setCategories] = useState<ApiMenuCategory[]>([]);
   const [menuItems, setMenuItems] = useState<ApiMenuItem[]>([]);
   const [selectedCatId, setSelectedCatId] = useState<number | null>(null);
+
+  /* Snackbar */
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'warning' });
 
   /* Transfer */
   const [transferOpen, setTransferOpen] = useState(false);
@@ -182,7 +187,7 @@ const TableManagement: React.FC = () => {
       const res = await reservationsApi.getAll({ status: 'checked_in', isActive: true });
       setCheckedInRooms(res);
       setShowRoomSelect(true);
-    } catch { alert('Aktif konaklamalar yüklenemedi'); }
+    } catch { setSnackbar({ open: true, message: 'Aktif konaklamalar yüklenemedi', severity: 'error' }); }
   };
 
   const handlePay = async (method: 'cash' | 'card' | 'room_charge', roomId?: number) => {
@@ -193,7 +198,7 @@ const TableManagement: React.FC = () => {
       setDrawerOpen(false);
       setSelectedTable(null);
       fetchTables();
-    } catch (err: any) { alert(err?.response?.data?.error || 'Ödeme hatası'); }
+    } catch (err: unknown) { const axiosErr = err as { response?: { data?: { error?: string } } }; setSnackbar({ open: true, message: axiosErr?.response?.data?.error || 'Ödeme hatası', severity: 'error' }); }
   };
 
   /** Transfer */
@@ -204,7 +209,7 @@ const TableManagement: React.FC = () => {
       setTransferOpen(false);
       setDrawerOpen(false);
       fetchTables();
-    } catch (err: any) { alert(err?.response?.data?.error || 'Transfer hatası'); }
+    } catch (err: unknown) { const axiosErr = err as { response?: { data?: { error?: string } } }; setSnackbar({ open: true, message: axiosErr?.response?.data?.error || 'Transfer hatası', severity: 'error' }); }
   };
 
   /** Masa kapat */
@@ -214,7 +219,7 @@ const TableManagement: React.FC = () => {
       await tablesApi.close(selectedTable.id);
       setDrawerOpen(false);
       fetchTables();
-    } catch (err: any) { alert(err?.response?.data?.error || 'Masa kapatılamadı'); }
+    } catch (err: unknown) { const axiosErr = err as { response?: { data?: { error?: string } } }; setSnackbar({ open: true, message: axiosErr?.response?.data?.error || 'Masa kapatılamadı', severity: 'error' }); }
   };
 
   /** Masa/alan oluştur */
@@ -433,6 +438,17 @@ const TableManagement: React.FC = () => {
           <Button onClick={handleCreateArea} variant="contained" disabled={!newAreaName}>Oluştur</Button>
         </DialogActions>
       </Dialog>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar(s => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setSnackbar(s => ({ ...s, open: false }))} severity={snackbar.severity} variant="filled">
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
 
       {/* Ödeme Yöntemi Dialog */}
       <Dialog open={payDialogOpen} onClose={() => setPayDialogOpen(false)} maxWidth="sm" fullWidth>

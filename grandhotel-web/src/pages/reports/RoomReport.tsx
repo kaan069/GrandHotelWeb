@@ -24,15 +24,35 @@ import {
   Autocomplete,
 } from '@mui/material';
 import { roomsApi, reportsApi } from '../../api/services';
+import type { ApiRoom } from '../../api/services';
+import { FOLIO_CATEGORY_LABELS } from '../../utils/constants';
 
-const FOLIO_CATEGORY_LABELS: Record<string, string> = {
-  room_charge: 'Oda Ücreti',
-  minibar: 'Minibar',
-  restaurant: 'Restoran',
-  service: 'Ekstra Hizmet',
-  discount: 'İndirim',
-  payment: 'Ödeme',
-};
+interface RoomReportStay {
+  guestName: string;
+}
+
+interface RoomReportReservation {
+  id: number;
+  status: string;
+  stays?: RoomReportStay[];
+  companyName?: string;
+  checkIn?: string;
+  checkOut?: string;
+  notes?: string;
+  totalAmount: string | number;
+  paidAmount: string | number;
+}
+
+interface RoomReportSummary {
+  totalReservations: number;
+  totalRevenue: number;
+  isCurrentlyOccupied: boolean;
+}
+
+interface RoomReportData {
+  summary: RoomReportSummary;
+  reservations: RoomReportReservation[];
+}
 
 const STATUS_LABELS: Record<string, string> = {
   reserved: 'Rezerve',
@@ -42,9 +62,9 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const RoomReport: React.FC = () => {
-  const [rooms, setRooms] = useState<any[]>([]);
-  const [selectedRoom, setSelectedRoom] = useState<any>(null);
-  const [report, setReport] = useState<any>(null);
+  const [rooms, setRooms] = useState<ApiRoom[]>([]);
+  const [selectedRoom, setSelectedRoom] = useState<ApiRoom | null>(null);
+  const [report, setReport] = useState<RoomReportData | null>(null);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [loading, setLoading] = useState(false);
@@ -56,7 +76,7 @@ const RoomReport: React.FC = () => {
   useEffect(() => {
     if (!selectedRoom) { setReport(null); return; }
     setLoading(true);
-    const filters: any = {};
+    const filters: { dateFrom?: string; dateTo?: string } = {};
     if (dateFrom) filters.dateFrom = dateFrom;
     if (dateTo) filters.dateTo = dateTo;
     reportsApi.room(selectedRoom.id, filters)
@@ -73,7 +93,7 @@ const RoomReport: React.FC = () => {
       <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
         <Autocomplete
           options={rooms}
-          getOptionLabel={(r: any) => `${r.roomNumber} - Kat ${r.floor}`}
+          getOptionLabel={(r) => `${r.roomNumber} - Kat ${r.floor}`}
           onChange={(_, val) => setSelectedRoom(val)}
           renderInput={(params) => <TextField {...params} label="Oda Seçin" size="small" sx={{ minWidth: 200 }} />}
         />
@@ -136,7 +156,7 @@ const RoomReport: React.FC = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {(report.reservations || []).map((r: any) => (
+                {(report.reservations || []).map((r) => (
                   <TableRow key={r.id}>
                     <TableCell>
                       <Chip label={STATUS_LABELS[r.status] || r.status} size="small"
@@ -144,14 +164,14 @@ const RoomReport: React.FC = () => {
                       />
                     </TableCell>
                     <TableCell>
-                      {(r.stays || []).map((s: any) => s.guestName).join(', ') || '-'}
+                      {(r.stays || []).map((s) => s.guestName).join(', ') || '-'}
                     </TableCell>
                     <TableCell>{r.companyName || '-'}</TableCell>
                     <TableCell>{r.checkIn ? new Date(r.checkIn).toLocaleDateString('tr-TR') : '-'}</TableCell>
                     <TableCell>{r.checkOut ? new Date(r.checkOut).toLocaleDateString('tr-TR') : '-'}</TableCell>
                     <TableCell>{r.notes || '-'}</TableCell>
-                    <TableCell align="right">{parseFloat(r.totalAmount || 0).toLocaleString('tr-TR')} ₺</TableCell>
-                    <TableCell align="right">{parseFloat(r.paidAmount || 0).toLocaleString('tr-TR')} ₺</TableCell>
+                    <TableCell align="right">{parseFloat(String(r.totalAmount || 0)).toLocaleString('tr-TR')} ₺</TableCell>
+                    <TableCell align="right">{parseFloat(String(r.paidAmount || 0)).toLocaleString('tr-TR')} ₺</TableCell>
                   </TableRow>
                 ))}
                 {(!report.reservations || report.reservations.length === 0) && (

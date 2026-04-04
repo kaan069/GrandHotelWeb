@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Box } from '@mui/material';
+import { Box, Snackbar, Alert } from '@mui/material';
 
 import {
   Guest,
@@ -110,6 +110,7 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
   const [cancelLoading, setCancelLoading] = useState(false);
   const [checkoutConfirmOpen, setCheckoutConfirmOpen] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'warning' });
 
   /* === Effects === */
   useEffect(() => {
@@ -164,9 +165,10 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
       /* Dolu oda → API'ye add_guest, WebSocket günceller */
       try {
         await roomsApi.addGuest(room.id, guest.id);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Misafir eklenirken hata:', err);
-        alert(err?.response?.data?.error || err.message || 'Misafir eklenemedi');
+        const axiosErr = err as { response?: { data?: { error?: string } }; message?: string };
+        setSnackbar({ open: true, message: axiosErr?.response?.data?.error || axiosErr?.message || 'Misafir eklenemedi', severity: 'error' });
         return;
       }
     } else {
@@ -240,10 +242,10 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
 
       // 3. Formu temizle, odaya ekleme (ön rezervasyon — henüz gelmedi)
       setQuickRes({ firstName: '', lastName: '', phone: '' });
-      alert('Rezervasyon kaydedildi. Misafir geldiğinde check-in yapılacak.');
+      setSnackbar({ open: true, message: 'Rezervasyon kaydedildi. Misafir geldiğinde check-in yapılacak.', severity: 'success' });
     } catch (err) {
       console.error('Hızlı rezervasyon hatası:', err);
-      alert('Rezervasyon oluşturulamadı');
+      setSnackbar({ open: true, message: 'Rezervasyon oluşturulamadı', severity: 'error' });
     }
   };
 
@@ -354,16 +356,17 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
           notes: roomNote,
           price: newPrice,
         });
-        alert('Rezervasyon güncellendi.');
-      } catch (err: any) {
+        setSnackbar({ open: true, message: 'Rezervasyon güncellendi.', severity: 'success' });
+      } catch (err: unknown) {
         console.error('Rezervasyon güncelleme hatası:', err);
-        alert(err?.response?.data?.error || err.message || 'Rezervasyon güncellenemedi');
+        const axiosErr = err as { response?: { data?: { error?: string } }; message?: string };
+        setSnackbar({ open: true, message: axiosErr?.response?.data?.error || axiosErr?.message || 'Rezervasyon güncellenemedi', severity: 'error' });
       }
     } else {
       // Yeni rezervasyon oluştur
       const guests = room.guests || [];
       if (guests.length === 0) {
-        alert('Kaydetmek için en az 1 misafir eklemelisiniz.');
+        setSnackbar({ open: true, message: 'Kaydetmek için en az 1 misafir eklemelisiniz.', severity: 'warning' });
         return;
       }
       try {
@@ -378,10 +381,11 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
         for (const g of guests) {
           try { await roomsApi.addGuest(room.id, g.guestId); } catch { /* ilk misafir zaten var, güncellenir */ }
         }
-        alert('Rezervasyon kaydedildi.');
-      } catch (err: any) {
+        setSnackbar({ open: true, message: 'Rezervasyon kaydedildi.', severity: 'success' });
+      } catch (err: unknown) {
         console.error('Rezervasyon kayıt hatası:', err);
-        alert(err?.response?.data?.error || err.message || 'Rezervasyon kaydedilemedi');
+        const axiosErr = err as { response?: { data?: { error?: string } }; message?: string };
+        setSnackbar({ open: true, message: axiosErr?.response?.data?.error || axiosErr?.message || 'Rezervasyon kaydedilemedi', severity: 'error' });
       }
     }
   };
@@ -412,15 +416,16 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
           await roomsApi.addGuest(room.id, guests[i].guestId);
         }
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Check-in hatası:', err);
-      alert(err?.response?.data?.error || err.message || 'Check-in yapılamadı');
+      const axiosErr = err as { response?: { data?: { error?: string } }; message?: string };
+      setSnackbar({ open: true, message: axiosErr?.response?.data?.error || axiosErr?.message || 'Check-in yapılamadı', severity: 'error' });
     }
   };
 
   const handleCheckOutClick = () => {
     if (folioTotal > 0) {
-      alert(`Odanın ${folioTotal.toLocaleString('tr-TR')} ₺ borcu bulunmaktadır. Lütfen ödeme yapınız.`);
+      setSnackbar({ open: true, message: `Odanın ${folioTotal.toLocaleString('tr-TR')} ₺ borcu bulunmaktadır. Lütfen ödeme yapınız.`, severity: 'warning' });
       return;
     }
     setCheckoutConfirmOpen(true);
@@ -431,9 +436,10 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
     try {
       await roomsApi.checkOut(room.id);
       setCheckoutConfirmOpen(false);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Check-out hatası:', err);
-      alert(err?.response?.data?.error || err.message || 'Check-out yapılamadı');
+      const axiosErr = err as { response?: { data?: { error?: string } }; message?: string };
+      setSnackbar({ open: true, message: axiosErr?.response?.data?.error || axiosErr?.message || 'Check-out yapılamadı', severity: 'error' });
     } finally {
       setCheckoutLoading(false);
     }
@@ -463,9 +469,10 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
           performedBy: '',
         });
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Check-in iptal hatası:', err);
-      alert(err?.response?.data?.error || err.message || 'Check-in iptal yapılamadı');
+      const axiosErr = err as { response?: { data?: { error?: string } }; message?: string };
+      setSnackbar({ open: true, message: axiosErr?.response?.data?.error || axiosErr?.message || 'Check-in iptal yapılamadı', severity: 'error' });
     }
   };
 
@@ -479,9 +486,10 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
         description: `Oda ${room.roomNumber} check-out iptal edildi`,
         performedBy: '',
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Check-out iptal hatası:', err);
-      alert(err?.response?.data?.error || err.message || 'Check-out iptal yapılamadı');
+      const axiosErr = err as { response?: { data?: { error?: string } }; message?: string };
+      setSnackbar({ open: true, message: axiosErr?.response?.data?.error || axiosErr?.message || 'Check-out iptal yapılamadı', severity: 'error' });
     }
   };
 
@@ -502,9 +510,10 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
       setCancelConfirmOpen(false);
       /* Ana ekrana dön */
       if (onClose) onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('İptal hatası:', err);
-      alert(err?.response?.data?.error || err.message || 'İptal yapılamadı');
+      const axiosErr = err as { response?: { data?: { error?: string } }; message?: string };
+      setSnackbar({ open: true, message: axiosErr?.response?.data?.error || axiosErr?.message || 'İptal yapılamadı', severity: 'error' });
     } finally {
       setCancelLoading(false);
     }
@@ -780,6 +789,17 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
         onCancel={() => setCheckoutConfirmOpen(false)}
         loading={checkoutLoading}
       />
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar(s => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setSnackbar(s => ({ ...s, open: false }))} severity={snackbar.severity} variant="filled">
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

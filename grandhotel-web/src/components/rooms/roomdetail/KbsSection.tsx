@@ -13,6 +13,7 @@ import {
   Alert,
   Collapse,
   IconButton,
+  Snackbar,
 } from '@mui/material';
 import {
   CheckCircle as CheckIcon,
@@ -37,6 +38,7 @@ const KbsSection: React.FC<KbsSectionProps> = ({ roomId, isOccupied }) => {
   const [sending, setSending] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [fetched, setFetched] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'warning' });
 
   const fetchRecords = async () => {
     setLoading(true);
@@ -66,8 +68,9 @@ const KbsSection: React.FC<KbsSectionProps> = ({ roomId, isOccupied }) => {
       const response = await kbsApi.send(roomId);
       setSendResults(response.results);
       fetchRecords();
-    } catch (err: any) {
-      alert(err?.response?.data?.error || 'KBS bildirimi başarısız');
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } } };
+      setSnackbar({ open: true, message: axiosErr?.response?.data?.error || 'KBS bildirimi başarısız', severity: 'error' });
     } finally {
       setSending(false);
     }
@@ -77,6 +80,7 @@ const KbsSection: React.FC<KbsSectionProps> = ({ roomId, isOccupied }) => {
   const allSent = isOccupied && activeRecords.length > 0;
 
   return (
+    <>
     <Card sx={{ mt: 2 }}>
       <CardContent sx={{ pb: expanded ? undefined : '16px !important' }}>
         <Box
@@ -163,6 +167,18 @@ const KbsSection: React.FC<KbsSectionProps> = ({ roomId, isOccupied }) => {
         </Collapse>
       </CardContent>
     </Card>
+
+    <Snackbar
+      open={snackbar.open}
+      autoHideDuration={4000}
+      onClose={() => setSnackbar(s => ({ ...s, open: false }))}
+      anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+    >
+      <Alert onClose={() => setSnackbar(s => ({ ...s, open: false }))} severity={snackbar.severity} variant="filled">
+        {snackbar.message}
+      </Alert>
+    </Snackbar>
+    </>
   );
 };
 

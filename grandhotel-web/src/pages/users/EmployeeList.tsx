@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Button, Box, Chip, IconButton, Stack, CircularProgress, Typography } from '@mui/material';
+import { Button, Box, Chip, IconButton, Stack, CircularProgress, Typography, Snackbar, Alert } from '@mui/material';
 import {
   Add as AddIcon,
   Delete as DeleteIcon,
@@ -152,6 +152,7 @@ const EmployeeList: React.FC = () => {
   const [leaveTarget, setLeaveTarget] = useState<ApiEmployee | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [detailEmployee, setDetailEmployee] = useState<ApiEmployee | null>(null);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'warning' });
 
   const fetchEmployees = useCallback(async () => {
     try {
@@ -174,9 +175,10 @@ const EmployeeList: React.FC = () => {
       const maxNum = employees.reduce((max, e) => Math.max(max, Number(e.staffNumber) || 0), 1001);
       await staffApi.create({ ...formData, staffNumber: String(maxNum + 1) });
       fetchEmployees();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Eleman eklenemedi:', err);
-      alert(err?.response?.data?.staffNumber?.[0] || err?.response?.data?.error || 'Eleman eklenemedi');
+      const axiosErr = err as { response?: { data?: { staffNumber?: string[]; error?: string } } };
+      setSnackbar({ open: true, message: axiosErr?.response?.data?.staffNumber?.[0] || axiosErr?.response?.data?.error || 'Eleman eklenemedi', severity: 'error' });
     }
   };
 
@@ -187,7 +189,7 @@ const EmployeeList: React.FC = () => {
       setEmployees((prev) => prev.filter((e) => e.id !== id));
     } catch (err) {
       console.error('Eleman silinemedi:', err);
-      alert('Eleman silinemedi');
+      setSnackbar({ open: true, message: 'Eleman silinemedi', severity: 'error' });
     }
   };
 
@@ -214,9 +216,10 @@ const EmployeeList: React.FC = () => {
         approvedById: user?.id,
       });
       fetchEmployees(); // İzin bilgileri güncellensin
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('İzin verilemedi:', err);
-      alert(err?.response?.data?.error || 'İzin verilemedi');
+      const axiosErr = err as { response?: { data?: { error?: string } } };
+      setSnackbar({ open: true, message: axiosErr?.response?.data?.error || 'İzin verilemedi', severity: 'error' });
     }
   };
 
@@ -258,6 +261,17 @@ const EmployeeList: React.FC = () => {
         onClose={() => { setDetailDialogOpen(false); setDetailEmployee(null); }}
         employee={detailEmployee}
       />
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar(s => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setSnackbar(s => ({ ...s, open: false }))} severity={snackbar.severity} variant="filled">
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
 
       <LeaveDialog
         open={leaveDialogOpen}

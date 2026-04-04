@@ -207,6 +207,7 @@ export interface ApiKbsRecord {
   guestName: string;
   tcNo: string;
   status: string;
+  systemType?: 'egm' | 'jandarma';
   kbsReference: string;
   sentAt: string;
   checkoutAt: string | null;
@@ -214,10 +215,12 @@ export interface ApiKbsRecord {
 }
 
 export interface ApiKbsSettings {
+  systemType: 'egm' | 'jandarma';
+  facilityCode: string;
+  username: string;
+  password: string;
+  serviceUrl: string;
   isActive: boolean;
-  facilityCode?: string;
-  username?: string;
-  password?: string;
 }
 
 export interface ApiAuditLog {

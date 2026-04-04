@@ -121,8 +121,9 @@ const RoomEdit: React.FC = () => {
       });
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
-    } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Kaydetme sırasında hata oluştu');
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { detail?: string } } };
+      setError(axiosErr?.response?.data?.detail || 'Kaydetme sırasında hata oluştu');
     } finally {
       setSaving(false);
     }

@@ -378,7 +378,7 @@ const ShiftHandover: React.FC = () => {
                 </Grid>
               </Grid>
 
-              {((selectedShift as any).roomsOccupied !== undefined) && (
+              {(selectedShift.roomsOccupied !== undefined) && (
                 <>
                   <Divider sx={{ my: 2 }} />
                   <Typography variant="h6" sx={{ mb: 2 }}>Oda Durumu</Typography>
@@ -388,7 +388,7 @@ const ShiftHandover: React.FC = () => {
                         <CardContent sx={{ textAlign: 'center', py: 2 }}>
                           <OccupiedIcon color="warning" sx={{ fontSize: 28 }} />
                           <Typography variant="caption" display="block" color="text.secondary">Dolu Oda</Typography>
-                          <Typography variant="h6" fontWeight={700}>{(selectedShift as any).roomsOccupied}</Typography>
+                          <Typography variant="h6" fontWeight={700}>{selectedShift.roomsOccupied}</Typography>
                         </CardContent>
                       </Card>
                     </Grid>
@@ -397,7 +397,7 @@ const ShiftHandover: React.FC = () => {
                         <CardContent sx={{ textAlign: 'center', py: 2 }}>
                           <AvailableIcon color="success" sx={{ fontSize: 28 }} />
                           <Typography variant="caption" display="block" color="text.secondary">Boş Oda</Typography>
-                          <Typography variant="h6" fontWeight={700}>{(selectedShift as any).roomsAvailable}</Typography>
+                          <Typography variant="h6" fontWeight={700}>{selectedShift.roomsAvailable}</Typography>
                         </CardContent>
                       </Card>
                     </Grid>

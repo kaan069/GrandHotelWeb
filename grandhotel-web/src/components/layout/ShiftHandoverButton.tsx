@@ -54,14 +54,14 @@ const ShiftHandoverButton: React.FC = () => {
       const userRole = user?.role || '';
       setStaffList(
         data
-          .filter((emp: any) => {
+          .filter((emp) => {
             if (emp.id === user?.id) return false;
             // Karşı tarafın rolleri içinde benim rolüm varsa göster
             // Örn: ben resepsiyoncu isem, karşıdaki barista+resepsiyon olsa bile gösterilir
             const empRoles: string[] = emp.roles || [];
             return empRoles.includes(userRole);
           })
-          .map((emp: any) => ({
+          .map((emp) => ({
             id: emp.id,
             name: emp.fullName || `${emp.firstName} ${emp.lastName}`,
             role: emp.roleLabels?.[0] || emp.roles?.[0] || '',

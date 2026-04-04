@@ -104,10 +104,10 @@ const Dashboard: React.FC = () => {
     kazancApi.dashboardStats()
       .then((data) => {
         setStats(data);
-        setCheckIns(data.todayCheckins.map((c: any, i: number) => ({
+        setCheckIns(data.todayCheckins.map((c: { guest: string; room: string; time: string }, i: number) => ({
           id: i + 1, guest: c.guest, room: c.room, time: c.time,
         })));
-        setCheckOuts(data.todayCheckouts.map((c: any, i: number) => ({
+        setCheckOuts(data.todayCheckouts.map((c: { guest: string; room: string; time: string }, i: number) => ({
           id: i + 1, guest: c.guest, room: c.room, time: c.time,
         })));
       })

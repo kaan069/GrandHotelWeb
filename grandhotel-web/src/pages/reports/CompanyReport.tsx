@@ -24,15 +24,36 @@ import {
   Autocomplete,
 } from '@mui/material';
 import { companiesApi, reportsApi } from '../../api/services';
+import type { ApiCompany } from '../../api/services';
+import { FOLIO_CATEGORY_LABELS } from '../../utils/constants';
 
-const FOLIO_CATEGORY_LABELS: Record<string, string> = {
-  room_charge: 'Oda Ücreti',
-  minibar: 'Minibar',
-  restaurant: 'Restoran',
-  service: 'Ekstra Hizmet',
-  discount: 'İndirim',
-  payment: 'Ödeme',
-};
+interface CompanyReportStay {
+  guestName: string;
+}
+
+interface CompanyReportReservation {
+  id: number;
+  status: string;
+  roomNumber: string;
+  stays?: CompanyReportStay[];
+  checkIn?: string;
+  checkOut?: string;
+  totalAmount: string | number;
+  paidAmount: string | number;
+}
+
+interface CompanyReportSummary {
+  totalReservations: number;
+  guestCount: number;
+  totalAmount: number;
+  paidAmount: number;
+  balance: number;
+}
+
+interface CompanyReportData {
+  summary: CompanyReportSummary;
+  reservations: CompanyReportReservation[];
+}
 
 const STATUS_LABELS: Record<string, string> = {
   reserved: 'Rezerve',
@@ -42,21 +63,21 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const CompanyReport: React.FC = () => {
-  const [companies, setCompanies] = useState<any[]>([]);
-  const [selectedCompany, setSelectedCompany] = useState<any>(null);
-  const [report, setReport] = useState<any>(null);
+  const [companies, setCompanies] = useState<ApiCompany[]>([]);
+  const [selectedCompany, setSelectedCompany] = useState<ApiCompany | null>(null);
+  const [report, setReport] = useState<CompanyReportData | null>(null);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    companiesApi.getAll().then((data) => setCompanies(data as any[])).catch(console.error);
+    companiesApi.getAll().then((data) => setCompanies(data)).catch(console.error);
   }, []);
 
   useEffect(() => {
     if (!selectedCompany) { setReport(null); return; }
     setLoading(true);
-    const filters: any = {};
+    const filters: { dateFrom?: string; dateTo?: string } = {};
     if (dateFrom) filters.dateFrom = dateFrom;
     if (dateTo) filters.dateTo = dateTo;
     reportsApi.company(selectedCompany.id, filters)
@@ -65,7 +86,7 @@ const CompanyReport: React.FC = () => {
       .finally(() => setLoading(false));
   }, [selectedCompany, dateFrom, dateTo]);
 
-  const summary = report?.summary || {};
+  const summary = report?.summary ?? { totalReservations: 0, guestCount: 0, totalAmount: 0, paidAmount: 0, balance: 0 };
 
   return (
     <Box sx={{ p: 3, maxWidth: 1200, mx: 'auto' }}>
@@ -75,7 +96,7 @@ const CompanyReport: React.FC = () => {
       <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
         <Autocomplete
           options={companies}
-          getOptionLabel={(c: any) => c.name}
+          getOptionLabel={(c) => c.name}
           onChange={(_, val) => setSelectedCompany(val)}
           renderInput={(params) => <TextField {...params} label="Firma Seçin" size="small" sx={{ minWidth: 250 }} />}
         />
@@ -152,9 +173,9 @@ const CompanyReport: React.FC = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {(report.reservations || []).map((r: any) => {
-                  const total = parseFloat(r.totalAmount || 0);
-                  const paid = parseFloat(r.paidAmount || 0);
+                {(report.reservations || []).map((r) => {
+                  const total = parseFloat(String(r.totalAmount || 0));
+                  const paid = parseFloat(String(r.paidAmount || 0));
                   const balance = total - paid;
                   return (
                     <TableRow key={r.id}>
@@ -165,7 +186,7 @@ const CompanyReport: React.FC = () => {
                       </TableCell>
                       <TableCell><strong>{r.roomNumber}</strong></TableCell>
                       <TableCell>
-                        {(r.stays || []).map((s: any) => s.guestName).join(', ') || '-'}
+                        {(r.stays || []).map((s) => s.guestName).join(', ') || '-'}
                       </TableCell>
                       <TableCell>{r.checkIn ? new Date(r.checkIn).toLocaleDateString('tr-TR') : '-'}</TableCell>
                       <TableCell>{r.checkOut ? new Date(r.checkOut).toLocaleDateString('tr-TR') : '-'}</TableCell>

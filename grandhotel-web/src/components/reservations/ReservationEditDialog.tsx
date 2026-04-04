@@ -102,9 +102,10 @@ const ReservationEditDialog: React.FC<ReservationEditDialogProps> = ({
       });
       onSave(updated);
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Rezervasyon güncelleme hatası:', err);
-      const msg = err?.response?.data?.error || err.message || 'Güncelleme yapılamadı';
+      const axiosErr = err as { response?: { data?: { error?: string } }; message?: string };
+      const msg = axiosErr?.response?.data?.error || axiosErr?.message || 'Güncelleme yapılamadı';
       setErrors((p) => ({ ...p, notes: msg }));
     } finally {
       setLoading(false);

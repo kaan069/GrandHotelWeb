@@ -32,22 +32,30 @@ import {
   Person as PersonIcon,
 } from '@mui/icons-material';
 import { kazancApi } from '../../api/services';
+import { FOLIO_CATEGORY_LABELS, BED_TYPE_LABELS } from '../../utils/constants';
 
-const BED_TYPE_LABELS: Record<string, string> = {
-  single: 'Tek Kişilik',
-  double: 'Çift Kişilik',
-  twin: 'Twin',
-  king: 'King',
-};
+interface GeneralReportSummary {
+  totalRevenue: number;
+  totalPayments: number;
+  totalBalance: number;
+  byCompany: Array<{ name: string; revenue: number }>;
+  byCategory: Record<string, number>;
+  byBedType: Record<string, number>;
+}
 
-const FOLIO_CATEGORY_LABELS: Record<string, string> = {
-  room_charge: 'Oda Ücreti',
-  minibar: 'Minibar',
-  restaurant: 'Restoran',
-  service: 'Ekstra Hizmet',
-  discount: 'İndirim',
-  payment: 'Ödeme',
-};
+interface GeneralReportSalesCounts {
+  companyReservations: number;
+  individualReservations: number;
+  uniqueRooms: number;
+  uniqueGuests: number;
+  byBedType: Record<string, number>;
+}
+
+interface GeneralReportData {
+  summary: GeneralReportSummary;
+  salesCounts: GeneralReportSalesCounts;
+  reservationCount: number;
+}
 
 const MONTHS = [
   { value: '01', label: 'Ocak' }, { value: '02', label: 'Şubat' },
@@ -78,7 +86,7 @@ const GeneralReport: React.FC = () => {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<GeneralReportData | null>(null);
   const [loading, setLoading] = useState(true);
 
   const categoryMap: Record<string, string | undefined> = {
@@ -116,8 +124,8 @@ const GeneralReport: React.FC = () => {
     }
   }, [dateFrom, dateTo, categoryFilter]);
 
-  const summary = data?.summary || {};
-  const sales = data?.salesCounts || {};
+  const summary = data?.summary ?? { totalRevenue: 0, totalPayments: 0, totalBalance: 0, byCompany: [], byCategory: {}, byBedType: {} };
+  const sales = data?.salesCounts ?? { companyReservations: 0, individualReservations: 0, uniqueRooms: 0, uniqueGuests: 0, byBedType: {} };
   const byCompany = summary.byCompany || [];
   const byCategory = summary.byCategory || {};
   const byBedTypeRevenue = summary.byBedType || {};
@@ -228,7 +236,7 @@ const GeneralReport: React.FC = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {byCompany.map((c: any, i: number) => (
+                    {byCompany.map((c: { name: string; revenue: number }, i: number) => (
                       <TableRow key={i}>
                         <TableCell>{c.name}</TableCell>
                         <TableCell align="right"><strong>{(c.revenue || 0).toLocaleString('tr-TR')} ₺</strong></TableCell>

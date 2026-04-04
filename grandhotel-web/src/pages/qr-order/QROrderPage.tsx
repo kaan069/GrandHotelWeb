@@ -48,6 +48,18 @@ interface CartItem {
   notes: string;
 }
 
+interface OrderStatusItem {
+  quantity: number;
+  description: string;
+  status: string;
+}
+
+interface OrderStatus {
+  tabNo?: string;
+  totalAmount?: string;
+  items?: OrderStatusItem[];
+}
+
 const QROrderPage: React.FC = () => {
   const { token } = useParams<{ token: string }>();
   const [menu, setMenu] = useState<ApiQRMenu | null>(null);
@@ -61,7 +73,7 @@ const QROrderPage: React.FC = () => {
   const [orderResult, setOrderResult] = useState<{ tabNo: string; totalAmount: string } | null>(null);
 
   /* Status polling */
-  const [orderStatus, setOrderStatus] = useState<any>(null);
+  const [orderStatus, setOrderStatus] = useState<OrderStatus | null>(null);
   const [showStatus, setShowStatus] = useState(false);
 
   /** Menüyü yükle */
@@ -120,8 +132,9 @@ const QROrderPage: React.FC = () => {
       setOrderResult(result);
       setOrderSuccess(true);
       setCart([]);
-    } catch (err: any) {
-      setError(err?.response?.data?.error || 'Sipariş gönderilemedi');
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } } };
+      setError(axiosErr?.response?.data?.error || 'Sipariş gönderilemedi');
     } finally {
       setSubmitting(false);
     }
@@ -322,7 +335,7 @@ const QROrderPage: React.FC = () => {
               )}
               <Divider sx={{ mb: 1 }} />
               <List dense>
-                {orderStatus.items?.map((item: any, i: number) => (
+                {orderStatus.items?.map((item, i) => (
                   <ListItem key={i} disablePadding sx={{ py: 0.5 }}>
                     <ListItemText
                       primary={`${item.quantity}x ${item.description}`}

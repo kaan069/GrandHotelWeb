@@ -18,6 +18,7 @@ import {
   CircularProgress,
   IconButton,
   Paper,
+  Snackbar,
 } from '@mui/material';
 import {
   Save as SaveIcon,
@@ -43,6 +44,8 @@ const HotelInfoSection: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'warning' });
 
   const docInputRef = useRef<HTMLInputElement>(null);
   const [docUploadType, setDocUploadType] = useState('');
@@ -76,8 +79,9 @@ const HotelInfoSection: React.FC = () => {
       const updated = await hotelApi.update(form);
       setHotel(updated);
       setSaved(true);
-    } catch (err: any) {
-      alert(err?.response?.data?.error || 'Kayıt başarısız');
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } } };
+      setSnackbar({ open: true, message: axiosErr?.response?.data?.error || 'Kayıt başarısız', severity: 'error' });
     } finally {
       setSaving(false);
     }
@@ -103,8 +107,9 @@ const HotelInfoSection: React.FC = () => {
         };
         return { ...prev, [fieldMap[docUploadType]]: doc };
       });
-    } catch (err: any) {
-      alert(err?.response?.data?.error || 'Belge yüklenemedi');
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } } };
+      setSnackbar({ open: true, message: axiosErr?.response?.data?.error || 'Belge yüklenemedi', severity: 'error' });
     }
     e.target.value = '';
   };
@@ -113,8 +118,8 @@ const HotelInfoSection: React.FC = () => {
     try {
       await hotelApi.deleteDocument(doc.id);
       setHotel((prev) => prev ? { ...prev, [field]: null } : prev);
-    } catch (err: any) {
-      alert('Belge silinemedi');
+    } catch (err: unknown) {
+      setSnackbar({ open: true, message: 'Belge silinemedi', severity: 'error' });
     }
   };
 
@@ -129,7 +134,7 @@ const HotelInfoSection: React.FC = () => {
       img.onload = () => {
         URL.revokeObjectURL(img.src);
         if (img.width < 1920 || img.height < 1080) {
-          alert(`Görsel en az 1920x1080 piksel olmalıdır. Yüklenen: ${img.width}x${img.height}`);
+          setSnackbar({ open: true, message: `Görsel en az 1920x1080 piksel olmalıdır. Yüklenen: ${img.width}x${img.height}`, severity: 'warning' });
           resolve(false);
         } else {
           resolve(true);
@@ -148,8 +153,9 @@ const HotelInfoSection: React.FC = () => {
     try {
       const img = await hotelApi.uploadImage(file);
       setHotel((prev) => prev ? { ...prev, images: [...prev.images, img] } : prev);
-    } catch (err: any) {
-      alert(err?.response?.data?.error || 'Görsel yüklenemedi');
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } } };
+      setSnackbar({ open: true, message: axiosErr?.response?.data?.error || 'Görsel yüklenemedi', severity: 'error' });
     }
     e.target.value = '';
   };
@@ -158,8 +164,8 @@ const HotelInfoSection: React.FC = () => {
     try {
       await hotelApi.deleteImage(img.id);
       setHotel((prev) => prev ? { ...prev, images: prev.images.filter((i) => i.id !== img.id) } : prev);
-    } catch (err: any) {
-      alert('Görsel silinemedi');
+    } catch (err: unknown) {
+      setSnackbar({ open: true, message: 'Görsel silinemedi', severity: 'error' });
     }
   };
 
@@ -285,6 +291,17 @@ const HotelInfoSection: React.FC = () => {
           {saved && <Alert severity="success" sx={{ py: 0 }}>Bilgiler kaydedildi</Alert>}
         </Box>
       </CardContent>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar(s => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setSnackbar(s => ({ ...s, open: false }))} severity={snackbar.severity} variant="filled">
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Card>
   );
 };

@@ -13,6 +13,8 @@ import {
   Chip,
   CircularProgress,
   Typography,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -220,6 +222,7 @@ const ReservationList: React.FC = () => {
   const [cancelTarget, setCancelTarget] = useState<ApiReservation | null>(null);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [companies, setCompanies] = useState<ApiCompany[]>([]);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'warning' });
 
   /* Tab state */
   const [openTabs, setOpenTabs] = useState<RoomTab[]>([]);
@@ -322,7 +325,7 @@ const ReservationList: React.FC = () => {
 
   /** Oda güncelle (tab içi kullanım — state güncelle) */
   /* WebSocket zaten günceller, burada sadece refetch */
-  const handleRoomUpdate = (_roomId: number, _updates: any) => {
+  const handleRoomUpdate = (_roomId: number, _updates: Record<string, unknown>) => {
     roomsApi.getAll().then(setRooms).catch(() => {});
   };
 
@@ -408,9 +411,10 @@ const ReservationList: React.FC = () => {
       fetchReservations();
       setCancelDialogOpen(false);
       setCancelTarget(null);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Rezervasyon iptal hatası:', err);
-      alert(err?.response?.data?.error || err.message || 'Rezervasyon iptal edilemedi');
+      const axiosErr = err as { response?: { data?: { error?: string } }; message?: string };
+      setSnackbar({ open: true, message: axiosErr?.response?.data?.error || axiosErr?.message || 'Rezervasyon iptal edilemedi', severity: 'error' });
     } finally {
       setCancelLoading(false);
     }
@@ -579,6 +583,17 @@ const ReservationList: React.FC = () => {
         companies={companies}
         onSave={handleEditSave}
       />
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar(s => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setSnackbar(s => ({ ...s, open: false }))} severity={snackbar.severity} variant="filled">
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </div>
   );
 };

@@ -16,6 +16,8 @@ import {
   DialogContent,
   DialogActions,
   MenuItem,
+  Snackbar,
+  Alert,
   Table,
   TableBody,
   TableCell,
@@ -82,6 +84,8 @@ const AdisyonList: React.FC = () => {
   const [menuItems, setMenuItems] = useState<ApiMenuItem[]>([]);
   const [newTab, setNewTab] = useState({ roomId: '', guestName: '', servicePoint: 'restaurant', notes: '' });
 
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'warning' });
+
   /* Add item dialog */
   const [addItemOpen, setAddItemOpen] = useState(false);
   const [addItemForm, setAddItemForm] = useState({ menuItemId: '', description: '', quantity: '1', unitPrice: '' });
@@ -89,12 +93,12 @@ const AdisyonList: React.FC = () => {
   const fetchTabs = useCallback(async () => {
     setLoading(true);
     try {
-      const filters: Record<string, string> = {};
+      const filters: { status?: string; servicePoint?: string; dateFrom?: string; dateTo?: string } = {};
       if (statusFilter) filters.status = statusFilter;
       if (serviceFilter) filters.servicePoint = serviceFilter;
       if (dateStart) filters.dateFrom = dateStart.format('YYYY-MM-DD');
       if (dateEnd) filters.dateTo = dateEnd.format('YYYY-MM-DD');
-      const data = await tabsApi.getAll(filters as any);
+      const data = await tabsApi.getAll(filters);
       setTabs(data);
     } catch (err) {
       console.error('Adisyonlar yüklenemedi:', err);
@@ -196,8 +200,9 @@ const AdisyonList: React.FC = () => {
       await tabsApi.pay(detailTab.id, method);
       setDetailTab(null);
       fetchTabs();
-    } catch (err: any) {
-      alert(err?.response?.data?.error || 'Ödeme hatası');
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } } };
+      setSnackbar({ open: true, message: axiosErr?.response?.data?.error || 'Ödeme hatası', severity: 'error' });
     }
   };
 
@@ -478,6 +483,17 @@ const AdisyonList: React.FC = () => {
           </>
         )}
       </Dialog>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar(s => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setSnackbar(s => ({ ...s, open: false }))} severity={snackbar.severity} variant="filled">
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
 
       {/* Kalem Ekle Dialog */}
       <Dialog open={addItemOpen} onClose={() => setAddItemOpen(false)} maxWidth="sm" fullWidth>

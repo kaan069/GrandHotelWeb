@@ -38,6 +38,7 @@ const StockManagement = React.lazy(() => import('../pages/minibar/StockManagemen
 const MenuManagement = React.lazy(() => import('../pages/menu/MenuManagement'));
 const AdisyonList = React.lazy(() => import('../pages/adisyon/AdisyonList'));
 const KbsRecords = React.lazy(() => import('../pages/kbs/KbsRecords'));
+const KbsSettings = React.lazy(() => import('../pages/kbs/KbsSettings'));
 const CameraView = React.lazy(() => import('../pages/cameras/CameraView'));
 const ParasutIntegration = React.lazy(() => import('../pages/integrations/ParasutIntegration'));
 const KitchenDisplay = React.lazy(() => import('../pages/kitchen/KitchenDisplay'));
@@ -45,6 +46,10 @@ const TableManagement = React.lazy(() => import('../pages/tables/TableManagement
 const CashRegisterPage = React.lazy(() => import('../pages/kasa/CashRegisterPage'));
 const QROrderPage = React.lazy(() => import('../pages/qr-order/QROrderPage'));
 const CustomerDisplay = React.lazy(() => import('../pages/kasa/CustomerDisplay'));
+const GuestDetail = React.lazy(() => import('../pages/guests/GuestDetail'));
+const Settings = React.lazy(() => import('../pages/settings/Settings'));
+const ReservationDetail = React.lazy(() => import('../pages/reservations/ReservationDetail'));
+const ReservationCreate = React.lazy(() => import('../pages/reservations/ReservationCreate'));
 
 /* SuperAdmin Sayfaları */
 const SuperAdminLogin = React.lazy(() => import('../pages/superadmin/SuperAdminLogin'));
@@ -229,8 +234,8 @@ const router = createBrowserRouter([
               </React.Suspense>
             ),
           },
-          { path: '/reservations/new', element: <ComingSoon /> },
-          { path: '/reservations/:id', element: <ComingSoon /> },
+          { path: '/reservations/new', element: <React.Suspense fallback={null}><ReservationCreate /></React.Suspense> },
+          { path: '/reservations/:id', element: <React.Suspense fallback={null}><ReservationDetail /></React.Suspense> },
           {
             path: '/guests',
             element: (
@@ -247,13 +252,13 @@ const router = createBrowserRouter([
               </React.Suspense>
             ),
           },
-          { path: '/guests/:id', element: <ComingSoon /> },
+          { path: '/guests/:id', element: <React.Suspense fallback={null}><GuestDetail /></React.Suspense> },
           { path: '/reports/daily', element: <React.Suspense fallback={<div>Yükleniyor...</div>}><DailyReport /></React.Suspense> },
           { path: '/reports/rooms', element: <React.Suspense fallback={<div>Yükleniyor...</div>}><RoomReport /></React.Suspense> },
           { path: '/reports/companies', element: <React.Suspense fallback={<div>Yükleniyor...</div>}><CompanyReport /></React.Suspense> },
           { path: '/reports/general', element: <React.Suspense fallback={<div>Yükleniyor...</div>}><GeneralReport /></React.Suspense> },
           { path: '/reports/night-audit', element: <React.Suspense fallback={<div>Yükleniyor...</div>}><NightAuditReport /></React.Suspense> },
-          { path: '/settings', element: <ComingSoon /> },
+          { path: '/settings', element: <React.Suspense fallback={null}><Settings /></React.Suspense> },
         ],
       },
     ],
@@ -327,6 +332,7 @@ const router = createBrowserRouter([
         element: <MainLayout />,
         children: [
           { path: '/kbs', element: <React.Suspense fallback={null}><KbsRecords /></React.Suspense> },
+          { path: '/kbs/settings', element: <React.Suspense fallback={null}><KbsSettings /></React.Suspense> },
         ],
       },
     ],

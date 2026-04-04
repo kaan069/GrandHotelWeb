@@ -30,6 +30,7 @@ import {
   Divider,
   TextField,
   Collapse,
+  Snackbar,
 } from '@mui/material';
 import {
   NightsStay as NightsStayIcon,
@@ -70,6 +71,8 @@ const NightAuditDialog: React.FC<NightAuditDialogProps> = ({ open, onClose }) =>
   const [preview, setPreview] = useState<NightAuditPreviewResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [executing, setExecuting] = useState(false);
+
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'warning' });
 
   /* No-show iptal durumu */
   const [noShowStatus, setNoShowStatus] = useState<Record<number, string>>({});
@@ -178,9 +181,10 @@ const NightAuditDialog: React.FC<NightAuditDialogProps> = ({ open, onClose }) =>
         noShowCancelled: data.noShowCancelled,
       });
       setStep('result');
-    } catch (err: any) {
-      const msg = err?.response?.data?.error || 'Gün sonu işlemi sırasında hata oluştu';
-      alert(msg);
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } } };
+      const msg = axiosErr?.response?.data?.error || 'Gün sonu işlemi sırasında hata oluştu';
+      setSnackbar({ open: true, message: msg, severity: 'error' });
     } finally {
       setExecuting(false);
     }
@@ -203,6 +207,7 @@ const NightAuditDialog: React.FC<NightAuditDialogProps> = ({ open, onClose }) =>
   const cancelledCount = Object.values(noShowStatus).filter((s) => s === 'cancelled').length;
 
   return (
+    <>
     <Dialog
       open={open}
       onClose={step === 'result' ? handleClose : onClose}
@@ -515,6 +520,18 @@ const NightAuditDialog: React.FC<NightAuditDialogProps> = ({ open, onClose }) =>
         )}
       </DialogActions>
     </Dialog>
+
+    <Snackbar
+      open={snackbar.open}
+      autoHideDuration={4000}
+      onClose={() => setSnackbar(s => ({ ...s, open: false }))}
+      anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+    >
+      <Alert onClose={() => setSnackbar(s => ({ ...s, open: false }))} severity={snackbar.severity} variant="filled">
+        {snackbar.message}
+      </Alert>
+    </Snackbar>
+    </>
   );
 };
 
