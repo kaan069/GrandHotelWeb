@@ -5,7 +5,7 @@
  * Kendi auth mekanizmasi vardir (superadmin_token).
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -96,14 +96,6 @@ const SuperAdminDashboard: React.FC = () => {
     open: false, message: '', severity: 'success',
   });
 
-  /* Auth kontrolu */
-  useEffect(() => {
-    const token = localStorage.getItem('superadmin_token');
-    if (!token) {
-      navigate('/superadmin/login', { replace: true });
-    }
-  }, [navigate]);
-
   /* Otelleri yukle */
   const loadHotels = useCallback(async () => {
     try {
@@ -121,11 +113,22 @@ const SuperAdminDashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [navigate]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
+  /* Auth kontrolu + ilk yukleme (tek sefer) */
+  const loadedRef = useRef(false);
   useEffect(() => {
+    if (loadedRef.current) return;
+    const token = localStorage.getItem('superadmin_token');
+    if (!token) {
+      navigate('/superadmin/login', { replace: true });
+      return;
+    }
+    loadedRef.current = true;
     loadHotels();
-  }, [loadHotels]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /* ==================== YENI OTEL ==================== */
 

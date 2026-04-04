@@ -152,6 +152,7 @@ export interface ApiFolioItem {
   amount: number | string;
   date: string;
   createdBy?: string | null;
+  createdAt?: string;
 }
 
 export interface ApiHotelDocument {

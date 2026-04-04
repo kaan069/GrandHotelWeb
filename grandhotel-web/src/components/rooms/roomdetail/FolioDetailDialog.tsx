@@ -208,6 +208,14 @@ const FolioDetailDialog: React.FC<FolioDetailDialogProps> = ({
                 <TableRow>
                   <TableCell colSpan={3} sx={{ fontWeight: 700, fontSize: '0.9375rem' }}>
                     Toplam
+                    {(() => {
+                      const nightCount = folios.filter((f) => f.category === 'room_charge').length;
+                      return nightCount > 0 ? (
+                        <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1, fontWeight: 400 }}>
+                          ({nightCount} gece konaklama)
+                        </Typography>
+                      ) : null;
+                    })()}
                   </TableCell>
                   <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.9375rem' }}>
                     {folioTotal.toLocaleString('tr-TR')} ₺

@@ -244,7 +244,7 @@ const KitchenDisplay: React.FC = () => {
         </Box>
       </Box>
 
-      {/* Sipariş Kartları */}
+      {/* Sipariş Kartları — Masaya Göre Gruplanmış */}
       {orders.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 8 }}>
           <Typography variant="h6" color="text.secondary">
@@ -253,121 +253,114 @@ const KitchenDisplay: React.FC = () => {
         </Box>
       ) : (
         <Grid container spacing={2}>
-          {orders.map((order) => {
-            const elapsed = getElapsedMinutes(order.sentToKitchenAt);
-            const statusColor = getStatusColor(order.status);
-            const location = order.tableNumber
-              ? `Masa ${order.tableNumber}`
-              : order.roomNumber
-                ? `Oda ${order.roomNumber}`
-                : order.guestName || 'Bilinmiyor';
+          {(() => {
+            // Siparişleri masaya/konuma göre grupla
+            const grouped = new Map<string, ApiOrderItemStatus[]>();
+            orders.forEach((order) => {
+              const key = order.tableNumber
+                ? `Masa ${order.tableNumber}`
+                : order.roomNumber
+                  ? `Oda ${order.roomNumber}`
+                  : order.guestName || 'Bilinmiyor';
+              const list = grouped.get(key) || [];
+              list.push(order);
+              grouped.set(key, list);
+            });
 
-            return (
-              <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={order.id}>
-                <Card
-                  sx={{
-                    height: '100%',
-                    borderLeft: `6px solid ${statusColor}`,
-                    opacity: order.status === 'cancelled' ? 0.5 : 1,
-                    transition: 'all 0.3s',
-                  }}
-                >
-                  <CardContent sx={{ pb: '12px !important' }}>
-                    {/* Üst: Konum + Süre */}
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                      <Typography variant="subtitle1" fontWeight={700}>
-                        {location}
-                      </Typography>
-                      <Badge>
+            return Array.from(grouped.entries()).map(([location, items]) => {
+              // Grup için en eski sipariş süresini al
+              const oldestElapsed = Math.max(...items.map((o) => getElapsedMinutes(o.sentToKitchenAt)));
+              // Grup durumu: en acil olanı göster
+              const hasPending = items.some((o) => o.status === 'pending');
+              const hasPreparing = items.some((o) => o.status === 'preparing');
+              const groupColor = hasPending ? '#ef4444' : hasPreparing ? '#f59e0b' : '#22c55e';
+              const servicePoint = items[0]?.servicePoint || '';
+
+              return (
+                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={location}>
+                  <Card
+                    sx={{
+                      height: '100%',
+                      borderLeft: `6px solid ${groupColor}`,
+                      transition: 'all 0.3s',
+                    }}
+                  >
+                    <CardContent sx={{ pb: '12px !important' }}>
+                      {/* Üst: Konum + Süre */}
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                        <Typography variant="subtitle1" fontWeight={700}>
+                          {location}
+                        </Typography>
                         <Chip
                           icon={<TimeIcon sx={{ fontSize: 14 }} />}
-                          label={`${elapsed} dk`}
+                          label={`${oldestElapsed} dk`}
                           size="small"
-                          sx={{
-                            bgcolor: getTimeColor(elapsed),
-                            color: 'white',
-                            fontWeight: 600,
-                          }}
+                          sx={{ bgcolor: getTimeColor(oldestElapsed), color: 'white', fontWeight: 600 }}
                         />
-                      </Badge>
-                    </Box>
-
-                    {/* Adisyon No */}
-                    <Typography variant="caption" color="text.secondary">
-                      {order.tabNo} · {order.servicePoint}
-                    </Typography>
-
-                    {/* Ürün */}
-                    <Box sx={{ my: 1.5, p: 1.5, bgcolor: '#f8fafc', borderRadius: 1 }}>
-                      <Typography variant="h6" fontWeight={700}>
-                        {order.itemQuantity}x {order.itemDescription}
+                      </Box>
+                      <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                        {servicePoint} · {items.length} kalem
                       </Typography>
-                      {order.notes && (
-                        <Typography variant="body2" color="error.main" fontWeight={600} sx={{ mt: 0.5 }}>
-                          ⚠ {order.notes}
-                        </Typography>
-                      )}
-                    </Box>
 
-                    {/* Durum */}
-                    <Chip
-                      label={getStatusLabel(order.status)}
-                      size="small"
-                      sx={{
-                        bgcolor: statusColor,
-                        color: 'white',
-                        fontWeight: 600,
-                        mb: 1,
-                      }}
-                    />
-
-                    {/* Aksiyonlar */}
-                    <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-                      {order.status === 'pending' && (
-                        <>
-                          <Button
-                            variant="contained"
-                            color="warning"
-                            startIcon={<StartIcon />}
-                            onClick={() => handleStart(order.id)}
-                            fullWidth
-                            sx={{ py: 1.5, fontWeight: 700, fontSize: '0.9rem' }}
+                      {/* Ürün Listesi */}
+                      {items.map((order) => {
+                        const statusColor = getStatusColor(order.status);
+                        return (
+                          <Box
+                            key={order.id}
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 1,
+                              py: 0.75,
+                              px: 1,
+                              mb: 0.5,
+                              bgcolor: '#f8fafc',
+                              borderRadius: 1,
+                              borderLeft: `3px solid ${statusColor}`,
+                            }}
                           >
-                            Başla
-                          </Button>
-                          <IconButton color="error" onClick={() => handleCancel(order.id)}>
-                            <CancelIcon />
-                          </IconButton>
-                        </>
-                      )}
-                      {order.status === 'preparing' && (
-                        <Button
-                          variant="contained"
-                          color="success"
-                          startIcon={<ReadyIcon />}
-                          onClick={() => handleReady(order.id)}
-                          fullWidth
-                          sx={{ py: 1.5, fontWeight: 700, fontSize: '0.9rem' }}
-                        >
-                          Hazır
-                        </Button>
-                      )}
-                      {order.status === 'ready' && (
-                        <Typography
-                          variant="body2"
-                          color="success.main"
-                          fontWeight={700}
-                          sx={{ textAlign: 'center', width: '100%', py: 1 }}
-                        >
-                          ✓ Servis bekliyor
-                        </Typography>
-                      )}
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-            );
-          })}
+                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                              <Typography variant="body2" fontWeight={700} noWrap>
+                                {order.itemQuantity}x {order.itemDescription}
+                              </Typography>
+                              {order.notes && (
+                                <Typography variant="caption" color="error.main" fontWeight={600}>
+                                  {order.notes}
+                                </Typography>
+                              )}
+                            </Box>
+                            {/* Kalem aksiyonları */}
+                            {order.status === 'pending' && (
+                              <Box sx={{ display: 'flex', gap: 0.5 }}>
+                                <IconButton size="small" color="warning" onClick={() => handleStart(order.id)} title="Başla">
+                                  <StartIcon fontSize="small" />
+                                </IconButton>
+                                <IconButton size="small" color="error" onClick={() => handleCancel(order.id)} title="İptal">
+                                  <CancelIcon fontSize="small" />
+                                </IconButton>
+                              </Box>
+                            )}
+                            {order.status === 'preparing' && (
+                              <IconButton size="small" color="success" onClick={() => handleReady(order.id)} title="Hazır">
+                                <ReadyIcon fontSize="small" />
+                              </IconButton>
+                            )}
+                            {order.status === 'ready' && (
+                              <Chip label="Hazır" size="small" sx={{ bgcolor: '#22c55e', color: '#fff', fontWeight: 600, fontSize: '0.7rem' }} />
+                            )}
+                            {order.status === 'cancelled' && (
+                              <Chip label="İptal" size="small" sx={{ bgcolor: '#94a3b8', color: '#fff', fontSize: '0.7rem' }} />
+                            )}
+                          </Box>
+                        );
+                      })}
+                    </CardContent>
+                  </Card>
+                </Grid>
+              );
+            });
+          })()}
         </Grid>
       )}
     </div>

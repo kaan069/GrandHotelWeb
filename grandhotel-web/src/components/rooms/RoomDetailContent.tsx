@@ -134,6 +134,7 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
           date: f.date,
           guestId: f.guestId ?? undefined,
           createdBy: f.createdBy ?? undefined,
+          createdAt: f.createdAt ?? undefined,
         })));
 
         // Rezervasyon varsa sahibinin bilgisini hızlı rezervasyon alanına getir

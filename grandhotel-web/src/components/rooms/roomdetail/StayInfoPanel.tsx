@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -14,10 +14,12 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Chip,
 } from '@mui/material';
 import {
   Receipt as ReceiptIcon,
   OpenInNew as OpenInNewIcon,
+  NightsStay as NightsStayIcon,
 } from '@mui/icons-material';
 
 import { Company, FolioItem, FOLIO_CATEGORY_LABELS } from '../../../utils/constants';
@@ -51,12 +53,53 @@ const StayInfoPanel: React.FC<StayInfoPanelProps> = ({
   folioTotal,
   onFolioDetailOpen,
 }) => {
+  // Konaklama süresi hesapla
+  const stayDays = useMemo(() => {
+    if (!checkInDate) return 0;
+    const cin = new Date(checkInDate);
+    const now = new Date();
+    const diff = Math.floor((now.getTime() - cin.getTime()) / 86400000);
+    return Math.max(0, diff);
+  }, [checkInDate]);
+
+  // Planlanan gece sayısı
+  const plannedNights = useMemo(() => {
+    if (!checkInDate || !checkOutDate) return 0;
+    const cin = new Date(checkInDate);
+    const cout = new Date(checkOutDate);
+    return Math.max(0, Math.ceil((cout.getTime() - cin.getTime()) / 86400000));
+  }, [checkInDate, checkOutDate]);
+
+  // Gece sayısı girildiğinde çıkış tarihini hesapla
+  const handleNightsChange = (value: string) => {
+    const n = parseInt(value, 10);
+    if (!checkInDate || isNaN(n) || n < 1) return;
+    const cin = new Date(checkInDate);
+    cin.setDate(cin.getDate() + n);
+    const yyyy = cin.getFullYear();
+    const mm = String(cin.getMonth() + 1).padStart(2, '0');
+    const dd = String(cin.getDate()).padStart(2, '0');
+    onCheckOutDateChange(`${yyyy}-${mm}-${dd}`);
+  };
+
   return (
     <Card>
       <CardContent>
-        <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>
+        <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
           Konaklama Bilgileri
         </Typography>
+
+        {/* Konaklama süresi */}
+        {checkInDate && stayDays > 0 && (
+          <Chip
+            icon={<NightsStayIcon />}
+            label={`${stayDays}. gün — ${stayDays} gecedir konaklıyor`}
+            color="primary"
+            variant="outlined"
+            size="small"
+            sx={{ mb: 2 }}
+          />
+        )}
 
         <TextField
           label="Giriş Tarihi"
@@ -68,15 +111,24 @@ const StayInfoPanel: React.FC<StayInfoPanelProps> = ({
           sx={{ mb: 2 }}
         />
 
-        <TextField
-          label="Çıkış Tarihi"
-          type="date"
-          fullWidth
-          value={checkOutDate}
-          onChange={(e) => onCheckOutDateChange(e.target.value)}
-          slotProps={{ inputLabel: { shrink: true } }}
-          sx={{ mb: 2 }}
-        />
+        <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+          <TextField
+            label="Çıkış Tarihi"
+            type="date"
+            fullWidth
+            value={checkOutDate}
+            onChange={(e) => onCheckOutDateChange(e.target.value)}
+            slotProps={{ inputLabel: { shrink: true } }}
+          />
+          <TextField
+            label="Gece"
+            type="number"
+            value={plannedNights || ''}
+            onChange={(e) => handleNightsChange(e.target.value)}
+            slotProps={{ htmlInput: { min: 1 }, inputLabel: { shrink: true } }}
+            sx={{ width: 90, flexShrink: 0 }}
+          />
+        </Box>
 
         <TextField
           select

@@ -44,18 +44,20 @@ export default function useRestaurantWebSocket({
   const onOrderStatusUpdateRef = useRef(onOrderStatusUpdate);
   const onTableUpdateRef = useRef(onTableUpdate);
   const onCashierUpdateRef = useRef(onCashierUpdate);
+  const groupsRef = useRef(groups);
 
   onNewOrderRef.current = onNewOrder;
   onOrderStatusUpdateRef.current = onOrderStatusUpdate;
   onTableUpdateRef.current = onTableUpdate;
   onCashierUpdateRef.current = onCashierUpdate;
+  groupsRef.current = groups;
 
   const connect = useCallback(() => {
     if (!enabled) return;
 
     let url = WS_BASE;
-    if (groups && groups.length > 0) {
-      url += `?groups=${groups.join(',')}`;
+    if (groupsRef.current && groupsRef.current.length > 0) {
+      url += `?groups=${groupsRef.current.join(',')}`;
     }
 
     const ws = new WebSocket(url);
@@ -95,7 +97,8 @@ export default function useRestaurantWebSocket({
     ws.onerror = () => {
       ws.close();
     };
-  }, [enabled, groups]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled]);
 
   useEffect(() => {
     connect();
