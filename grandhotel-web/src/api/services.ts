@@ -603,6 +603,9 @@ export interface ApiEmployee {
   roles: string[];
   roleLabels: string[];
   enabledModules?: string[];
+  branchCode?: string;
+  hotelId?: number;
+  hotelName?: string;
   annualLeaveEntitlement: number;
   usedAnnualLeave: number;
   remainingAnnualLeave: number;
@@ -662,7 +665,7 @@ export const staffApi = {
   delete: (id: number) =>
     api.delete(`/staff/${id}/`),
 
-  login: (data: { staffNumber: string; password: string }) =>
+  login: (data: { branchCode: string; staffNumber: string; password: string }) =>
     api.post<ApiEmployee>('/staff/login/', data).then((r) => r.data),
 
   me: (staffNumber: string) =>

@@ -46,6 +46,11 @@ const CashRegisterPage = React.lazy(() => import('../pages/kasa/CashRegisterPage
 const QROrderPage = React.lazy(() => import('../pages/qr-order/QROrderPage'));
 const CustomerDisplay = React.lazy(() => import('../pages/kasa/CustomerDisplay'));
 
+/* SuperAdmin Sayfaları */
+const SuperAdminLogin = React.lazy(() => import('../pages/superadmin/SuperAdminLogin'));
+const SuperAdminDashboard = React.lazy(() => import('../pages/superadmin/SuperAdminDashboard'));
+const SuperAdminHotelDetail = React.lazy(() => import('../pages/superadmin/SuperAdminHotelDetail'));
+
 /* Public Booking Sayfaları */
 const BookingLayout = React.lazy(() => import('../components/booking/BookingLayout'));
 const BookingHome = React.lazy(() => import('../pages/booking/BookingHome'));
@@ -82,6 +87,32 @@ const router = createBrowserRouter([
     element: (
       <React.Suspense fallback={<div>Yükleniyor...</div>}>
         <Login />
+      </React.Suspense>
+    ),
+  },
+
+  /* === SuperAdmin Route'ları (kendi auth mekanizması var) === */
+  {
+    path: '/superadmin/login',
+    element: (
+      <React.Suspense fallback={<div>Yükleniyor...</div>}>
+        <SuperAdminLogin />
+      </React.Suspense>
+    ),
+  },
+  {
+    path: '/superadmin',
+    element: (
+      <React.Suspense fallback={<div>Yükleniyor...</div>}>
+        <SuperAdminDashboard />
+      </React.Suspense>
+    ),
+  },
+  {
+    path: '/superadmin/hotels/:hotelId',
+    element: (
+      <React.Suspense fallback={<div>Yükleniyor...</div>}>
+        <SuperAdminHotelDetail />
       </React.Suspense>
     ),
   },

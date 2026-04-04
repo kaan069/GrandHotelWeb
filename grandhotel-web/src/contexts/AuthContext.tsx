@@ -41,6 +41,7 @@ export const AuthContext = createContext<AuthContextType | null>(null);
 const TOKEN_KEY = 'grandhotel_token';
 const REFRESH_TOKEN_KEY = 'grandhotel_refresh_token';
 const USER_KEY = 'grandhotel_user';
+const HOTEL_ID_KEY = 'grandhotel_hotel_id';
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -69,8 +70,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   /** Giriş — backend API çağrısı */
-  const login = useCallback(async (_branchCode: string, staffNumber: string, password: string): Promise<User> => {
-    const employee = await staffApi.login({ staffNumber, password });
+  const login = useCallback(async (branchCode: string, staffNumber: string, password: string): Promise<User> => {
+    const employee = await staffApi.login({ branchCode, staffNumber, password });
 
     /* Birden fazla rol olabilir — ilk rolü ana rol olarak kullan (menü uyumluluğu) */
     const primaryRole = (employee.roles && employee.roles.length > 0
@@ -84,10 +85,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       role: primaryRole,
       roles: employee.roles || [],
       enabledModules: employee.enabledModules || ['base'],
-      branchCode: '001',
+      branchCode: employee.branchCode || '001',
       staffNumber: employee.staffNumber,
-      hotelId: 1,
-      hotelName: 'Grand Hotel',
+      hotelId: employee.hotelId || 1,
+      hotelName: employee.hotelName || 'Grand Hotel',
     };
 
     const token = `staff-${employee.id}-${Date.now()}`;
@@ -95,6 +96,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     localStorage.setItem(TOKEN_KEY, token);
     localStorage.setItem(REFRESH_TOKEN_KEY, token);
     localStorage.setItem(USER_KEY, JSON.stringify(userData));
+    localStorage.setItem(HOTEL_ID_KEY, String(userData.hotelId));
     api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
     setUser(userData);
@@ -106,6 +108,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
+    localStorage.removeItem(HOTEL_ID_KEY);
     delete api.defaults.headers.common['Authorization'];
     setUser(null);
   }, []);

@@ -29,13 +29,17 @@ const api = axios.create({
 
 /**
  * Request Interceptor
- * Her istekte localStorage'dan token alıp header'a ekler.
+ * Her istekte localStorage'dan token ve hotel ID alıp header'a ekler.
  */
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = localStorage.getItem('grandhotel_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    const hotelId = localStorage.getItem('grandhotel_hotel_id');
+    if (hotelId) {
+      config.headers['X-Hotel-Id'] = hotelId;
     }
     return config;
   },
