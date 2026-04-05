@@ -57,6 +57,7 @@ import {
   RestaurantMenu as RestaurantMenuIcon,
   Storefront as StorefrontIcon,
   Extension as ExtensionIcon,
+  SettingsRemote as SettingsRemoteIcon,
 } from '@mui/icons-material';
 
 import { MENU_ITEMS, SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH, APP_NAME, MenuItem, MenuChildItem } from '../../utils/constants';
@@ -91,6 +92,7 @@ const iconMap: Record<string, React.ElementType> = {
   RestaurantMenu: RestaurantMenuIcon,
   Storefront: StorefrontIcon,
   Extension: ExtensionIcon,
+  SettingsRemote: SettingsRemoteIcon,
 };
 
 const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
@@ -111,7 +113,10 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
    */
   const enabledModules = user?.enabledModules || ['base'];
   const filteredMenuItems = MENU_ITEMS.filter(
-    (item: MenuItem) => item.roles.includes(userRole) && (!item.module || enabledModules.includes(item.module))
+    (item: MenuItem) => {
+      if (item.bmsOnly && !user?.isBmsAdmin) return false;
+      return item.roles.includes(userRole) && (!item.module || enabledModules.includes(item.module));
+    }
   );
 
   /**

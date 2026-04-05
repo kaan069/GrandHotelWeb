@@ -122,6 +122,7 @@ export interface MenuItem {
   roles: Role[];
   module?: string;
   children?: MenuChildItem[];
+  bmsOnly?: boolean;  // true ise sadece isBmsAdmin olan kullanıcı görebilir
 }
 
 /* ==================== MODÜL TANIMLARI ==================== */
@@ -142,6 +143,7 @@ export const MODULE_DEFINITIONS: ModuleDefinition[] = [
   { id: 'kbs', label: 'KBS', description: 'Misafir kimlik bildirim sistemi', alwaysOn: false, dependsOn: [] },
   { id: 'invoices', label: 'Faturalar', description: 'Fatura yönetimi, Paraşüt entegrasyonu', alwaysOn: false, dependsOn: [] },
   { id: 'cameras', label: 'Kameralar', description: 'Kamera sistemi entegrasyonu', alwaysOn: false, dependsOn: [] },
+  { id: 'bms', label: 'Bina Yönetim Sistemi', description: 'Aydınlatma, klima, enerji yönetimi', alwaysOn: false, dependsOn: [] },
 ];
 
 /* ==================== LAYOUT ==================== */
@@ -520,6 +522,14 @@ export const MENU_ITEMS: MenuItem[] = [
     icon: 'Videocam',
     roles: [ROLES.PATRON, ROLES.MANAGER],
     module: 'cameras',
+  },
+  {
+    id: 'bms',
+    label: 'Bina Yönetimi',
+    path: '/bms',
+    icon: 'SettingsRemote',
+    roles: [ROLES.PATRON, ROLES.MANAGER],
+    bmsOnly: true,
   },
   {
     id: 'restaurant',

@@ -24,6 +24,7 @@ export interface User {
   staffNumber: string;
   hotelId: number;
   hotelName: string;
+  isBmsAdmin?: boolean;  // staffNumber === "0000" → Bina Yönetim Sistemi erişimi
 }
 
 export interface AuthContextType {
@@ -89,6 +90,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       staffNumber: employee.staffNumber,
       hotelId: employee.hotelId || 1,
       hotelName: employee.hotelName || 'Grand Hotel',
+      isBmsAdmin: employee.isBmsAdmin || false,
     };
 
     const token = `staff-${employee.id}-${Date.now()}`;

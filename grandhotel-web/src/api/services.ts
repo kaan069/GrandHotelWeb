@@ -617,6 +617,7 @@ export interface ApiEmployee {
   isOnLeaveToday: boolean;
   hasWeeklyLeaveThisWeek: boolean;
   createdAt: string;
+  isBmsAdmin?: boolean;
 }
 
 export interface ApiTaskAssignment {
@@ -1398,4 +1399,55 @@ export const commissionApi = {
     if (filters?.dateTo) params.append('dateTo', filters.dateTo);
     return api.get<MyCommissionsData>(`/commission/my/?${params.toString()}`).then((r) => r.data);
   },
+};
+
+/* ==================== BMS (Bina Yönetim Sistemi) ==================== */
+
+export interface BmsDevice {
+  id: number;
+  room: number;
+  roomNumber: string;
+  name: string;
+  deviceType: 'light' | 'hvac' | 'curtain' | 'power_meter';
+  status: 'online' | 'offline' | 'error';
+  currentState: Record<string, unknown>;
+  lastSeen: string | null;
+  createdAt: string;
+}
+
+export interface BmsAlert {
+  id: number;
+  device: number;
+  deviceName: string;
+  roomNumber: string;
+  severity: 'info' | 'warning' | 'critical';
+  message: string;
+  isResolved: boolean;
+  createdAt: string;
+}
+
+export interface BmsEnergyReading {
+  id: number;
+  room: number;
+  roomNumber: string;
+  timestamp: string;
+  kwh: string;
+  costEstimate: string;
+}
+
+export const bmsApi = {
+  getDevices: () =>
+    api.get<BmsDevice[]>('/bms/devices/').then((r) => r.data),
+
+  getRoomDevices: (roomId: number) =>
+    api.get<BmsDevice[]>(`/bms/rooms/${roomId}/devices/`).then((r) => r.data),
+
+  sendCommand: (roomId: number, deviceId: number, command: Record<string, unknown>) =>
+    api.post<BmsDevice>(`/bms/rooms/${roomId}/command/`, { deviceId, command }).then((r) => r.data),
+
+  getRoomEnergy: (roomId: number) =>
+    api.get<BmsEnergyReading[]>(`/bms/rooms/${roomId}/energy/`).then((r) => r.data),
+
+  getAlerts: () =>
+    api.get<BmsAlert[]>('/bms/alerts/').then((r) => r.data),
 };

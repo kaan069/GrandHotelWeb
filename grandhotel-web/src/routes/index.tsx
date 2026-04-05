@@ -51,6 +51,9 @@ const Settings = React.lazy(() => import('../pages/settings/Settings'));
 const ReservationDetail = React.lazy(() => import('../pages/reservations/ReservationDetail'));
 const ReservationCreate = React.lazy(() => import('../pages/reservations/ReservationCreate'));
 
+/* BMS Sayfası */
+const BmsDashboard = React.lazy(() => import('../pages/bms/BmsDashboard'));
+
 /* SuperAdmin Sayfaları */
 const SuperAdminLogin = React.lazy(() => import('../pages/superadmin/SuperAdminLogin'));
 const SuperAdminDashboard = React.lazy(() => import('../pages/superadmin/SuperAdminDashboard'));
@@ -333,6 +336,19 @@ const router = createBrowserRouter([
         children: [
           { path: '/kbs', element: <React.Suspense fallback={null}><KbsRecords /></React.Suspense> },
           { path: '/kbs/settings', element: <React.Suspense fallback={null}><KbsSettings /></React.Suspense> },
+        ],
+      },
+    ],
+  },
+
+  /* === BMS (Bina Yönetimi) route'ları === */
+  {
+    element: <ProtectedRoute allowedRoles={['patron', 'manager']} />,
+    children: [
+      {
+        element: <MainLayout />,
+        children: [
+          { path: '/bms', element: <React.Suspense fallback={null}><BmsDashboard /></React.Suspense> },
         ],
       },
     ],
