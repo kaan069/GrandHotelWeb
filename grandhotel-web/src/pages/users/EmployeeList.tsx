@@ -110,6 +110,16 @@ const getColumns = (onDelete: (id: number) => void, onLeave: (emp: ApiEmployee) 
     ),
   },
   {
+    field: 'salary',
+    headerName: 'Maaş',
+    width: 110,
+    renderCell: (params: GridRenderCellParams) => {
+      const val = params.value;
+      if (!val) return <Typography variant="caption" color="text.disabled">-</Typography>;
+      return <Typography variant="body2" fontWeight={600}>{Number(val).toLocaleString('tr-TR')} ₺</Typography>;
+    },
+  },
+  {
     field: 'actions',
     headerName: '',
     width: 100,
@@ -170,7 +180,7 @@ const EmployeeList: React.FC = () => {
     fetchEmployees();
   }, [fetchEmployees]);
 
-  const handleSave = async (formData: { firstName: string; lastName: string; roles: string[]; phone: string; password: string; hireDate: string }) => {
+  const handleSave = async (formData: { firstName: string; lastName: string; roles: string[]; phone: string; password: string; hireDate: string; salary?: number }) => {
     try {
       const maxNum = employees.reduce((max, e) => Math.max(max, Number(e.staffNumber) || 0), 1001);
       await staffApi.create({ ...formData, staffNumber: String(maxNum + 1) });

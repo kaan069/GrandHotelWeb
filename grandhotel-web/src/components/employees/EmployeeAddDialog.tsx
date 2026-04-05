@@ -54,6 +54,7 @@ interface EmployeeFormData {
   phone: string;
   password: string;
   hireDate: string;
+  salary?: number;
 }
 
 interface EmployeeAddDialogProps {
@@ -224,17 +225,32 @@ const EmployeeAddDialog: React.FC<EmployeeAddDialogProps> = ({ open, onClose, on
             }}
           />
 
-          {/* İşe Giriş Tarihi */}
-          <FormField
-            label="İşe Giriş Tarihi"
-            name="hireDate"
-            type="date"
-            value={formData.hireDate}
-            onChange={handleChange}
-            error={errors.hireDate}
-            required
-            InputLabelProps={{ shrink: true }}
-          />
+          {/* İşe Giriş Tarihi + Maaş */}
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <FormField
+              label="İşe Giriş Tarihi"
+              name="hireDate"
+              type="date"
+              value={formData.hireDate}
+              onChange={handleChange}
+              error={errors.hireDate}
+              required
+              InputLabelProps={{ shrink: true }}
+              sx={{ flex: 1 }}
+            />
+            <FormField
+              label="Aylık Maaş (₺)"
+              name="salary"
+              type="number"
+              value={formData.salary ?? ''}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                const val = e.target.value;
+                setFormData(prev => ({ ...prev, salary: val ? Number(val) : undefined }));
+              }}
+              placeholder="Örn: 25000"
+              sx={{ flex: 1 }}
+            />
+          </Box>
         </Box>
       </DialogContent>
 

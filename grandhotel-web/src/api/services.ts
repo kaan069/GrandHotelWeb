@@ -610,6 +610,7 @@ export interface ApiEmployee {
   branchCode?: string;
   hotelId?: number;
   hotelName?: string;
+  salary?: number | string | null;
   annualLeaveEntitlement: number;
   usedAnnualLeave: number;
   remainingAnnualLeave: number;
@@ -1346,4 +1347,55 @@ export const qrApi = {
     api.get(`/restaurant/qr/room/${roomNumber}/menu/`).then((r) => r.data),
   placeRoomOrder: (roomNumber: string, data: { items: Array<{ menuItemId: number; quantity: number; notes?: string }> }) =>
     api.post(`/restaurant/qr/room/${roomNumber}/order/`, data).then((r) => r.data),
+};
+
+/* ==================== COMMISSION API ==================== */
+
+export interface CommissionSettingsData {
+  isActive: boolean;
+  minAmount: string;
+  commissionRate: string;
+}
+
+export interface CommissionItem {
+  id?: number;
+  employeeId?: number;
+  employeeName?: string;
+  tabNo: string;
+  tableNumber: string;
+  tabTotal: string;
+  commissionRate: string;
+  commissionAmount: string;
+  date: string;
+}
+
+export interface MyCommissionsData {
+  totalEarned: string;
+  totalSales: string;
+  count: number;
+  items: CommissionItem[];
+}
+
+export const commissionApi = {
+  getSettings: () =>
+    api.get<CommissionSettingsData>('/commission/settings/').then((r) => r.data),
+
+  updateSettings: (data: Partial<CommissionSettingsData>) =>
+    api.put<CommissionSettingsData>('/commission/settings/', data).then((r) => r.data),
+
+  getList: (filters?: { employeeId?: number; dateFrom?: string; dateTo?: string }) => {
+    const params = new URLSearchParams();
+    if (filters?.employeeId) params.append('employeeId', String(filters.employeeId));
+    if (filters?.dateFrom) params.append('dateFrom', filters.dateFrom);
+    if (filters?.dateTo) params.append('dateTo', filters.dateTo);
+    const qs = params.toString();
+    return api.get<CommissionItem[]>(`/commission/list/${qs ? '?' + qs : ''}`).then((r) => r.data);
+  },
+
+  getMy: (staffNumber: string, filters?: { dateFrom?: string; dateTo?: string }) => {
+    const params = new URLSearchParams({ staffNumber });
+    if (filters?.dateFrom) params.append('dateFrom', filters.dateFrom);
+    if (filters?.dateTo) params.append('dateTo', filters.dateTo);
+    return api.get<MyCommissionsData>(`/commission/my/?${params.toString()}`).then((r) => r.data);
+  },
 };

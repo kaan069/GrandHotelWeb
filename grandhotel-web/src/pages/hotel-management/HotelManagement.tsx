@@ -11,6 +11,7 @@ import { Box } from '@mui/material';
 
 import { PageHeader } from '../../components/common';
 import { HotelInfoSection, ReservationChannelSection } from '../../components/hotel-management';
+import CommissionSettings from '../../components/hotel-management/CommissionSettings';
 
 const HotelManagement: React.FC = () => {
   return (
@@ -22,6 +23,7 @@ const HotelManagement: React.FC = () => {
 
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         <HotelInfoSection />
+        <CommissionSettings />
         <ReservationChannelSection />
       </Box>
     </div>
