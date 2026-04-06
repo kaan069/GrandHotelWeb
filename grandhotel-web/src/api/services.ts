@@ -312,6 +312,10 @@ export const guestsApi = {
 
   stayHistory: (id: number) =>
     api.get<ApiReservation[]>(`/guests/${id}/stay_history/`).then((r) => r.data),
+
+  /** TC ile müşteri kontrolü — kayıtlıysa bilgileri, blokeliyse uyarı döner */
+  checkTc: (tc: string) =>
+    api.get<{ found: boolean; isBlocked?: boolean; guest?: ApiGuest }>(`/guests/check_tc/?tc=${encodeURIComponent(tc)}`).then((r) => r.data),
 };
 
 /* ==================== COMPANIES API ==================== */

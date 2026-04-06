@@ -45,6 +45,7 @@ const KitchenDisplay = React.lazy(() => import('../pages/kitchen/KitchenDisplay'
 const TableManagement = React.lazy(() => import('../pages/tables/TableManagement'));
 const CashRegisterPage = React.lazy(() => import('../pages/kasa/CashRegisterPage'));
 const QROrderPage = React.lazy(() => import('../pages/qr-order/QROrderPage'));
+const QRRoomOrderPage = React.lazy(() => import('../pages/qr-order/QRRoomOrderPage'));
 const CustomerDisplay = React.lazy(() => import('../pages/kasa/CustomerDisplay'));
 const GuestDetail = React.lazy(() => import('../pages/guests/GuestDetail'));
 const Settings = React.lazy(() => import('../pages/settings/Settings'));
@@ -131,6 +132,15 @@ const router = createBrowserRouter([
     element: (
       <React.Suspense fallback={<div>Yükleniyor...</div>}>
         <QROrderPage />
+      </React.Suspense>
+    ),
+  },
+  /* === Public Oda QR Sipariş (auth yok, layout yok) === */
+  {
+    path: '/qr-room/:roomNumber',
+    element: (
+      <React.Suspense fallback={<div>Yükleniyor...</div>}>
+        <QRRoomOrderPage />
       </React.Suspense>
     ),
   },
