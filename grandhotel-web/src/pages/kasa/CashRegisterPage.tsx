@@ -610,13 +610,12 @@ const CashRegisterPage: React.FC = () => {
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Ayrı ödenecek kalemleri seçin:
           </Typography>
-          {tableDetail?.currentTab?.items?.map((item: Record<string, unknown>) => {
-            const id = item.id as number;
-            const checked = splitSelected.includes(id);
+          {tableDetail?.currentTab?.items?.map((item) => {
+            const checked = splitSelected.includes(item.id);
             return (
               <Box
-                key={id}
-                onClick={() => handleSplitToggle(id)}
+                key={item.id}
+                onClick={() => handleSplitToggle(item.id)}
                 sx={{
                   display: 'flex', alignItems: 'center', gap: 1,
                   p: 1, mb: 0.5, borderRadius: 1, cursor: 'pointer',
@@ -627,7 +626,7 @@ const CashRegisterPage: React.FC = () => {
               >
                 <Checkbox checked={checked} size="small" />
                 <Typography variant="body2" sx={{ flex: 1, fontWeight: 600 }}>
-                  {item.quantity as number}x {item.description as string}
+                  {item.quantity}x {item.description}
                 </Typography>
                 <Typography variant="body2" fontWeight={700}>
                   {Number(item.totalPrice).toLocaleString('tr-TR')} ₺
@@ -640,8 +639,8 @@ const CashRegisterPage: React.FC = () => {
             <Typography fontWeight={700}>Seçili Toplam:</Typography>
             <Typography fontWeight={700} color="primary">
               {(tableDetail?.currentTab?.items || [])
-                .filter((i: Record<string, unknown>) => splitSelected.includes(i.id as number))
-                .reduce((s: number, i: Record<string, unknown>) => s + Number(i.totalPrice), 0)
+                .filter((i) => splitSelected.includes(i.id))
+                .reduce((s, i) => s + Number(i.totalPrice), 0)
                 .toLocaleString('tr-TR')} ₺
             </Typography>
           </Box>
