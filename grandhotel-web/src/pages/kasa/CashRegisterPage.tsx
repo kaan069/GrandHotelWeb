@@ -41,6 +41,7 @@ import {
   TextField,
   Typography,
   Paper,
+  Checkbox,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -219,6 +220,34 @@ const CashRegisterPage: React.FC = () => {
       await loadTableDetail(selectedTable!.id);
       refreshTables();
     } catch (err) { console.error(err); }
+  };
+
+  /* Hesap böl dialog */
+  const [splitOpen, setSplitOpen] = useState(false);
+  const [splitSelected, setSplitSelected] = useState<number[]>([]);
+  const [splitGuestName, setSplitGuestName] = useState('');
+  const [splitting, setSplitting] = useState(false);
+
+  const handleSplitToggle = (itemId: number) => {
+    setSplitSelected(prev => prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId]);
+  };
+
+  const handleSplit = async () => {
+    if (!tableDetail?.currentTab || splitSelected.length === 0) return;
+    setSplitting(true);
+    try {
+      await tabsApi.split(tableDetail.currentTab.id, splitSelected, splitGuestName || undefined);
+      setSplitOpen(false);
+      setSplitSelected([]);
+      setSplitGuestName('');
+      // Masayı yenile
+      if (selectedTable) loadTableDetail(selectedTable.id);
+      setSnackbar({ open: true, message: 'Hesap bölündü — yeni adisyon oluşturuldu', severity: 'success' });
+    } catch {
+      setSnackbar({ open: true, message: 'Hesap bölme hatası', severity: 'error' });
+    } finally {
+      setSplitting(false);
+    }
   };
 
   /* Ödeme dialog */
@@ -512,7 +541,14 @@ const CashRegisterPage: React.FC = () => {
 
                 {/* Ödeme butonları — sadece kasiyer/patron/müdür */}
                 {canPay && tableDetail?.currentTab && tableDetail.currentTab.items && tableDetail.currentTab.items.length > 0 && (
-                  <Box sx={{ p: 1.5, borderTop: '1px solid #e2e8f0' }}>
+                  <Box sx={{ p: 1.5, borderTop: '1px solid #e2e8f0', display: 'flex', gap: 1 }}>
+                    <Button
+                      variant="outlined"
+                      onClick={() => { setSplitSelected([]); setSplitGuestName(''); setSplitOpen(true); }}
+                      sx={{ minWidth: 120 }}
+                    >
+                      Hesap Böl
+                    </Button>
                     <Button variant="contained" color="primary" startIcon={<PayIcon />} onClick={openPayDialog} fullWidth size="large">
                       Ödeme Al — {formatCurrency(parseFloat(tableDetail.currentTab.totalAmount))}
                     </Button>
@@ -564,6 +600,69 @@ const CashRegisterPage: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setSummaryOpen(false)} variant="contained">Kapat</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Hesap Böl Dialog */}
+      <Dialog open={splitOpen} onClose={() => setSplitOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Hesap Böl</DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Ayrı ödenecek kalemleri seçin:
+          </Typography>
+          {tableDetail?.currentTab?.items?.map((item: Record<string, unknown>) => {
+            const id = item.id as number;
+            const checked = splitSelected.includes(id);
+            return (
+              <Box
+                key={id}
+                onClick={() => handleSplitToggle(id)}
+                sx={{
+                  display: 'flex', alignItems: 'center', gap: 1,
+                  p: 1, mb: 0.5, borderRadius: 1, cursor: 'pointer',
+                  bgcolor: checked ? '#eff6ff' : 'transparent',
+                  border: checked ? '1px solid #3b82f6' : '1px solid transparent',
+                  '&:hover': { bgcolor: '#f8fafc' },
+                }}
+              >
+                <Checkbox checked={checked} size="small" />
+                <Typography variant="body2" sx={{ flex: 1, fontWeight: 600 }}>
+                  {item.quantity as number}x {item.description as string}
+                </Typography>
+                <Typography variant="body2" fontWeight={700}>
+                  {Number(item.totalPrice).toLocaleString('tr-TR')} ₺
+                </Typography>
+              </Box>
+            );
+          })}
+          <Divider sx={{ my: 2 }} />
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+            <Typography fontWeight={700}>Seçili Toplam:</Typography>
+            <Typography fontWeight={700} color="primary">
+              {(tableDetail?.currentTab?.items || [])
+                .filter((i: Record<string, unknown>) => splitSelected.includes(i.id as number))
+                .reduce((s: number, i: Record<string, unknown>) => s + Number(i.totalPrice), 0)
+                .toLocaleString('tr-TR')} ₺
+            </Typography>
+          </Box>
+          <TextField
+            label="Kişi Adı (opsiyonel)"
+            fullWidth
+            size="small"
+            value={splitGuestName}
+            onChange={(e) => setSplitGuestName(e.target.value)}
+            placeholder="Örn: Mehmet"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSplitOpen(false)}>Vazgeç</Button>
+          <Button
+            variant="contained"
+            onClick={handleSplit}
+            disabled={splitSelected.length === 0 || splitting}
+          >
+            {splitting ? <CircularProgress size={20} /> : `Seçilenleri Ayır (${splitSelected.length} kalem)`}
+          </Button>
         </DialogActions>
       </Dialog>
 
