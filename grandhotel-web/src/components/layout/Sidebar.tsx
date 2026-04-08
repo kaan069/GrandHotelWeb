@@ -112,10 +112,12 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
    * Sadece kullanıcının yetkili olduğu menü öğeleri gösterilir.
    */
   const enabledModules = user?.enabledModules || ['base'];
+  const userRoles = user?.roles && user.roles.length > 0 ? user.roles : [userRole];
   const filteredMenuItems = MENU_ITEMS.filter(
     (item: MenuItem) => {
       if (item.bmsOnly && !user?.isBmsAdmin) return false;
-      return item.roles.includes(userRole) && (!item.module || enabledModules.includes(item.module));
+      const hasRole = item.roles.some((r: string) => userRoles.includes(r));
+      return hasRole && (!item.module || enabledModules.includes(item.module));
     }
   );
 
