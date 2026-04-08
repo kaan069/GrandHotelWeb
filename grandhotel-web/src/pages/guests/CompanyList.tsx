@@ -87,6 +87,10 @@ const companyColumns: GridColDef[] = [
     renderCell: (p: GridRenderCellParams) => p.value || '-',
   },
   {
+    field: 'agreedRate', headerName: 'Anlaşmalı Fiyat', width: 140, align: 'right', headerAlign: 'right',
+    renderCell: (p: GridRenderCellParams) => p.value ? `${Number(p.value).toLocaleString('tr-TR')} ₺` : '-',
+  },
+  {
     field: 'address', headerName: 'Adres', width: 200, flex: 1,
     renderCell: (p: GridRenderCellParams) => p.value || '-',
   },

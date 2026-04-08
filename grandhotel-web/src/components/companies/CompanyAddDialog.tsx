@@ -18,6 +18,7 @@ interface CompanyFormData {
   phone: string;
   email: string;
   address: string;
+  agreedRate: string;
 }
 
 const emptyForm: CompanyFormData = {
@@ -26,6 +27,7 @@ const emptyForm: CompanyFormData = {
   phone: '',
   email: '',
   address: '',
+  agreedRate: '',
 };
 
 export interface CompanyAddResult {
@@ -34,6 +36,7 @@ export interface CompanyAddResult {
   phone?: string;
   email?: string;
   address?: string;
+  agreedRate?: number;
 }
 
 interface CompanyAddDialogProps {
@@ -73,6 +76,7 @@ const CompanyAddDialog: React.FC<CompanyAddDialogProps> = ({ open, onClose, onSa
       phone: form.phone.trim() || undefined,
       email: form.email.trim() || undefined,
       address: form.address.trim() || undefined,
+      agreedRate: form.agreedRate ? Number(form.agreedRate) : undefined,
     });
 
     onClose();
@@ -128,6 +132,14 @@ const CompanyAddDialog: React.FC<CompanyAddDialogProps> = ({ open, onClose, onSa
               />
             </Grid>
           </Grid>
+          <FormField
+            label="Anlaşmalı Gecelik Fiyat (₺)"
+            name="agreedRate"
+            type="number"
+            value={form.agreedRate}
+            onChange={handleChange}
+            placeholder="Örn: 1000"
+          />
           <FormField
             label="Adres"
             name="address"

@@ -679,7 +679,15 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
         checkOutDate={checkOutDate}
         onCheckOutDateChange={setCheckOutDate}
         selectedCompanyId={selectedCompanyId}
-        onCompanyChange={setSelectedCompanyId}
+        onCompanyChange={(compId: string) => {
+          setSelectedCompanyId(compId);
+          if (compId) {
+            const comp = companies.find((c) => c.id === Number(compId));
+            if (comp?.agreedRate) {
+              setNightlyRate(String(comp.agreedRate));
+            }
+          }
+        }}
         nightlyRate={nightlyRate}
         onNightlyRateChange={handleNightlyRateChange}
         companies={companies}

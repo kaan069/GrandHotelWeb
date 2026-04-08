@@ -65,6 +65,7 @@ export interface Company {
   address?: string;
   phone?: string;
   email?: string;
+  agreedRate?: string | number | null;
 }
 
 /** Folio kalemi — backend reservationId kullanır (roomId değil) */
