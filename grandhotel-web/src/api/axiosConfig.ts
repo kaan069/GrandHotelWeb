@@ -5,31 +5,24 @@
  * Base URL, timeout, interceptor'lar burada tanımlanır.
  *
  * Özellikler:
- *   - Otomatik token ekleme (request interceptor)
- *   - 401 hatalarında otomatik logout (response interceptor)
- *   - Merkezi hata yönetimi
- *
- * Kullanım:
- *   import api from './axiosConfig';
- *   const response = await api.get('/rooms');
- *   const data = await api.post('/reservations', body);
+ *   - Otomatik JWT token ekleme (request interceptor)
+ *   - 401'de otomatik token refresh (response interceptor)
+ *   - Refresh başarısızsa logout
  */
 
 import axios, { InternalAxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 import { API_BASE_URL } from '../utils/constants';
 
-/* Axios instance oluştur */
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 30000, // 30 saniye zaman aşımı
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
 /**
- * Request Interceptor
- * Her istekte localStorage'dan token ve hotel ID alıp header'a ekler.
+ * Request Interceptor — her istekte token ve hotel ID ekler
  */
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
@@ -43,33 +36,66 @@ api.interceptors.request.use(
     }
     return config;
   },
-  (error: AxiosError) => {
-    return Promise.reject(error);
-  }
+  (error: AxiosError) => Promise.reject(error)
 );
 
 /**
- * Response Interceptor
- * API yanıtlarını merkezi olarak işler.
- *
- * - 401 (Unauthorized): Token geçersiz/süresi dolmuş → Otomatik logout
- * - 403 (Forbidden): Yetki yok → Konsola uyarı
- * - 500+ (Server Error): Sunucu hatası → Konsola hata
+ * Response Interceptor — 401'de token refresh dener, başarısızsa logout
  */
-api.interceptors.response.use(
-  (response: AxiosResponse) => {
-    return response;
-  },
-  (error: AxiosError) => {
-    const status = error.response?.status;
+let isRefreshing = false;
+let pendingRequests: Array<(token: string) => void> = [];
 
-    if (status === 401) {
-      /* Token geçersiz - kullanıcıyı login sayfasına yönlendir */
-      console.warn('Oturum süresi doldu veya geçersiz token.');
-      localStorage.removeItem('grandhotel_token');
-      localStorage.removeItem('grandhotel_refresh_token');
-      localStorage.removeItem('grandhotel_user');
-      window.location.href = '/login';
+api.interceptors.response.use(
+  (response: AxiosResponse) => response,
+  async (error: AxiosError) => {
+    const status = error.response?.status;
+    const originalRequest = error.config as any;
+
+    // 401 → Token refresh dene (login endpoint'i hariç)
+    if (status === 401 && !originalRequest._retry && !originalRequest.url?.includes('/staff/login')) {
+      const refreshToken = localStorage.getItem('grandhotel_refresh_token');
+
+      // Refresh token yoksa veya fake token ise direkt logout
+      if (!refreshToken || refreshToken.startsWith('staff-')) {
+        clearAuthAndRedirect();
+        return Promise.reject(error);
+      }
+
+      // Zaten refresh yapılıyorsa bekle
+      if (isRefreshing) {
+        return new Promise((resolve) => {
+          pendingRequests.push((newToken: string) => {
+            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            resolve(api(originalRequest));
+          });
+        });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        const response = await axios.post(`${API_BASE_URL}/staff/token/refresh/`, {
+          refresh: refreshToken,
+        });
+
+        const { access, refresh } = response.data;
+        localStorage.setItem('grandhotel_token', access);
+        localStorage.setItem('grandhotel_refresh_token', refresh);
+        api.defaults.headers.common['Authorization'] = `Bearer ${access}`;
+
+        // Bekleyen istekleri yeni token ile tekrarla
+        pendingRequests.forEach((cb) => cb(access));
+        pendingRequests = [];
+
+        originalRequest.headers.Authorization = `Bearer ${access}`;
+        return api(originalRequest);
+      } catch {
+        clearAuthAndRedirect();
+        return Promise.reject(error);
+      } finally {
+        isRefreshing = false;
+      }
     }
 
     if (status === 403) {
@@ -83,5 +109,14 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+function clearAuthAndRedirect() {
+  localStorage.removeItem('grandhotel_token');
+  localStorage.removeItem('grandhotel_refresh_token');
+  localStorage.removeItem('grandhotel_user');
+  localStorage.removeItem('grandhotel_hotel_id');
+  delete api.defaults.headers.common['Authorization'];
+  window.location.href = '/login';
+}
 
 export default api;

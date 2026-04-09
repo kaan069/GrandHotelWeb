@@ -93,13 +93,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       isBmsAdmin: employee.isBmsAdmin || false,
     };
 
-    const token = `staff-${employee.id}-${Date.now()}`;
+    // Backend JWT token döner — yoksa eski fake token fallback
+    const accessToken = (employee as any).access || `staff-${employee.id}-${Date.now()}`;
+    const refreshToken = (employee as any).refresh || accessToken;
 
-    localStorage.setItem(TOKEN_KEY, token);
-    localStorage.setItem(REFRESH_TOKEN_KEY, token);
+    localStorage.setItem(TOKEN_KEY, accessToken);
+    localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
     localStorage.setItem(USER_KEY, JSON.stringify(userData));
     localStorage.setItem(HOTEL_ID_KEY, String(userData.hotelId));
-    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    api.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
 
     setUser(userData);
     return userData;
