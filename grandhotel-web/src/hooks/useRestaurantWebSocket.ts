@@ -100,11 +100,15 @@ export default function useRestaurantWebSocket({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled]);
 
+  // StrictMode korumalı: ilk mount'ta bir kez bağlan
+  const connectedRef = useRef(false);
   useEffect(() => {
+    if (connectedRef.current) return;
+    connectedRef.current = true;
     connect();
     return () => {
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
-      wsRef.current?.close();
     };
-  }, [connect]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 }

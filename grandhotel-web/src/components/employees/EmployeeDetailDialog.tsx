@@ -23,6 +23,8 @@ import {
   TableRow,
   CircularProgress,
   Stack,
+  IconButton,
+  TextField,
 } from '@mui/material';
 import {
   Person as PersonIcon,
@@ -30,16 +32,22 @@ import {
   Badge as BadgeIcon,
   CalendarMonth as CalendarIcon,
   EventAvailable as LeaveIcon,
+  Payments as PaymentsIcon,
+  Edit as EditIcon,
+  Save as SaveIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import { ROLE_LABELS } from '../../utils/constants';
 import { getYearsOfService } from '../../utils/leaveCalculator';
-import { leavesApi } from '../../api/services';
+import { leavesApi, staffApi } from '../../api/services';
+import { formatCurrency } from '../../utils/formatters';
 import type { ApiEmployee, ApiLeave } from '../../api/services';
 
 interface EmployeeDetailDialogProps {
   open: boolean;
   onClose: () => void;
   employee: ApiEmployee | null;
+  onSaved?: () => void;
 }
 
 const LEAVE_TYPE_LABELS: Record<string, string> = {
@@ -61,19 +69,52 @@ const LEAVE_STATUS_COLORS: Record<string, 'success' | 'warning' | 'error' | 'def
   cancelled: 'error',
 };
 
-const EmployeeDetailDialog: React.FC<EmployeeDetailDialogProps> = ({ open, onClose, employee }) => {
+const EmployeeDetailDialog: React.FC<EmployeeDetailDialogProps> = ({ open, onClose, employee, onSaved }) => {
   const [leaves, setLeaves] = useState<ApiLeave[]>([]);
   const [loadingLeaves, setLoadingLeaves] = useState(false);
+  const [editingSalary, setEditingSalary] = useState(false);
+  const [salaryInput, setSalaryInput] = useState('');
+  const [savingSalary, setSavingSalary] = useState(false);
 
   useEffect(() => {
     if (open && employee) {
       setLoadingLeaves(true);
+      setEditingSalary(false);
       leavesApi.getForEmployee(employee.id)
         .then(setLeaves)
         .catch((err) => console.error('İzin geçmişi yüklenemedi:', err))
         .finally(() => setLoadingLeaves(false));
     }
   }, [open, employee]);
+
+  const handleStartEditSalary = () => {
+    if (!employee) return;
+    const current = employee.salary != null ? Number(employee.salary) : 0;
+    setSalaryInput(current ? current.toLocaleString('tr-TR', {
+      minimumFractionDigits: 2, maximumFractionDigits: 2,
+    }) : '');
+    setEditingSalary(true);
+  };
+
+  const handleSaveSalary = async () => {
+    if (!employee) return;
+    const normalized = salaryInput.replace(/\./g, '').replace(',', '.');
+    const numeric = parseFloat(normalized);
+    if (isNaN(numeric) || numeric < 0) {
+      setEditingSalary(false);
+      return;
+    }
+    try {
+      setSavingSalary(true);
+      await staffApi.update(employee.id, { salary: numeric });
+      setEditingSalary(false);
+      onSaved?.();
+    } catch (err) {
+      console.error('Maaş güncellenemedi:', err);
+    } finally {
+      setSavingSalary(false);
+    }
+  };
 
   if (!employee) return null;
 
@@ -107,6 +148,42 @@ const EmployeeDetailDialog: React.FC<EmployeeDetailDialogProps> = ({ open, onClo
                 <Chip key={role} label={ROLE_LABELS[role] || role} size="small" color="primary" variant="outlined" />
               ))}
             </Stack>
+          </Box>
+
+          {/* Aylık Maaş - Düzenlenebilir */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <PaymentsIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+            <Typography variant="body2" sx={{ color: 'text.secondary', mr: 0.5 }}>
+              Aylık Maaş:
+            </Typography>
+            {editingSalary ? (
+              <>
+                <TextField
+                  size="small"
+                  value={salaryInput}
+                  onChange={(e) => setSalaryInput(e.target.value.replace(/[^\d,.]/g, ''))}
+                  placeholder="28.104,75"
+                  autoFocus
+                  sx={{ width: 150 }}
+                  InputProps={{ endAdornment: <Typography variant="caption">₺</Typography> }}
+                />
+                <IconButton size="small" color="primary" onClick={handleSaveSalary} disabled={savingSalary}>
+                  {savingSalary ? <CircularProgress size={16} /> : <SaveIcon fontSize="small" />}
+                </IconButton>
+                <IconButton size="small" onClick={() => setEditingSalary(false)} disabled={savingSalary}>
+                  <CloseIcon fontSize="small" />
+                </IconButton>
+              </>
+            ) : (
+              <>
+                <Typography variant="body2" fontWeight={600}>
+                  {employee.salary ? formatCurrency(Number(employee.salary)) : 'Belirlenmemiş'}
+                </Typography>
+                <IconButton size="small" onClick={handleStartEditSalary} title="Maaşı düzenle">
+                  <EditIcon fontSize="small" />
+                </IconButton>
+              </>
+            )}
           </Box>
         </Box>
 

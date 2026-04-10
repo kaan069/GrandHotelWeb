@@ -666,7 +666,7 @@ export const staffApi = {
 
   create: (data: {
     firstName: string; lastName: string; phone: string; password: string;
-    staffNumber: string; hireDate: string; roles: string[];
+    staffNumber: string; hireDate: string; roles: string[]; salary?: number;
   }) =>
     api.post<ApiEmployee>('/staff/', data).then((r) => r.data),
 
@@ -675,6 +675,9 @@ export const staffApi = {
 
   delete: (id: number) =>
     api.delete(`/staff/${id}/`),
+
+  resetPassword: (id: number) =>
+    api.post<{ success: boolean; staffNumber: string; fullName: string; newPassword: string }>(`/staff/${id}/reset_password/`).then((r) => r.data),
 
   login: (data: { branchCode: string; staffNumber: string; password: string }) =>
     api.post<ApiEmployee>('/staff/login/', data).then((r) => r.data),

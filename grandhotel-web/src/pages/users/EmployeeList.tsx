@@ -6,11 +6,12 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Button, Box, Chip, IconButton, Stack, CircularProgress, Typography, Snackbar, Alert } from '@mui/material';
+import { Button, Box, Chip, IconButton, Stack, CircularProgress, Typography, Snackbar, Alert, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import {
   Add as AddIcon,
   Delete as DeleteIcon,
   EventAvailable as LeaveIcon,
+  Key as KeyIcon,
 } from '@mui/icons-material';
 
 import { GridRenderCellParams } from '@mui/x-data-grid';
@@ -24,7 +25,7 @@ import { staffApi, leavesApi } from '../../api/services';
 import type { ApiEmployee } from '../../api/services';
 import useAuth from '../../hooks/useAuth';
 
-const getColumns = (onDelete: (id: number) => void, onLeave: (emp: ApiEmployee) => void) => [
+const getColumns = (onDelete: (id: number) => void, onLeave: (emp: ApiEmployee) => void, onResetPassword: (emp: ApiEmployee) => void) => [
   {
     field: 'staffNumber',
     headerName: 'Personel No',
@@ -104,9 +105,20 @@ const getColumns = (onDelete: (id: number) => void, onLeave: (emp: ApiEmployee) 
   {
     field: 'password',
     headerName: 'Şifre',
-    width: 70,
+    width: 90,
+    sortable: false,
     renderCell: (params: GridRenderCellParams) => (
-      <Chip label={params.value} size="small" sx={{ fontFamily: 'monospace', fontWeight: 600 }} />
+      <IconButton
+        size="small"
+        color="warning"
+        title="Şifre Sıfırla"
+        onClick={(e: React.MouseEvent) => {
+          e.stopPropagation();
+          onResetPassword(params.row);
+        }}
+      >
+        <KeyIcon fontSize="small" />
+      </IconButton>
     ),
   },
   {
@@ -163,6 +175,7 @@ const EmployeeList: React.FC = () => {
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [detailEmployee, setDetailEmployee] = useState<ApiEmployee | null>(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'warning' });
+  const [resetResult, setResetResult] = useState<{ fullName: string; staffNumber: string; newPassword: string } | null>(null);
 
   const fetchEmployees = useCallback(async () => {
     try {
@@ -216,6 +229,17 @@ const EmployeeList: React.FC = () => {
     setLeaveDialogOpen(true);
   };
 
+  const handleResetPassword = async (emp: ApiEmployee) => {
+    if (!window.confirm(`${emp.fullName} için yeni şifre üretilsin mi? Eski şifre geçersiz olacak.`)) return;
+    try {
+      const result = await staffApi.resetPassword(emp.id);
+      setResetResult({ fullName: result.fullName, staffNumber: result.staffNumber, newPassword: result.newPassword });
+      fetchEmployees();
+    } catch {
+      setSnackbar({ open: true, message: 'Şifre sıfırlanamadı', severity: 'error' });
+    }
+  };
+
   const handleLeaveSave = async (data: {
     employeeId: number; leaveType: string; startDate: string; endDate: string;
     deductFromAnnual: boolean; note: string;
@@ -257,7 +281,7 @@ const EmployeeList: React.FC = () => {
       <Box sx={{ mt: 2 }}>
         <DataTable
           rows={employees as unknown as { id: number; [key: string]: unknown }[]}
-          columns={getColumns(handleDelete, handleLeaveOpen)}
+          columns={getColumns(handleDelete, handleLeaveOpen, handleResetPassword)}
           onRowClick={handleRowClick}
           searchable
           searchPlaceholder="Ad, soyad veya personel no ara..."
@@ -270,6 +294,7 @@ const EmployeeList: React.FC = () => {
         open={detailDialogOpen}
         onClose={() => { setDetailDialogOpen(false); setDetailEmployee(null); }}
         employee={detailEmployee}
+        onSaved={fetchEmployees}
       />
 
       <Snackbar
@@ -282,6 +307,39 @@ const EmployeeList: React.FC = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      {/* Şifre Sıfırlama Sonuç Dialog */}
+      <Dialog open={!!resetResult} onClose={() => setResetResult(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Yeni Şifre</DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            <strong>{resetResult?.fullName}</strong> ({resetResult?.staffNumber}) için yeni şifre üretildi.
+          </Typography>
+          <Box sx={{
+            p: 3, bgcolor: '#f0f9ff', border: '2px dashed #3b82f6',
+            borderRadius: 2, textAlign: 'center', mb: 2,
+          }}>
+            <Typography variant="caption" color="text.secondary">YENİ ŞİFRE</Typography>
+            <Typography variant="h3" fontWeight={800} sx={{ fontFamily: 'monospace', color: '#1e40af', letterSpacing: 4 }}>
+              {resetResult?.newPassword}
+            </Typography>
+          </Box>
+          <Alert severity="warning" sx={{ fontSize: '0.85rem' }}>
+            Bu şifre bir daha gösterilmeyecek. Mutlaka not edin veya çalışana iletin.
+          </Alert>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            variant="contained"
+            onClick={() => {
+              if (resetResult) navigator.clipboard.writeText(resetResult.newPassword).catch(() => {});
+              setResetResult(null);
+            }}
+          >
+            Kopyala ve Kapat
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <LeaveDialog
         open={leaveDialogOpen}

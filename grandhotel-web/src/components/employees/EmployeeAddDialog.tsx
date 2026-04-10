@@ -75,13 +75,33 @@ const INITIAL_FORM: EmployeeFormData = {
 const EmployeeAddDialog: React.FC<EmployeeAddDialogProps> = ({ open, onClose, onSave }) => {
   const [formData, setFormData] = useState<EmployeeFormData>({ ...INITIAL_FORM });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [salaryDisplay, setSalaryDisplay] = useState('');
 
   useEffect(() => {
     if (open) {
       setFormData({ ...INITIAL_FORM, password: generatePassword() });
       setErrors({});
+      setSalaryDisplay('');
     }
   }, [open]);
+
+  const handleSalaryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/[^\d,.]/g, '');
+    setSalaryDisplay(raw);
+    // Türkçe formatı parse et: binlik nokta, ondalık virgül
+    const normalized = raw.replace(/\./g, '').replace(',', '.');
+    const numeric = parseFloat(normalized);
+    setFormData(prev => ({ ...prev, salary: isNaN(numeric) ? undefined : numeric }));
+  };
+
+  const handleSalaryBlur = () => {
+    if (formData.salary != null && !isNaN(formData.salary)) {
+      setSalaryDisplay(formData.salary.toLocaleString('tr-TR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }));
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -241,13 +261,10 @@ const EmployeeAddDialog: React.FC<EmployeeAddDialogProps> = ({ open, onClose, on
             <FormField
               label="Aylık Maaş (₺)"
               name="salary"
-              type="number"
-              value={formData.salary ?? ''}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                const val = e.target.value;
-                setFormData(prev => ({ ...prev, salary: val ? Number(val) : undefined }));
-              }}
-              placeholder="Örn: 25000"
+              value={salaryDisplay}
+              onChange={handleSalaryChange}
+              onBlur={handleSalaryBlur}
+              placeholder="Örn: 28.104,75"
               sx={{ flex: 1 }}
             />
           </Box>

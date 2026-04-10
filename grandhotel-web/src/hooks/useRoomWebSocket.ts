@@ -81,11 +81,16 @@ export default function useRoomWebSocket({ onRoomUpdate, enabled = true }: UseRo
     };
   }, [enabled]);
 
+  // StrictMode korumalı: ilk mount'ta bir kez bağlan
+  const connectedRef = useRef(false);
   useEffect(() => {
+    if (connectedRef.current) return;
+    connectedRef.current = true;
     connect();
     return () => {
+      // StrictMode unmount → sadece timer'ı temizle, WS bağlı kalsın
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
-      wsRef.current?.close();
     };
-  }, [connect]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 }

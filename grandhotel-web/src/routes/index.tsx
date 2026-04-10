@@ -33,6 +33,7 @@ const RoomReport = React.lazy(() => import('../pages/reports/RoomReport'));
 const CompanyReport = React.lazy(() => import('../pages/reports/CompanyReport'));
 const GeneralReport = React.lazy(() => import('../pages/reports/GeneralReport'));
 const NightAuditReport = React.lazy(() => import('../pages/reports/NightAuditReport'));
+const FixedExpensesReport = React.lazy(() => import('../pages/reports/FixedExpensesReport'));
 const StockManagement = React.lazy(() => import('../pages/minibar/StockManagement'));
 
 const MenuManagement = React.lazy(() => import('../pages/menu/MenuManagement'));
@@ -271,6 +272,7 @@ const router = createBrowserRouter([
           { path: '/reports/companies', element: <React.Suspense fallback={<div>Yükleniyor...</div>}><CompanyReport /></React.Suspense> },
           { path: '/reports/general', element: <React.Suspense fallback={<div>Yükleniyor...</div>}><GeneralReport /></React.Suspense> },
           { path: '/reports/night-audit', element: <React.Suspense fallback={<div>Yükleniyor...</div>}><NightAuditReport /></React.Suspense> },
+          { path: '/reports/fixed-expenses', element: <React.Suspense fallback={<div>Yükleniyor...</div>}><FixedExpensesReport /></React.Suspense> },
           { path: '/settings', element: <React.Suspense fallback={null}><Settings /></React.Suspense> },
         ],
       },

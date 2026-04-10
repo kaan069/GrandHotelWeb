@@ -301,7 +301,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
               {hasChildren && open && (
                 <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                   <List component="div" disablePadding>
-                    {item.children!.map((child: MenuChildItem) => (
+                    {item.children!.filter((child: MenuChildItem) => !child.roles || child.roles.some((r: string) => userRoles.includes(r))).map((child: MenuChildItem) => (
                       <ListItemButton
                         key={child.id}
                         onClick={() => handleSubmenuClick(child.path)}

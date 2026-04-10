@@ -112,6 +112,7 @@ export interface MenuChildItem {
   id: string;
   label: string;
   path: string;
+  roles?: Role[];
 }
 
 /** Sidebar menü öğesi */
@@ -483,6 +484,7 @@ export const MENU_ITEMS: MenuItem[] = [
       { id: 'company-report', label: 'Firma Raporu', path: '/reports/companies' },
       { id: 'general-report', label: 'Genel Rapor', path: '/reports/general' },
       { id: 'night-audit-report', label: 'Gün Sonu Raporları', path: '/reports/night-audit' },
+      { id: 'fixed-expenses', label: 'Sabit Giderler', path: '/reports/fixed-expenses', roles: [ROLES.PATRON, ROLES.MANAGER] },
     ],
   },
   {

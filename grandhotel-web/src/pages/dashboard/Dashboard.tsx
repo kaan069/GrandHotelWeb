@@ -14,7 +14,7 @@
  *   - Resepsiyon: Oda ve rezervasyon verileri (ciro hariç)
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { PageHeader } from '../../components/common';
@@ -95,8 +95,12 @@ const Dashboard: React.FC = () => {
   const [checkIns, setCheckIns] = useState<CheckInOutItem[]>([]);
   const [checkOuts, setCheckOuts] = useState<CheckInOutItem[]>([]);
 
-  /* İlk yükle: API'den odaları ve istatistikleri çek */
+  /* İlk yükle: API'den odaları ve istatistikleri çek (StrictMode korumalı) */
+  const loadedRef = useRef(false);
   useEffect(() => {
+    if (loadedRef.current) return;
+    loadedRef.current = true;
+
     roomsApi.getAll()
       .then((data) => { setRooms(data.map(mapApiRoom)); setRoomsLoading(false); })
       .catch(() => setRoomsLoading(false));

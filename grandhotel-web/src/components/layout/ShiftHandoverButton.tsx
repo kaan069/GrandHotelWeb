@@ -2,7 +2,7 @@
  * ShiftHandoverButton — Mesai Devret / Aktif Mesai butonu + dialog
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Button,
@@ -40,7 +40,10 @@ const ShiftHandoverButton: React.FC = () => {
     || user?.role === ROLES.PATRON
     || user?.role === ROLES.MANAGER;
 
+  const loadedRef = useRef(false);
   useEffect(() => {
+    if (loadedRef.current) return;
+    loadedRef.current = true;
     getActiveShift().then(setActiveShift);
   }, []);
 
