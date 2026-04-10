@@ -16,6 +16,7 @@ export { default as NewGuestDialog } from './NewGuestDialog';
 export { default as FolioDetailDialog } from './FolioDetailDialog';
 export { default as StayHistoryDialog } from './StayHistoryDialog';
 export { default as GuestCardDialog } from './GuestCardDialog';
+export { default as PastReservationDialog } from './PastReservationDialog';
 
 interface RoomDetailSectionsProps {
   /* GuestListSection */

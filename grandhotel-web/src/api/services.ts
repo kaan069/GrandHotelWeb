@@ -1009,12 +1009,13 @@ export interface ApiTab {
 export const tabsApi = {
   /** Adisyon listesi */
   getAll: (filters?: {
-    status?: string; roomId?: number; servicePoint?: string;
+    status?: string; roomId?: number; reservationId?: number; servicePoint?: string;
     dateFrom?: string; dateTo?: string;
   }) => {
     const params = new URLSearchParams();
     if (filters?.status) params.append('status', filters.status);
     if (filters?.roomId) params.append('roomId', String(filters.roomId));
+    if (filters?.reservationId) params.append('reservationId', String(filters.reservationId));
     if (filters?.servicePoint) params.append('servicePoint', filters.servicePoint);
     if (filters?.dateFrom) params.append('dateFrom', filters.dateFrom);
     if (filters?.dateTo) params.append('dateTo', filters.dateTo);

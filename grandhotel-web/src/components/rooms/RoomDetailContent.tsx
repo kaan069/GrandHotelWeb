@@ -34,6 +34,7 @@ import RoomDetailSections, {
   FolioDetailDialog,
   StayHistoryDialog,
   GuestCardDialog,
+  PastReservationDialog,
 } from './roomdetail';
 
 /* Firma verisi cache — promise tabanlı, StrictMode'da bile tek çağrı */
@@ -82,8 +83,19 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
     if (isNaN(d.getTime())) return '';
     return d.toISOString().split('T')[0]; // YYYY-MM-DD — HTML date input formatı
   };
-  const [checkInDate, setCheckInDate] = useState(formatDateForInput(room.reservationCheckIn));
-  const [checkOutDate, setCheckOutDate] = useState(formatDateForInput(room.reservationCheckOut));
+  /* Boş odada default tarih: bugün / yarın */
+  const todayStr = () => new Date().toISOString().split('T')[0];
+  const tomorrowStr = () => {
+    const t = new Date();
+    t.setDate(t.getDate() + 1);
+    return t.toISOString().split('T')[0];
+  };
+  const [checkInDate, setCheckInDate] = useState(
+    formatDateForInput(room.reservationCheckIn) || todayStr()
+  );
+  const [checkOutDate, setCheckOutDate] = useState(
+    formatDateForInput(room.reservationCheckOut) || tomorrowStr()
+  );
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
   const [customerMode, setCustomerMode] = useState<'new' | 'registered'>('new');
   const [quickRes, setQuickRes] = useState({ firstName: '', lastName: '', phone: '' });
@@ -103,6 +115,7 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
   const [stayHistoryDialogOpen, setStayHistoryDialogOpen] = useState(false);
   const [stayHistoryData, setStayHistoryData] = useState<StayHistory[]>([]);
   const [stayHistoryGuestName, setStayHistoryGuestName] = useState('');
+  const [pastReservationId, setPastReservationId] = useState<number | null>(null);
 
   const [guestCardDialogOpen, setGuestCardDialogOpen] = useState(false);
   const [guestCardData, setGuestCardData] = useState<Guest | null>(null);
@@ -720,6 +733,13 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
         guestName={stayHistoryGuestName}
         data={stayHistoryData}
         onClose={() => setStayHistoryDialogOpen(false)}
+        onRowClick={(reservationId) => setPastReservationId(reservationId)}
+      />
+
+      <PastReservationDialog
+        open={!!pastReservationId}
+        reservationId={pastReservationId}
+        onClose={() => setPastReservationId(null)}
       />
 
       <GuestCardDialog

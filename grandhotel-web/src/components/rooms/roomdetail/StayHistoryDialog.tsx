@@ -24,9 +24,10 @@ interface StayHistoryDialogProps {
   guestName: string;
   data: StayHistory[];
   onClose: () => void;
+  onRowClick?: (reservationId: number) => void;
 }
 
-const StayHistoryDialog: React.FC<StayHistoryDialogProps> = ({ open, guestName, data, onClose }) => {
+const StayHistoryDialog: React.FC<StayHistoryDialogProps> = ({ open, guestName, data, onClose, onRowClick }) => {
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -57,7 +58,12 @@ const StayHistoryDialog: React.FC<StayHistoryDialogProps> = ({ open, guestName, 
                   return (
                     <TableRow
                       key={stay.id}
-                      sx={{ bgcolor: balance > 0 ? 'rgba(244, 67, 54, 0.08)' : 'transparent' }}
+                      hover={!!onRowClick}
+                      onClick={() => onRowClick?.(stay.id)}
+                      sx={{
+                        bgcolor: balance > 0 ? 'rgba(244, 67, 54, 0.08)' : 'transparent',
+                        cursor: onRowClick ? 'pointer' : 'default',
+                      }}
                     >
                       <TableCell><Chip label={stay.roomNumber} size="small" variant="outlined" /></TableCell>
                       <TableCell>{formatDate(stay.checkIn)}</TableCell>
