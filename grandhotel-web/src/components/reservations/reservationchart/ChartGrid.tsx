@@ -16,7 +16,8 @@ interface ChartGridProps {
 /**
  * Bir rezervasyonun takvimde gösterilecek başlangıç ve bitiş tarihlerini hesaplar.
  * - status='reserved' → checkIn / checkOut
- * - status='checked_in' → checkIn / checkOut (checkOut null ise bugün + 1)
+ * - status='checked_in' → checkIn / checkOut
+ *   (checkOut null ise veya geçmişteyse bugün+1 olarak uzatılır — overstay durumu)
  */
 const getBarDates = (r: ApiReservation): { start: dayjs.Dayjs; end: dayjs.Dayjs } | null => {
   if (r.status === 'reserved') {
@@ -29,9 +30,13 @@ const getBarDates = (r: ApiReservation): { start: dayjs.Dayjs; end: dayjs.Dayjs 
   }
   if (r.status === 'checked_in') {
     const start = dayjs(r.checkIn).startOf('day');
-    const end = r.checkOut
-      ? dayjs(r.checkOut).startOf('day')
-      : dayjs().startOf('day').add(1, 'day');
+    const tomorrow = dayjs().startOf('day').add(1, 'day');
+    let end = r.checkOut ? dayjs(r.checkOut).startOf('day') : tomorrow;
+    // Çıkış tarihi bugünden önceyse veya bugünse, hâlâ checkout yapılmadığı için
+    // bar'ı yarına kadar uzat — gerçekte oda dolu (overstay)
+    if (end.isBefore(tomorrow)) {
+      end = tomorrow;
+    }
     return { start, end };
   }
   return null;

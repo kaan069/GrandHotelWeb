@@ -50,9 +50,15 @@ api.interceptors.response.use(
   async (error: AxiosError) => {
     const status = error.response?.status;
     const originalRequest = error.config as any;
+    const errorDetail = (error.response?.data as { detail?: string } | undefined)?.detail || '';
+    // Backend süresi dolmuş token için 403 dönebiliyor (DRF default davranışı).
+    // Hem 401 hem de "token" mesajlı 403'te refresh denenir.
+    const isTokenError =
+      status === 401 ||
+      (status === 403 && /token|süres/i.test(errorDetail));
 
-    // 401 → Token refresh dene (login endpoint'i hariç)
-    if (status === 401 && !originalRequest._retry && !originalRequest.url?.includes('/staff/login')) {
+    // Token hatası → refresh dene (login endpoint'i hariç)
+    if (isTokenError && !originalRequest._retry && !originalRequest.url?.includes('/staff/login')) {
       const refreshToken = localStorage.getItem('grandhotel_refresh_token');
 
       // Refresh token yoksa veya fake token ise direkt logout
@@ -98,7 +104,7 @@ api.interceptors.response.use(
       }
     }
 
-    if (status === 403) {
+    if (status === 403 && !isTokenError) {
       console.warn('Bu işlem için yetkiniz bulunmuyor.');
     }
 
