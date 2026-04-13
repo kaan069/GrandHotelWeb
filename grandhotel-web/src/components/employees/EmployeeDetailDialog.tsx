@@ -36,6 +36,7 @@ import {
   Edit as EditIcon,
   Save as SaveIcon,
   Close as CloseIcon,
+  Cancel as CancelIcon,
 } from '@mui/icons-material';
 import { ROLE_LABELS } from '../../utils/constants';
 import { getYearsOfService } from '../../utils/leaveCalculator';
@@ -94,6 +95,19 @@ const EmployeeDetailDialog: React.FC<EmployeeDetailDialogProps> = ({ open, onClo
       minimumFractionDigits: 2, maximumFractionDigits: 2,
     }) : '');
     setEditingSalary(true);
+  };
+
+  const handleCancelLeave = async (leaveId: number) => {
+    if (!window.confirm('Bu izni iptal etmek istiyor musunuz?')) return;
+    try {
+      await leavesApi.cancel(leaveId);
+      const updatedLeaves = await leavesApi.getForEmployee(employee!.id);
+      setLeaves(updatedLeaves);
+      onSaved?.();
+    } catch (err) {
+      const axiosErr = err as { response?: { data?: { error?: string } } };
+      window.alert(axiosErr?.response?.data?.error || 'İzin iptal edilemedi');
+    }
   };
 
   const handleSaveSalary = async () => {
@@ -222,6 +236,7 @@ const EmployeeDetailDialog: React.FC<EmployeeDetailDialogProps> = ({ open, onClo
                   <TableCell align="center" sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Gün</TableCell>
                   <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Durum</TableCell>
                   <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Not</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 600, fontSize: '0.75rem', width: 50 }}></TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -248,6 +263,18 @@ const EmployeeDetailDialog: React.FC<EmployeeDetailDialogProps> = ({ open, onClo
                     </TableCell>
                     <TableCell sx={{ fontSize: '0.75rem', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {leave.note || '-'}
+                    </TableCell>
+                    <TableCell align="center" sx={{ p: 0.5 }}>
+                      {leave.status === 'approved' && (
+                        <IconButton
+                          size="small"
+                          color="error"
+                          title="İzni İptal Et"
+                          onClick={() => handleCancelLeave(leave.id)}
+                        >
+                          <CancelIcon sx={{ fontSize: 16 }} />
+                        </IconButton>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
