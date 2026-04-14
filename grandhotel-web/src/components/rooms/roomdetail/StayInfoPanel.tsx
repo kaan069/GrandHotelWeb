@@ -15,14 +15,28 @@ import {
   TableHead,
   TableRow,
   Chip,
+  Stack,
+  Tooltip,
+  IconButton,
+  Alert,
 } from '@mui/material';
 import {
   Receipt as ReceiptIcon,
   OpenInNew as OpenInNewIcon,
   NightsStay as NightsStayIcon,
+  Business as BusinessIcon,
+  PersonAdd as PersonAddIcon,
+  PersonOff as PersonOffIcon,
 } from '@mui/icons-material';
 
 import { Company, FolioItem, FOLIO_CATEGORY_LABELS } from '../../../utils/constants';
+
+export interface CompanyGuestRow {
+  id: number;
+  firstName: string;
+  lastName: string;
+  phone: string;
+}
 
 interface StayInfoPanelProps {
   checkInDate: string;
@@ -37,6 +51,11 @@ interface StayInfoPanelProps {
   folios: FolioItem[];
   folioTotal: number;
   onFolioDetailOpen: () => void;
+  companyGuests?: CompanyGuestRow[];
+  companyGuestsLoading?: boolean;
+  roomGuestIds?: number[];
+  onSelectCompanyGuest?: (guestId: number) => void;
+  onRemoveGuestFromCompany?: (guestId: number, guestName: string) => void;
 }
 
 const StayInfoPanel: React.FC<StayInfoPanelProps> = ({
@@ -52,6 +71,11 @@ const StayInfoPanel: React.FC<StayInfoPanelProps> = ({
   folios,
   folioTotal,
   onFolioDetailOpen,
+  companyGuests = [],
+  companyGuestsLoading = false,
+  roomGuestIds = [],
+  onSelectCompanyGuest,
+  onRemoveGuestFromCompany,
 }) => {
   // Konaklama süresi hesapla
   const stayDays = useMemo(() => {
@@ -147,6 +171,90 @@ const StayInfoPanel: React.FC<StayInfoPanelProps> = ({
             </MenuItem>
           ))}
         </TextField>
+
+        {/* Firmaya Kayıtlı Misafirler — Firma seçildiğinde açılır */}
+        {selectedCompanyId && (
+          <Box
+            sx={{
+              mb: 2,
+              p: 1.5,
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: 1,
+              bgcolor: 'action.hover',
+            }}
+          >
+            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+              <BusinessIcon fontSize="small" color="primary" />
+              <Typography variant="subtitle2" fontWeight={600}>
+                Firmaya Kayıtlı Misafirler
+              </Typography>
+              <Chip size="small" label={companyGuests.length} />
+            </Stack>
+
+            {companyGuestsLoading ? (
+              <Typography variant="body2" color="text.secondary">Yükleniyor…</Typography>
+            ) : companyGuests.length === 0 ? (
+              <Alert severity="info" sx={{ py: 0.5 }}>
+                Bu firmaya kayıtlı misafir yok.
+              </Alert>
+            ) : (
+              <Stack spacing={0.5} sx={{ maxHeight: 220, overflowY: 'auto' }}>
+                {companyGuests.map((g) => {
+                  const alreadyInRoom = roomGuestIds.includes(g.id);
+                  const fullName = `${g.firstName} ${g.lastName}`.trim();
+                  return (
+                    <Box
+                      key={g.id}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        p: 0.75,
+                        borderRadius: 1,
+                        bgcolor: 'background.paper',
+                      }}
+                    >
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant="body2" fontWeight={500} noWrap>
+                          {fullName}
+                        </Typography>
+                        {g.phone && (
+                          <Typography variant="caption" color="text.secondary" noWrap>
+                            {g.phone}
+                          </Typography>
+                        )}
+                      </Box>
+                      <Tooltip title={alreadyInRoom ? 'Zaten odada' : 'Odaya ekle'}>
+                        <span>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            startIcon={<PersonAddIcon fontSize="small" />}
+                            disabled={alreadyInRoom || !onSelectCompanyGuest}
+                            onClick={() => onSelectCompanyGuest?.(g.id)}
+                          >
+                            Seç
+                          </Button>
+                        </span>
+                      </Tooltip>
+                      <Tooltip title="Firmadan çıkar">
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => onRemoveGuestFromCompany?.(g.id, fullName)}
+                          disabled={!onRemoveGuestFromCompany}
+                        >
+                          <PersonOffIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  );
+                })}
+              </Stack>
+            )}
+          </Box>
+        )}
 
         <TextField
           label="Gecelik Ücret (₺)"

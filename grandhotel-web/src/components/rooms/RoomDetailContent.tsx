@@ -38,11 +38,17 @@ import RoomDetailSections, {
   PastReservationDialog,
 } from './roomdetail';
 
-/* Firma verisi cache — promise tabanlı, StrictMode'da bile tek çağrı */
+/* Firma verisi cache — promise tabanlı, StrictMode'da bile tek çağrı.
+ * Rejection halinde cache'i temizle ki sonraki çağrı yeniden denesin.
+ */
 let companiesPromise: Promise<Company[]> | null = null;
 const getCompanies = (): Promise<Company[]> => {
   if (!companiesPromise) {
-    companiesPromise = companiesApi.getAll() as unknown as Promise<Company[]>;
+    companiesPromise = (companiesApi.getAll() as unknown as Promise<Company[]>)
+      .catch((err) => {
+        companiesPromise = null;
+        throw err;
+      });
   }
   return companiesPromise;
 };
@@ -131,11 +137,49 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'warning' });
 
+  /* Firmaya kayıtlı misafirler paneli */
+  const [companyGuests, setCompanyGuests] = useState<Array<{ id: number; firstName: string; lastName: string; phone: string }>>([]);
+  const [companyGuestsLoading, setCompanyGuestsLoading] = useState(false);
+  const [removeFromCompanyTarget, setRemoveFromCompanyTarget] = useState<{ id: number; name: string } | null>(null);
+
   /* === Effects === */
   // Oda değiştiğinde rezervasyondaki firma seçimini sync et
   useEffect(() => {
     setSelectedCompanyId(room.reservationCompanyId ? String(room.reservationCompanyId) : '');
   }, [room.id, room.reservationCompanyId]);
+
+  // Firma seçildiğinde o firmaya kayıtlı misafirleri getir
+  useEffect(() => {
+    if (!selectedCompanyId) {
+      setCompanyGuests([]);
+      return;
+    }
+    const compIdNum = Number(selectedCompanyId);
+    if (Number.isNaN(compIdNum)) return;
+
+    let cancelled = false;
+    setCompanyGuestsLoading(true);
+    companiesApi.getGuests(compIdNum)
+      .then((data) => {
+        if (cancelled) return;
+        setCompanyGuests(data.map((g) => ({
+          id: g.id,
+          firstName: g.firstName,
+          lastName: g.lastName,
+          phone: g.phone,
+        })));
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error('Firma misafirleri yüklenemedi:', err);
+        setCompanyGuests([]);
+      })
+      .finally(() => {
+        if (!cancelled) setCompanyGuestsLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [selectedCompanyId]);
 
   useEffect(() => {
     setQuickRes({ firstName: '', lastName: '', phone: '' });
@@ -241,8 +285,75 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
     }
   };
 
-  const handleRegisteredGuestSelect = (guest: Guest) => {
+  const handleRegisteredGuestSelect = async (guest: Guest) => {
+    // Odada bir firma seçili ve misafirin firması farklıysa, onay isteyip güncelle
+    if (selectedCompanyId && guest.companyId !== Number(selectedCompanyId)) {
+      const targetCompany = companies.find((c) => c.id === Number(selectedCompanyId));
+      const currentCompany = guest.companyId ? companies.find((c) => c.id === guest.companyId) : null;
+      const fromName = currentCompany ? `"${currentCompany.name}"` : 'firmasız';
+      const ok = window.confirm(
+        `${guest.firstName} ${guest.lastName} şu an ${fromName}. "${targetCompany?.name}" firmasına geçirilsin mi?`
+      );
+      if (ok) {
+        try {
+          await guestsApi.update(guest.id, { companyId: Number(selectedCompanyId) });
+          // Firmaya kayıtlı misafirler listesi tazele
+          if (companyGuests.every((g) => g.id !== guest.id)) {
+            setCompanyGuests((prev) => [...prev, {
+              id: guest.id, firstName: guest.firstName, lastName: guest.lastName, phone: guest.phone,
+            }]);
+          }
+        } catch (err) {
+          console.error('Misafir firması güncellenemedi:', err);
+        }
+      }
+    }
     addGuestToRoom(guest);
+  };
+
+  /* Firmaya kayıtlı misafirler kutusundan bir misafir seç → odaya ekle */
+  const handleSelectCompanyGuest = async (guestId: number) => {
+    const row = companyGuests.find((g) => g.id === guestId);
+    if (!row) return;
+    const guest: Guest = {
+      id: row.id,
+      tcNo: '',
+      firstName: row.firstName,
+      lastName: row.lastName,
+      phone: row.phone,
+      companyId: selectedCompanyId ? Number(selectedCompanyId) : undefined,
+      isBlocked: false,
+      createdAt: '',
+    };
+    await addGuestToRoom(guest);
+  };
+
+  /* Firmadan çıkar onay dialog'unu aç */
+  const handleOpenRemoveFromCompany = (guestId: number, guestName: string) => {
+    setRemoveFromCompanyTarget({ id: guestId, name: guestName });
+  };
+
+  /* Firmadan çıkar onayı */
+  const handleConfirmRemoveFromCompany = async () => {
+    if (!removeFromCompanyTarget) return;
+    const { id, name } = removeFromCompanyTarget;
+    try {
+      await guestsApi.update(id, { companyId: null });
+      setCompanyGuests((prev) => prev.filter((g) => g.id !== id));
+      setRemoveFromCompanyTarget(null);
+      const companyName = companies.find((c) => c.id === Number(selectedCompanyId))?.name || '';
+      await auditApi.create({
+        roomId: room.id,
+        action: 'guest_removed_from_company',
+        description: `${name} "${companyName}" firmasından çıkarıldı`,
+        performedBy: currentUserName,
+      });
+      setSnackbar({ open: true, message: `${name} firmadan çıkarıldı`, severity: 'success' });
+    } catch (err: unknown) {
+      console.error('Firmadan çıkarma hatası:', err);
+      const axiosErr = err as { response?: { data?: { error?: string } }; message?: string };
+      setSnackbar({ open: true, message: axiosErr?.response?.data?.error || axiosErr?.message || 'Firmadan çıkarılamadı', severity: 'error' });
+    }
   };
 
   const handleQuickReservation = async () => {
@@ -626,7 +737,8 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
         onRoomUpdate(room.id, {
           guests: updatedGuests,
           guestName: updatedGuests.map((g) => g.guestName).join(', ') || '',
-          ...(updatedGuests.length === 0 ? { status: ROOM_STATUS.AVAILABLE } : {}),
+          // Son misafir çıkarıldıysa oda 'dirty' olur (backend aynı şekilde set eder).
+          ...(updatedGuests.length === 0 ? { status: ROOM_STATUS.DIRTY, reservationId: null, reservationCompanyId: null } : {}),
         });
       } else if (action === 'block') {
         const updatedGuest = await guestsApi.toggleBlock(guestId);
@@ -727,6 +839,11 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
         folios={folios}
         folioTotal={folioTotal}
         onFolioDetailOpen={() => setFolioDetailOpen(true)}
+        companyGuests={companyGuests}
+        companyGuestsLoading={companyGuestsLoading}
+        roomGuestIds={(room.guests || []).map((g) => g.guestId)}
+        onSelectCompanyGuest={handleSelectCompanyGuest}
+        onRemoveGuestFromCompany={handleOpenRemoveFromCompany}
       />
 
       {/* Dialog'lar */}
@@ -760,6 +877,20 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
         open={!!pastReservationId}
         reservationId={pastReservationId}
         onClose={() => setPastReservationId(null)}
+      />
+
+      <ConfirmDialog
+        open={!!removeFromCompanyTarget}
+        title="Misafiri Firmadan Çıkar"
+        message={
+          removeFromCompanyTarget
+            ? `${removeFromCompanyTarget.name} "${companies.find((c) => c.id === Number(selectedCompanyId))?.name || ''}" firmasından çıkarılacak. Emin misiniz?`
+            : ''
+        }
+        confirmText="Çıkar"
+        confirmColor="error"
+        onConfirm={handleConfirmRemoveFromCompany}
+        onCancel={() => setRemoveFromCompanyTarget(null)}
       />
 
       <GuestCardDialog

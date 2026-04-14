@@ -55,6 +55,11 @@ interface RoomDetailSectionsProps {
   folios: FolioItem[];
   folioTotal: number;
   onFolioDetailOpen: () => void;
+  companyGuests?: Array<{ id: number; firstName: string; lastName: string; phone: string }>;
+  companyGuestsLoading?: boolean;
+  roomGuestIds?: number[];
+  onSelectCompanyGuest?: (guestId: number) => void;
+  onRemoveGuestFromCompany?: (guestId: number, guestName: string) => void;
 }
 
 const RoomDetailSections: React.FC<RoomDetailSectionsProps> = ({
@@ -87,6 +92,11 @@ const RoomDetailSections: React.FC<RoomDetailSectionsProps> = ({
   folios,
   folioTotal,
   onFolioDetailOpen,
+  companyGuests,
+  companyGuestsLoading,
+  roomGuestIds,
+  onSelectCompanyGuest,
+  onRemoveGuestFromCompany,
 }) => {
   return (
     <Grid container spacing={2.5}>
@@ -139,6 +149,11 @@ const RoomDetailSections: React.FC<RoomDetailSectionsProps> = ({
           folios={folios}
           folioTotal={folioTotal}
           onFolioDetailOpen={onFolioDetailOpen}
+          companyGuests={companyGuests}
+          companyGuestsLoading={companyGuestsLoading}
+          roomGuestIds={roomGuestIds}
+          onSelectCompanyGuest={onSelectCompanyGuest}
+          onRemoveGuestFromCompany={onRemoveGuestFromCompany}
         />
 
         <MinibarSection items={minibarItems} />

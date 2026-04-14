@@ -48,6 +48,7 @@ interface Room {
   reservationCheckOut?: string | null;
   reservationStatus?: string | null;
   reservationOwnerName?: string | null;
+  reservationCompanyId?: number | null;
   beds?: { type: string }[];
   minibar?: ApiRoomMinibarItem[];
 }
@@ -69,6 +70,7 @@ const mapApiRoom = (r: ApiRoom): Room => ({
   reservationCheckOut: r.reservationCheckOut,
   reservationStatus: r.reservationStatus,
   reservationOwnerName: r.reservationOwnerName,
+  reservationCompanyId: r.reservationCompanyId,
   beds: r.beds,
   minibar: r.minibar,
 });
