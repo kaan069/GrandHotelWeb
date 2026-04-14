@@ -7,3 +7,4 @@ export { default as ReservationChannelSection } from './ReservationChannelSectio
 export { default as ChannelRoomTypeCard } from './ChannelRoomTypeCard';
 export { default as ChannelRoomTypeDialog } from './ChannelRoomTypeDialog';
 export { default as ModuleManagement } from './ModuleManagement';
+export { default as CheckinPolicySettings } from './CheckinPolicySettings';

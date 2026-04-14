@@ -62,9 +62,13 @@ const GuestSearchDialog: React.FC<GuestSearchDialogProps> = ({
     }));
 
   const fetchGuests = useCallback(async (q: string) => {
+    if (!q.trim()) {
+      setResults([]);
+      return;
+    }
     setLoading(true);
     try {
-      const data = q.trim() ? await guestsApi.search(q) : await guestsApi.getAll();
+      const data = await guestsApi.search(q);
       setResults(mapApiGuests(data));
     } catch (err) {
       console.error('Misafir arama hatası:', err);
@@ -77,11 +81,11 @@ const GuestSearchDialog: React.FC<GuestSearchDialogProps> = ({
   useEffect(() => {
     if (open) {
       setQuery('');
+      setResults([]);
       setSelectedGuest(null);
       setShowConfirm(false);
-      fetchGuests('');
     }
-  }, [open, fetchGuests]);
+  }, [open]);
 
   const handleSearch = (value: string) => {
     setQuery(value);
@@ -165,9 +169,13 @@ const GuestSearchDialog: React.FC<GuestSearchDialogProps> = ({
                   </React.Fragment>
                 ))}
               </List>
-            ) : !loading ? (
+            ) : !loading && query.trim() ? (
               <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
                 Arama kriterlerine uygun müşteri bulunamadı.
+              </Typography>
+            ) : !loading && !query.trim() ? (
+              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
+                Ad, soyad, TC veya pasaport no yazarak arayın.
               </Typography>
             ) : null}
           </>

@@ -42,6 +42,7 @@ import type { ApiReservation, ApiRoom, ApiCompany, ApiRoomMinibarItem } from '..
 import ReservationDialogs from '../../components/reservations';
 import type { NewReservationResult, BulkReservationResult } from '../../components/reservations';
 import ReservationEditDialog from '../../components/reservations/ReservationEditDialog';
+import PastReservationDialog from '../../components/rooms/roomdetail/PastReservationDialog';
 
 /* ==================== TİPLER ==================== */
 
@@ -228,6 +229,10 @@ const ReservationList: React.FC = () => {
   const [openTabs, setOpenTabs] = useState<RoomTab[]>([]);
   const [activeTabIndex, setActiveTabIndex] = useState<number>(-1);
 
+  /* Geçmiş rezervasyon dialog state */
+  const [pastResDialogOpen, setPastResDialogOpen] = useState(false);
+  const [pastResId, setPastResId] = useState<number | null>(null);
+
   /* Filtre state'leri */
   const [filters, setFilters] = useState<Filters>({
     filter: '',
@@ -290,10 +295,26 @@ const ReservationList: React.FC = () => {
     setFilters({ filter: '', dateStart: null, dateEnd: null });
   };
 
-  /** Rezervasyon satırına tıklayınca oda tabı aç */
+  /** Rezervasyon satırına tıklayınca:
+   *   - Pasif rezervasyon (checked_out / cancelled / isActive=false) → PastReservationDialog
+   *   - Aktif rezervasyon (checked_in / reserved) → oda detay tab'ı
+   * Pasif rezervasyon için oda açılırsa o odanın ŞU ANKİ durumu gösterilir;
+   * ama kullanıcı tıkladığı rezervasyonun misafirleri/folio'sunu görmek ister.
+   * Bu yüzden pasif rezervasyonlar dialog'da açılır.
+   */
   const handleRowClick = (row: { id: string | number; [key: string]: unknown }) => {
     const reservation = reservations.find((r) => r.id === row.id);
     if (!reservation) return;
+
+    const isPast = !reservation.isActive
+      || reservation.status === 'checked_out'
+      || reservation.status === 'cancelled';
+
+    if (isPast) {
+      setPastResId(reservation.id);
+      setPastResDialogOpen(true);
+      return;
+    }
 
     const room = rooms.find((r) => r.roomNumber === reservation.roomNumber);
     if (!room) return;
@@ -582,6 +603,13 @@ const ReservationList: React.FC = () => {
         rooms={dialogRooms}
         companies={companies}
         onSave={handleEditSave}
+      />
+
+      {/* Geçmiş Rezervasyon Detay Dialog */}
+      <PastReservationDialog
+        open={pastResDialogOpen}
+        reservationId={pastResId}
+        onClose={() => { setPastResDialogOpen(false); setPastResId(null); }}
       />
 
       <Snackbar

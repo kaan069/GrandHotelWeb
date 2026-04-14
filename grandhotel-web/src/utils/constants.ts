@@ -285,14 +285,16 @@ export const RESERVATION_FILTERS: Record<string, string> = {
   TODAY_CHECKIN: 'today_checkin',
   TODAY_CHECKOUT: 'today_checkout',
   TODAY_CHECKED_OUT: 'today_checked_out',
+  TODAY_CHECKOUT_DONE: 'today_checkout_done',
   TOMORROW_CHECKIN: 'tomorrow_checkin',
   UNPAID_CHECKOUT: 'unpaid_checkout',
 };
 
 export const RESERVATION_FILTER_LABELS: Record<string, string> = {
   [RESERVATION_FILTERS.TODAY_CHECKIN]: 'Bugün Girecekler',
-  [RESERVATION_FILTERS.TODAY_CHECKOUT]: 'Bugün Çıkacaklar',
-  [RESERVATION_FILTERS.TODAY_CHECKED_OUT]: 'Bugün Çıkanlar',
+  [RESERVATION_FILTERS.TODAY_CHECKOUT]: 'Bugün Çıkacaklar (Hâlâ İçeride)',
+  [RESERVATION_FILTERS.TODAY_CHECKED_OUT]: 'Bugün Çıkışlı (Tüm Rezervasyonlar)',
+  [RESERVATION_FILTERS.TODAY_CHECKOUT_DONE]: 'Bugün Çıkanlar (Checkout Yapılanlar)',
   [RESERVATION_FILTERS.TOMORROW_CHECKIN]: 'Yarın Girecekler',
   [RESERVATION_FILTERS.UNPAID_CHECKOUT]: 'Çıkış Yapıp Ödeme Yapmayanlar',
 };

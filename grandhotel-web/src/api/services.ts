@@ -32,6 +32,7 @@ export interface ApiRoom {
   reservationStaffName: string | null;
   reservationStatus: string | null;
   reservationOwnerName: string | null;
+  reservationCompanyId: number | null;
   beds: { type: string }[];
   notes: string | null;
   minibar?: ApiRoomMinibarItem[];
@@ -185,6 +186,8 @@ export interface ApiHotel {
   taxCertificate: ApiHotelDocument | null;
   tourismLicense: ApiHotelDocument | null;
   images: ApiHotelImage[];
+  requirePaymentAtCheckin?: boolean;
+  companyExemptFromCheckinPayment?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -243,7 +246,7 @@ export const roomsApi = {
   getById: (id: number) =>
     api.get<ApiRoom>(`/rooms/${id}/`).then((r) => r.data),
 
-  checkIn: (roomId: number, body: { guestId: number; notes?: string; checkOut?: string }) =>
+  checkIn: (roomId: number, body: { guestId: number; notes?: string; checkOut?: string; companyId?: number }) =>
     api.post<ApiRoom>(`/rooms/${roomId}/check_in/`, body).then((r) => r.data),
 
   checkOut: (roomId: number, body?: { guestId?: number }) =>
@@ -402,8 +405,8 @@ export const reservationsApi = {
     api.put<ApiReservation>(`/reservations/${id}/`, data).then((r) => r.data),
 
   /** Rezerve → Check-in dönüşümü */
-  checkIn: (id: number) =>
-    api.post<ApiReservation>(`/reservations/${id}/check_in/`).then((r) => r.data),
+  checkIn: (id: number, body?: { companyId?: number | null }) =>
+    api.post<ApiReservation>(`/reservations/${id}/check_in/`, body || {}).then((r) => r.data),
 
   /** Check-in iptal — checked_in → reserved geri dön */
   revertCheckin: (id: number) =>
@@ -855,7 +858,10 @@ export const hotelApi = {
     api.get<ApiHotel>('/hotel/').then((r) => r.data),
 
   /** Otel bilgilerini güncelle */
-  update: (data: Partial<{ name: string; address: string; phone: string; email: string; taxNumber: string }>) =>
+  update: (data: Partial<{
+    name: string; address: string; phone: string; email: string; taxNumber: string;
+    requirePaymentAtCheckin: boolean; companyExemptFromCheckinPayment: boolean;
+  }>) =>
     api.put<ApiHotel>('/hotel/', data).then((r) => r.data),
 
   /** Belge yükle */

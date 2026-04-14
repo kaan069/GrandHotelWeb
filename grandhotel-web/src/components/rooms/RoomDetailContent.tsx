@@ -19,6 +19,7 @@ import {
 } from '../../utils/constants';
 import { companiesApi, guestsApi, foliosApi, roomsApi, reservationsApi, auditApi, minibarApi } from '../../api/services';
 import usePermission from '../../hooks/usePermission';
+import useAuth from '../../hooks/useAuth';
 import type { ApiRoomMinibarItem } from '../../api/services';
 import { ConfirmDialog } from '../common';
 import GuestSearchDialog from './GuestSearchDialog';
@@ -61,6 +62,7 @@ interface RoomDetailContentRoom {
   reservationId?: number | null;
   reservationCheckIn?: string | null;
   reservationCheckOut?: string | null;
+  reservationCompanyId?: number | null;
   beds?: { type: string }[];
   minibar?: ApiRoomMinibarItem[];
 }
@@ -75,6 +77,8 @@ interface RoomDetailContentProps {
 
 const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdate, onRoomSwitch, onClose, allRoomNumbers = [] }) => {
   const { isAdmin } = usePermission();
+  const { user } = useAuth();
+  const currentUserName = user ? `${user.firstName} ${user.lastName}`.trim() : 'Bilinmiyor';
   /* === State === */
   /* Tarihler backend'den gelir — reservationCheckIn/Out alanları */
   const formatDateForInput = (isoStr?: string | null) => {
@@ -96,7 +100,9 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
   const [checkOutDate, setCheckOutDate] = useState(
     formatDateForInput(room.reservationCheckOut) || tomorrowStr()
   );
-  const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>(
+    room.reservationCompanyId ? String(room.reservationCompanyId) : ''
+  );
   const [customerMode, setCustomerMode] = useState<'new' | 'registered'>('new');
   const [quickRes, setQuickRes] = useState({ firstName: '', lastName: '', phone: '' });
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -126,6 +132,11 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'warning' });
 
   /* === Effects === */
+  // Oda değiştiğinde rezervasyondaki firma seçimini sync et
+  useEffect(() => {
+    setSelectedCompanyId(room.reservationCompanyId ? String(room.reservationCompanyId) : '');
+  }, [room.id, room.reservationCompanyId]);
+
   useEffect(() => {
     setQuickRes({ firstName: '', lastName: '', phone: '' });
 
@@ -325,7 +336,7 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
           roomId: room.id,
           action: 'folio_deleted',
           description: `${deletedFolio.description || deletedFolio.category} (${Number(deletedFolio.amount).toLocaleString('tr-TR')} ₺) folio kalemi silindi`,
-          performedBy: '',
+          performedBy: currentUserName,
         });
       }
     } catch (err) {
@@ -387,6 +398,7 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
         await reservationsApi.create({
           roomId: room.id,
           guestId: guests[0].guestId,
+          companyId: selectedCompanyId ? Number(selectedCompanyId) : undefined,
           checkIn: checkInDate || new Date().toISOString().split('T')[0],
           checkOut: checkOutDate || undefined,
           notes: roomNote,
@@ -413,18 +425,21 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
 
     try {
       if (room.reservationId) {
-        // Mevcut rezervasyon var → check-in'e çevir
-        await reservationsApi.checkIn(room.reservationId);
+        // Mevcut rezervasyon var → check-in'e çevir (UI'dan seçili firmayı geçir)
+        await reservationsApi.checkIn(room.reservationId, {
+          companyId: selectedCompanyId ? Number(selectedCompanyId) : null,
+        });
         // Varsa ek misafirleri ekle
         for (let i = 1; i < guests.length; i++) {
           await roomsApi.addGuest(room.id, guests[i].guestId);
         }
       } else {
-        // Rezervasyon yok → direkt check-in
+        // Rezervasyon yok → direkt check-in (UI'dan seçili firmayı geçir)
         await roomsApi.checkIn(room.id, {
           guestId: guests[0].guestId,
           notes: roomNote,
           checkOut: checkOutDate || undefined,
+          companyId: selectedCompanyId ? Number(selectedCompanyId) : undefined,
         });
         for (let i = 1; i < guests.length; i++) {
           await roomsApi.addGuest(room.id, guests[i].guestId);
@@ -440,6 +455,10 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
   const handleCheckOutClick = () => {
     if (folioTotal > 0) {
       setSnackbar({ open: true, message: `Odanın ${folioTotal.toLocaleString('tr-TR')} ₺ borcu bulunmaktadır. Lütfen ödeme yapınız.`, severity: 'warning' });
+      return;
+    }
+    if (!hasPayment) {
+      setSnackbar({ open: true, message: 'Bu konaklama için folio\'ya henüz ücret/ödeme eklenmemiş. Lütfen önce folio kayıtlarını oluşturup ödeme alınız.', severity: 'warning' });
       return;
     }
     setCheckoutConfirmOpen(true);
@@ -470,7 +489,7 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
           roomId: room.id,
           action: 'checkin_reversed',
           description: `Oda ${room.roomNumber} check-in iptal edildi — rezervasyon tekrar aktif`,
-          performedBy: '',
+          performedBy: currentUserName,
         });
       } else {
         // Kapı müşterisi — checkout + available yap
@@ -480,7 +499,7 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
           roomId: room.id,
           action: 'checkin_reversed',
           description: `Oda ${room.roomNumber} check-in iptal edildi`,
-          performedBy: '',
+          performedBy: currentUserName,
         });
       }
     } catch (err: unknown) {
@@ -498,7 +517,7 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
         roomId: room.id,
         action: 'checkout_reversed',
         description: `Oda ${room.roomNumber} check-out iptal edildi`,
-        performedBy: '',
+        performedBy: currentUserName,
       });
     } catch (err: unknown) {
       console.error('Check-out iptal hatası:', err);
@@ -582,7 +601,7 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
           roomId: room.id,
           action: 'guest_checkout',
           description: `${guestName} check-out yapıldı`,
-          performedBy: '',
+          performedBy: currentUserName,
         });
         const now = new Date().toISOString();
         const updatedGuests = (room.guests || []).map((g) =>
@@ -601,7 +620,7 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
           roomId: room.id,
           action: 'guest_removed',
           description: `${guestName} misafiri odadan çıkarıldı`,
-          performedBy: '',
+          performedBy: currentUserName,
         });
         const updatedGuests = (room.guests || []).filter((g) => g.guestId !== guestId);
         onRoomUpdate(room.id, {
@@ -642,7 +661,8 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
     checkInDate !== formatDateForInput(room.reservationCheckIn) ||
     checkOutDate !== formatDateForInput(room.reservationCheckOut) ||
     roomNote !== (room.notes || '') ||
-    nightlyRate !== (room.price ? String(room.price) : '')
+    nightlyRate !== (room.price ? String(room.price) : '') ||
+    selectedCompanyId !== (room.reservationCompanyId ? String(room.reservationCompanyId) : '')
   );
 
   return (
