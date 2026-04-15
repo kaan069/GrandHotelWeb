@@ -25,6 +25,7 @@ const ReservationChart = React.lazy(() => import('../pages/reservations/Reservat
 const EmployeeList = React.lazy(() => import('../pages/users/EmployeeList'));
 const GuestList = React.lazy(() => import('../pages/guests/GuestList'));
 const CompanyList = React.lazy(() => import('../pages/guests/CompanyList'));
+const AgencyList = React.lazy(() => import('../pages/guests/AgencyList'));
 const ShiftHandover = React.lazy(() => import('../pages/shift/ShiftHandover'));
 const InvoiceList = React.lazy(() => import('../pages/invoices/InvoiceList'));
 const HotelManagement = React.lazy(() => import('../pages/hotel-management/HotelManagement'));
@@ -263,6 +264,14 @@ const router = createBrowserRouter([
             element: (
               <React.Suspense fallback={null}>
                 <CompanyList />
+              </React.Suspense>
+            ),
+          },
+          {
+            path: '/guests/agencies',
+            element: (
+              <React.Suspense fallback={null}>
+                <AgencyList />
               </React.Suspense>
             ),
           },

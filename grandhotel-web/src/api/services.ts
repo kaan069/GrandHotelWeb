@@ -33,6 +33,9 @@ export interface ApiRoom {
   reservationStatus: string | null;
   reservationOwnerName: string | null;
   reservationCompanyId: number | null;
+  reservationAgencyId: number | null;
+  reservationAgencyName: string | null;
+  reservationAgencyCode: string | null;
   beds: { type: string }[];
   notes: string | null;
   minibar?: ApiRoomMinibarItem[];
@@ -112,12 +115,28 @@ export interface ApiCompany {
   agreedRate?: string | number | null;
 }
 
+export interface ApiAgency {
+  id: number;
+  name: string;
+  taxNumber: string | null;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  contactPerson: string | null;
+  commissionRate: string | number | null;
+  notes: string | null;
+  isActive: boolean;
+}
+
 export interface ApiReservation {
   id: number;
   roomId: number;
   roomNumber: string;
   companyId: number | null;
   companyName: string | null;
+  agencyId?: number | null;
+  agencyName?: string | null;
+  agencyReservationCode?: string | null;
   checkIn: string;
   checkOut: string | null;
   guestNames: string | null;
@@ -246,7 +265,7 @@ export const roomsApi = {
   getById: (id: number) =>
     api.get<ApiRoom>(`/rooms/${id}/`).then((r) => r.data),
 
-  checkIn: (roomId: number, body: { guestId: number; notes?: string; checkOut?: string; companyId?: number }) =>
+  checkIn: (roomId: number, body: { guestId: number; notes?: string; checkOut?: string; companyId?: number; agencyId?: number; agencyReservationCode?: string }) =>
     api.post<ApiRoom>(`/rooms/${roomId}/check_in/`, body).then((r) => r.data),
 
   checkOut: (roomId: number, body?: { guestId?: number }) =>
@@ -353,6 +372,41 @@ export const companiesApi = {
     api.post<any>(`/companies/${companyId}/add_payment/`, data).then((r) => r.data),
 };
 
+/* ==================== AGENCIES API ==================== */
+
+export const agenciesApi = {
+  getAll: () =>
+    api.get<ApiAgency[]>('/agencies/').then((r) => r.data),
+
+  create: (data: {
+    name: string; taxNumber?: string; address?: string; phone?: string; email?: string;
+    contactPerson?: string; commissionRate?: number; notes?: string;
+  }) =>
+    api.post<ApiAgency>('/agencies/', data).then((r) => r.data),
+
+  update: (id: number, data: Partial<ApiAgency>) =>
+    api.put<ApiAgency>(`/agencies/${id}/`, data).then((r) => r.data),
+
+  delete: (id: number) =>
+    api.delete(`/agencies/${id}/`),
+
+  /** Acenteden gelen rezervasyonlar */
+  getReservations: (id: number) =>
+    api.get<any[]>(`/agencies/${id}/reservations/`).then((r) => r.data),
+
+  /** Borçlu acenteler listesi (bakiye > 0) */
+  getDebtors: () =>
+    api.get<any[]>('/agencies/debtors/').then((r) => r.data),
+
+  /** Acente borç detayı (rezervasyonlar + folio kalemleri + komisyon özeti) */
+  getDebtDetail: (id: number) =>
+    api.get<any>(`/agencies/${id}/debt_detail/`).then((r) => r.data),
+
+  /** Acenteye ödeme ekle (borç kapat) */
+  addPayment: (agencyId: number, data: { reservationId: number; amount: number; description?: string; staffName?: string }) =>
+    api.post<any>(`/agencies/${agencyId}/add_payment/`, data).then((r) => r.data),
+};
+
 /* ==================== RESERVATIONS API ==================== */
 
 export const reservationsApi = {
@@ -385,7 +439,10 @@ export const reservationsApi = {
   create: (data: {
     roomId: number; guestId: number;
     checkIn: string; checkOut?: string;
-    notes?: string; staffName?: string; companyId?: number;
+    notes?: string; staffName?: string;
+    companyId?: number;
+    agencyId?: number;
+    agencyReservationCode?: string;
   }) =>
     api.post<ApiReservation>('/reservations/', data).then((r) => r.data),
 
@@ -400,12 +457,14 @@ export const reservationsApi = {
     checkOut?: string;
     notes?: string;
     companyId?: number | null;
+    agencyId?: number | null;
+    agencyReservationCode?: string;
     totalAmount?: number;
   }) =>
     api.put<ApiReservation>(`/reservations/${id}/`, data).then((r) => r.data),
 
   /** Rezerve → Check-in dönüşümü */
-  checkIn: (id: number, body?: { companyId?: number | null }) =>
+  checkIn: (id: number, body?: { companyId?: number | null; agencyId?: number | null; agencyReservationCode?: string }) =>
     api.post<ApiReservation>(`/reservations/${id}/check_in/`, body || {}).then((r) => r.data),
 
   /** Check-in iptal — checked_in → reserved geri dön */

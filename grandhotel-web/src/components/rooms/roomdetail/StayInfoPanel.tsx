@@ -29,7 +29,7 @@ import {
   PersonOff as PersonOffIcon,
 } from '@mui/icons-material';
 
-import { Company, FolioItem, FOLIO_CATEGORY_LABELS } from '../../../utils/constants';
+import { Company, Agency, FolioItem, FOLIO_CATEGORY_LABELS } from '../../../utils/constants';
 
 export interface CompanyGuestRow {
   id: number;
@@ -48,6 +48,11 @@ interface StayInfoPanelProps {
   nightlyRate: string;
   onNightlyRateChange: (value: string) => void;
   companies: Company[];
+  agencies?: Agency[];
+  selectedAgencyId?: string;
+  onAgencyChange?: (value: string) => void;
+  agencyReservationCode?: string;
+  onAgencyReservationCodeChange?: (value: string) => void;
   folios: FolioItem[];
   folioTotal: number;
   onFolioDetailOpen: () => void;
@@ -68,6 +73,11 @@ const StayInfoPanel: React.FC<StayInfoPanelProps> = ({
   nightlyRate,
   onNightlyRateChange,
   companies,
+  agencies = [],
+  selectedAgencyId = '',
+  onAgencyChange,
+  agencyReservationCode = '',
+  onAgencyReservationCodeChange,
   folios,
   folioTotal,
   onFolioDetailOpen,
@@ -254,6 +264,40 @@ const StayInfoPanel: React.FC<StayInfoPanelProps> = ({
               </Stack>
             )}
           </Box>
+        )}
+
+        {/* Acente + Rezervasyon Kodu */}
+        <TextField
+          select
+          label="Acente"
+          fullWidth
+          value={selectedAgencyId}
+          onChange={(e) => onAgencyChange?.(e.target.value)}
+          sx={{ mb: 2 }}
+        >
+          <MenuItem value="">
+            <em>Acente Seçilmedi</em>
+          </MenuItem>
+          {agencies.map((agency) => (
+            <MenuItem key={agency.id} value={String(agency.id)}>
+              {agency.name}
+              {agency.commissionRate !== null && agency.commissionRate !== undefined
+                ? ` (%${Number(agency.commissionRate)})`
+                : ''}
+            </MenuItem>
+          ))}
+        </TextField>
+
+        {selectedAgencyId && (
+          <TextField
+            label="Rezervasyon Kodu"
+            fullWidth
+            value={agencyReservationCode}
+            onChange={(e) => onAgencyReservationCodeChange?.(e.target.value)}
+            placeholder="Acentenin verdiği referans kodu (ör. BK-123456)"
+            helperText="Faturada açıklamaya 'Rez: KOD' olarak yazılır"
+            sx={{ mb: 2 }}
+          />
         )}
 
         <TextField

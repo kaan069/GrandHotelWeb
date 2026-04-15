@@ -65,6 +65,7 @@ interface InvoiceFormProps {
   defaultAddress?: string;
   defaultCompanyId?: number;
   defaultRoomId?: number;
+  defaultDescription?: string;
   onSave?: (invoice: Invoice) => void;
   onCancel?: () => void;
 }
@@ -86,6 +87,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   defaultAddress = '',
   defaultCompanyId,
   defaultRoomId,
+  defaultDescription = '',
   onSave,
   onCancel,
 }) => {
@@ -97,7 +99,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState('');
   const [taxRate, setTaxRate] = useState<number>(20);
-  const [notes, setNotes] = useState('');
+  const [notes, setNotes] = useState(defaultDescription);
   const [hasAccommodationTax, setHasAccommodationTax] = useState(false);
   const [items, setItems] = useState<InvoiceItem[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});

@@ -28,6 +28,7 @@ interface InvoiceCreateDialogProps {
   address?: string;
   companyId?: number;
   roomId?: number;
+  defaultDescription?: string;
 }
 
 const InvoiceCreateDialog: React.FC<InvoiceCreateDialogProps> = ({
@@ -40,6 +41,7 @@ const InvoiceCreateDialog: React.FC<InvoiceCreateDialogProps> = ({
   address = '',
   companyId,
   roomId,
+  defaultDescription = '',
 }) => {
   const handleSave = (_invoice: Invoice) => {
     onClose();
@@ -70,6 +72,7 @@ const InvoiceCreateDialog: React.FC<InvoiceCreateDialogProps> = ({
           defaultAddress={address}
           defaultCompanyId={companyId}
           defaultRoomId={roomId}
+          defaultDescription={defaultDescription}
           onSave={handleSave}
           onCancel={onClose}
         />

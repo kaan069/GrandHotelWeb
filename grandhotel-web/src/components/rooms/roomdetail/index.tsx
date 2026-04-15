@@ -8,7 +8,7 @@ import RoomNoteSection from './RoomNoteSection';
 import MinibarSection from './MinibarSection';
 import AuditLogSection from './AuditLogSection';
 import KbsSection from './KbsSection';
-import { RoomGuest, Company, FolioItem } from '../../../utils/constants';
+import { RoomGuest, Company, Agency, FolioItem } from '../../../utils/constants';
 import type { ApiRoomMinibarItem } from '../../../api/services';
 
 export { default as RoomHeaderToolbar } from './RoomHeaderToolbar';
@@ -52,6 +52,11 @@ interface RoomDetailSectionsProps {
   nightlyRate: string;
   onNightlyRateChange: (value: string) => void;
   companies: Company[];
+  agencies?: Agency[];
+  selectedAgencyId?: string;
+  onAgencyChange?: (value: string) => void;
+  agencyReservationCode?: string;
+  onAgencyReservationCodeChange?: (value: string) => void;
   folios: FolioItem[];
   folioTotal: number;
   onFolioDetailOpen: () => void;
@@ -89,6 +94,11 @@ const RoomDetailSections: React.FC<RoomDetailSectionsProps> = ({
   nightlyRate,
   onNightlyRateChange,
   companies,
+  agencies,
+  selectedAgencyId,
+  onAgencyChange,
+  agencyReservationCode,
+  onAgencyReservationCodeChange,
   folios,
   folioTotal,
   onFolioDetailOpen,
@@ -146,6 +156,11 @@ const RoomDetailSections: React.FC<RoomDetailSectionsProps> = ({
           nightlyRate={nightlyRate}
           onNightlyRateChange={onNightlyRateChange}
           companies={companies}
+          agencies={agencies}
+          selectedAgencyId={selectedAgencyId}
+          onAgencyChange={onAgencyChange}
+          agencyReservationCode={agencyReservationCode}
+          onAgencyReservationCodeChange={onAgencyReservationCodeChange}
           folios={folios}
           folioTotal={folioTotal}
           onFolioDetailOpen={onFolioDetailOpen}

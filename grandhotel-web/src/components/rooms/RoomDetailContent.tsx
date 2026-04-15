@@ -11,13 +11,14 @@ import { Box, Snackbar, Alert } from '@mui/material';
 import {
   Guest,
   Company,
+  Agency,
   FolioItem,
   RoomGuest,
   StayHistory,
   ROOM_STATUS,
   FOLIO_CATEGORY_LABELS,
 } from '../../utils/constants';
-import { companiesApi, guestsApi, foliosApi, roomsApi, reservationsApi, auditApi, minibarApi } from '../../api/services';
+import { companiesApi, agenciesApi, guestsApi, foliosApi, roomsApi, reservationsApi, auditApi, minibarApi } from '../../api/services';
 import usePermission from '../../hooks/usePermission';
 import useAuth from '../../hooks/useAuth';
 import type { ApiRoomMinibarItem } from '../../api/services';
@@ -53,6 +54,19 @@ const getCompanies = (): Promise<Company[]> => {
   return companiesPromise;
 };
 
+/* Acente verisi cache — companiesPromise ile aynı pattern. */
+let agenciesPromise: Promise<Agency[]> | null = null;
+const getAgencies = (): Promise<Agency[]> => {
+  if (!agenciesPromise) {
+    agenciesPromise = (agenciesApi.getAll() as unknown as Promise<Agency[]>)
+      .catch((err) => {
+        agenciesPromise = null;
+        throw err;
+      });
+  }
+  return agenciesPromise;
+};
+
 interface RoomDetailContentRoom {
   id: number;
   roomNumber: string;
@@ -69,6 +83,8 @@ interface RoomDetailContentRoom {
   reservationCheckIn?: string | null;
   reservationCheckOut?: string | null;
   reservationCompanyId?: number | null;
+  reservationAgencyId?: number | null;
+  reservationAgencyCode?: string | null;
   beds?: { type: string }[];
   minibar?: ApiRoomMinibarItem[];
 }
@@ -109,9 +125,16 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>(
     room.reservationCompanyId ? String(room.reservationCompanyId) : ''
   );
+  const [selectedAgencyId, setSelectedAgencyId] = useState<string>(
+    room.reservationAgencyId ? String(room.reservationAgencyId) : ''
+  );
+  const [agencyReservationCode, setAgencyReservationCode] = useState<string>(
+    room.reservationAgencyCode || ''
+  );
   const [customerMode, setCustomerMode] = useState<'new' | 'registered'>('new');
   const [quickRes, setQuickRes] = useState({ firstName: '', lastName: '', phone: '' });
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [agencies, setAgencies] = useState<Agency[]>([]);
   const [folios, setFolios] = useState<FolioItem[]>([]);
   const [nightlyRate, setNightlyRate] = useState<string>(room.price ? String(room.price) : '');
   const [roomNote, setRoomNote] = useState(room.notes || '');
@@ -147,6 +170,12 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
   useEffect(() => {
     setSelectedCompanyId(room.reservationCompanyId ? String(room.reservationCompanyId) : '');
   }, [room.id, room.reservationCompanyId]);
+
+  // Oda değiştiğinde rezervasyondaki acente + rez kodu sync
+  useEffect(() => {
+    setSelectedAgencyId(room.reservationAgencyId ? String(room.reservationAgencyId) : '');
+    setAgencyReservationCode(room.reservationAgencyCode || '');
+  }, [room.id, room.reservationAgencyId, room.reservationAgencyCode]);
 
   // Firma seçildiğinde o firmaya kayıtlı misafirleri getir
   useEffect(() => {
@@ -186,13 +215,27 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
 
     const fetchData = async () => {
       try {
-        const [companiesData, foliosData] = await Promise.all([
+        // Her isteği BAĞIMSIZ catch et — biri başarısız olursa (örn. agencies henüz deploy değil)
+        // diğerleri yine de yüklenir. allSettled → tüm sonuçlar döner, rejection zincir kırmaz.
+        const [companiesResult, agenciesResult, foliosResult] = await Promise.allSettled([
           getCompanies(),
+          getAgencies(),
           room.reservationId
             ? foliosApi.getForReservation(room.reservationId)
             : foliosApi.getForRoom(Number(room.id)),
         ]);
-        setCompanies(companiesData as unknown as Company[]);
+        if (companiesResult.status === 'fulfilled') {
+          setCompanies(companiesResult.value as unknown as Company[]);
+        } else {
+          console.error('Firmalar yüklenemedi:', companiesResult.reason);
+        }
+        if (agenciesResult.status === 'fulfilled') {
+          setAgencies(agenciesResult.value as unknown as Agency[]);
+        } else {
+          console.warn('Acenteler yüklenemedi (backend deploy gerekebilir):', agenciesResult.reason);
+          setAgencies([]);
+        }
+        const foliosData = foliosResult.status === 'fulfilled' ? foliosResult.value : [];
         setFolios(foliosData.map((f) => ({
           id: f.id,
           reservationId: f.reservationId,
@@ -259,13 +302,26 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
 
   const handleNewGuestSave = async (data: { tcNo: string; firstName: string; lastName: string; phone: string; email: string }) => {
     try {
+      // Odada firma seçili ise, yeni misafiri o firmaya kaydetmek için onay iste
+      let companyIdToAssign: number | null = null;
+      if (selectedCompanyId) {
+        const comp = companies.find((c) => c.id === Number(selectedCompanyId));
+        const fullName = `${data.firstName.trim()} ${data.lastName.trim()}`.trim();
+        const ok = window.confirm(
+          `${fullName} "${comp?.name || ''}" firmasına kaydedilsin mi?`
+        );
+        if (ok) {
+          companyIdToAssign = Number(selectedCompanyId);
+        }
+      }
+
       const apiGuest = await guestsApi.create({
         tcNo: data.tcNo,
         firstName: data.firstName.trim(),
         lastName: data.lastName.trim(),
         phone: data.phone.trim(),
         email: data.email.trim() || undefined,
-        companyId: selectedCompanyId ? Number(selectedCompanyId) : null,
+        companyId: companyIdToAssign,
       });
       const guest: Guest = {
         id: apiGuest.id,
@@ -278,6 +334,17 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
         isBlocked: apiGuest.isBlocked,
         createdAt: apiGuest.createdAt ?? new Date().toISOString(),
       };
+
+      // Firmaya kayıt yapıldıysa panel listesine de ekle
+      if (companyIdToAssign && companyGuests.every((g) => g.id !== guest.id)) {
+        setCompanyGuests((prev) => [...prev, {
+          id: guest.id,
+          firstName: guest.firstName,
+          lastName: guest.lastName,
+          phone: guest.phone,
+        }]);
+      }
+
       addGuestToRoom(guest);
       setNewGuestDialogOpen(false);
     } catch (err) {
@@ -478,6 +545,8 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
           checkOut: checkOutDate || undefined,
           notes: roomNote || undefined,
           companyId: selectedCompanyId ? Number(selectedCompanyId) : null,
+          agencyId: selectedAgencyId ? Number(selectedAgencyId) : null,
+          agencyReservationCode: agencyReservationCode || '',
           totalAmount: nightlyRate ? Number(nightlyRate) : undefined,
         });
         // Gecelik ücret değiştiyse Room.price'ı da güncelle
@@ -510,6 +579,8 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
           roomId: room.id,
           guestId: guests[0].guestId,
           companyId: selectedCompanyId ? Number(selectedCompanyId) : undefined,
+          agencyId: selectedAgencyId ? Number(selectedAgencyId) : undefined,
+          agencyReservationCode: agencyReservationCode || undefined,
           checkIn: checkInDate || new Date().toISOString().split('T')[0],
           checkOut: checkOutDate || undefined,
           notes: roomNote,
@@ -536,21 +607,25 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
 
     try {
       if (room.reservationId) {
-        // Mevcut rezervasyon var → check-in'e çevir (UI'dan seçili firmayı geçir)
+        // Mevcut rezervasyon var → check-in'e çevir (UI'dan seçili firma+acenteyi geçir)
         await reservationsApi.checkIn(room.reservationId, {
           companyId: selectedCompanyId ? Number(selectedCompanyId) : null,
+          agencyId: selectedAgencyId ? Number(selectedAgencyId) : null,
+          agencyReservationCode: agencyReservationCode || '',
         });
         // Varsa ek misafirleri ekle
         for (let i = 1; i < guests.length; i++) {
           await roomsApi.addGuest(room.id, guests[i].guestId);
         }
       } else {
-        // Rezervasyon yok → direkt check-in (UI'dan seçili firmayı geçir)
+        // Rezervasyon yok → direkt check-in (UI'dan seçili firma+acenteyi geçir)
         await roomsApi.checkIn(room.id, {
           guestId: guests[0].guestId,
           notes: roomNote,
           checkOut: checkOutDate || undefined,
           companyId: selectedCompanyId ? Number(selectedCompanyId) : undefined,
+          agencyId: selectedAgencyId ? Number(selectedAgencyId) : undefined,
+          agencyReservationCode: agencyReservationCode || undefined,
         });
         for (let i = 1; i < guests.length; i++) {
           await roomsApi.addGuest(room.id, guests[i].guestId);
@@ -774,7 +849,9 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
     checkOutDate !== formatDateForInput(room.reservationCheckOut) ||
     roomNote !== (room.notes || '') ||
     nightlyRate !== (room.price ? String(room.price) : '') ||
-    selectedCompanyId !== (room.reservationCompanyId ? String(room.reservationCompanyId) : '')
+    selectedCompanyId !== (room.reservationCompanyId ? String(room.reservationCompanyId) : '') ||
+    selectedAgencyId !== (room.reservationAgencyId ? String(room.reservationAgencyId) : '') ||
+    agencyReservationCode !== (room.reservationAgencyCode || '')
   );
 
   return (
@@ -836,6 +913,11 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
         nightlyRate={nightlyRate}
         onNightlyRateChange={handleNightlyRateChange}
         companies={companies}
+        agencies={agencies}
+        selectedAgencyId={selectedAgencyId}
+        onAgencyChange={setSelectedAgencyId}
+        agencyReservationCode={agencyReservationCode}
+        onAgencyReservationCodeChange={setAgencyReservationCode}
         folios={folios}
         folioTotal={folioTotal}
         onFolioDetailOpen={() => setFolioDetailOpen(true)}
@@ -944,6 +1026,7 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
         }
         companyId={selectedCompanyId ? Number(selectedCompanyId) : undefined}
         roomId={room.id}
+        defaultDescription={agencyReservationCode ? `Rez: ${agencyReservationCode}` : ''}
       />
 
       {/* Rezervasyon İptal Onay */}

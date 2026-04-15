@@ -68,6 +68,19 @@ export interface Company {
   agreedRate?: string | number | null;
 }
 
+export interface Agency {
+  id: number;
+  name: string;
+  taxNumber?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  contactPerson?: string | null;
+  commissionRate?: string | number | null;
+  notes?: string | null;
+  isActive?: boolean;
+}
+
 /** Folio kalemi — backend reservationId kullanır (roomId değil) */
 export interface FolioItem {
   id: number;
@@ -438,6 +451,7 @@ export const MENU_ITEMS: MenuItem[] = [
     children: [
       { id: 'guest-list', label: 'Müşteri Listesi', path: '/guests' },
       { id: 'companies', label: 'Firmalar', path: '/guests/companies' },
+      { id: 'agencies', label: 'Acenteler', path: '/guests/agencies' },
     ],
   },
   {
