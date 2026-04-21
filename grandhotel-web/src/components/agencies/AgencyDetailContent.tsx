@@ -22,6 +22,7 @@ import {
 } from '@mui/icons-material';
 
 import { InvoiceCreateDialog } from '../invoices';
+import AccountTransactionTable from '../debtors/AccountTransactionTable';
 import type { Agency } from '../../utils/constants';
 import { agenciesApi } from '../../api/services';
 import { formatDate, formatCurrency, formatPhone } from '../../utils/formatters';
@@ -219,6 +220,17 @@ const AgencyDetailContent: React.FC<AgencyDetailContentProps> = ({ agency, onRes
                   Bu acenteden gelen rezervasyon yok.
                 </Typography>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Cari Hesap Hareketleri */}
+          <Card sx={{ mt: 2 }}>
+            <CardContent>
+              <AccountTransactionTable
+                filter={{ agency: agency.id }}
+                title="Cari Hesap Hareketleri"
+                onChanged={refreshData}
+              />
             </CardContent>
           </Card>
         </Grid>

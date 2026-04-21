@@ -31,6 +31,7 @@ import {
 
 import { FormField } from '../forms';
 import { InvoiceCreateDialog } from '../invoices';
+import AccountTransactionTable from '../debtors/AccountTransactionTable';
 import { Company, Guest, StayHistory } from '../../utils/constants';
 import { companiesApi, guestsApi, reservationsApi } from '../../api/services';
 import { formatDate, formatCurrency, formatPhone } from '../../utils/formatters';
@@ -342,6 +343,17 @@ const CompanyDetailContent: React.FC<CompanyDetailContentProps> = ({ company, on
                   Bu firmanın konaklama geçmişi bulunmuyor.
                 </Typography>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Cari Hesap Hareketleri */}
+          <Card sx={{ mt: 2 }}>
+            <CardContent>
+              <AccountTransactionTable
+                filter={{ company: company.id }}
+                title="Cari Hesap Hareketleri"
+                onChanged={refreshData}
+              />
             </CardContent>
           </Card>
         </Grid>

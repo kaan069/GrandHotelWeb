@@ -52,6 +52,13 @@ const extractTabNo = (description: string): string | null => {
   return match ? match[1] : null;
 };
 
+/** Ödeme gibi davranan kategoriler (folio'da negatif olarak gösterilir) */
+const PAYMENT_LIKE_CATEGORIES = new Set([
+  'payment',
+  'account_transfer_debit',
+  'account_transfer_credit',
+]);
+
 const FolioDetailDialog: React.FC<FolioDetailDialogProps> = ({
   open,
   roomNumber,
@@ -145,7 +152,13 @@ const FolioDetailDialog: React.FC<FolioDetailDialogProps> = ({
                             label={FOLIO_CATEGORY_LABELS[folio.category] || folio.category}
                             size="small"
                             variant="outlined"
-                            color={folio.category === 'payment' ? 'success' : folio.category === 'discount' ? 'warning' : 'default'}
+                            color={
+                              PAYMENT_LIKE_CATEGORIES.has(folio.category)
+                                ? 'success'
+                                : folio.category === 'discount'
+                                ? 'warning'
+                                : 'default'
+                            }
                           />
                           {isAdisyon(folio.category) && (
                             expandedId === folio.id ? <CollapseIcon sx={{ fontSize: 16 }} /> : <ExpandIcon sx={{ fontSize: 16 }} />
@@ -157,7 +170,7 @@ const FolioDetailDialog: React.FC<FolioDetailDialogProps> = ({
                         {folio.createdAt ? formatDateTime(folio.createdAt) : (folio.date || '-')}
                       </TableCell>
                       <TableCell align="right" sx={{ fontWeight: 500 }}>
-                        {(folio.category === 'discount' || folio.category === 'payment' ? '-' : '')}
+                        {(folio.category === 'discount' || PAYMENT_LIKE_CATEGORIES.has(folio.category) ? '-' : '')}
                         {folio.amount.toLocaleString('tr-TR')} ₺
                       </TableCell>
                       <TableCell align="center">

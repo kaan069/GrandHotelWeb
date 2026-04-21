@@ -831,15 +831,26 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
     }
   };
 
-  /* === Hesaplamalar === */
+  /* === Hesaplamalar ===
+   * Ödeme gibi davranan kategoriler folioTotal'dan düşer:
+   *   - payment (nakit/kart)
+   *   - account_transfer_debit (cariye borçlu aktar → oda borcu kapandı sayılır)
+   *   - account_transfer_credit (cariye alacaklı aktar → fazla ödeme kredi oldu)
+   *   - discount (indirim)
+   */
+  const PAYMENT_LIKE_CATEGORIES = new Set([
+    'payment',
+    'account_transfer_debit',
+    'account_transfer_credit',
+  ]);
   const folioTotal = folios.reduce((sum, f) => {
     if (f.category === 'discount') return sum - f.amount;
-    if (f.category === 'payment') return sum - f.amount;
+    if (PAYMENT_LIKE_CATEGORIES.has(f.category)) return sum - f.amount;
     return sum + f.amount;
   }, 0);
 
   const hasGuests = room.guests && room.guests.length > 0;
-  const hasPayment = folios.some((f) => f.category === 'payment');
+  const hasPayment = folios.some((f) => PAYMENT_LIKE_CATEGORIES.has(f.category));
   const isCheckInDisabled = !hasGuests;
   const isOccupied = room.status === ROOM_STATUS.OCCUPIED;
 

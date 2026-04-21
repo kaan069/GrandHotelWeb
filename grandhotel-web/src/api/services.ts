@@ -113,6 +113,7 @@ export interface ApiCompany {
   phone: string | null;
   email: string | null;
   agreedRate?: string | number | null;
+  accountBalance?: string | null;
 }
 
 export interface ApiAgency {
@@ -126,6 +127,40 @@ export interface ApiAgency {
   commissionRate: string | number | null;
   notes: string | null;
   isActive: boolean;
+  accountBalance?: string | null;
+}
+
+export interface ApiAccountTransaction {
+  id: number;
+  type: 'debit' | 'credit';
+  amount: string;
+  description: string;
+  status: 'open' | 'settled';
+  companyId: number | null;
+  agencyId: number | null;
+  guestId: number | null;
+  targetType: 'company' | 'agency' | 'guest' | null;
+  targetName: string;
+  sourceReservationId: number | null;
+  sourceFolioItemId: number | null;
+  settledByFolioId: number | null;
+  settledAt: string | null;
+  createdAt: string;
+  createdBy: string;
+  guestName: string;
+  roomNumber: string;
+  reservationCheckIn: string | null;
+  reservationCheckOut: string | null;
+}
+
+export interface AccountTransactionDebtorListResponse {
+  summary: {
+    debitTotal: string;
+    creditTotal: string;
+    netBalance: string;
+    count: number;
+  };
+  items: ApiAccountTransaction[];
 }
 
 export interface ApiReservation {
@@ -405,6 +440,45 @@ export const agenciesApi = {
   /** Acenteye ödeme ekle (borç kapat) */
   addPayment: (agencyId: number, data: { reservationId: number; amount: number; description?: string; staffName?: string }) =>
     api.post<any>(`/agencies/${agencyId}/add_payment/`, data).then((r) => r.data),
+};
+
+/* ==================== ACCOUNT TRANSACTIONS API ==================== */
+/**
+ * Cari hesap hareketleri — "Cariye Borçlu/Alacaklı Aktar" folio kayıtlarından
+ * otomatik oluşur. Doğrudan create endpoint'i yoktur; yazma FolioItem üzerinden.
+ */
+
+export interface AccountTransactionFilter {
+  company?: number;
+  agency?: number;
+  guest?: number;
+  status?: 'open' | 'settled';
+  type?: 'debit' | 'credit';
+  targetType?: 'guest' | 'company_or_agency';
+}
+
+export const accountTransactionsApi = {
+  getAll: (filters?: AccountTransactionFilter) => {
+    const params = new URLSearchParams();
+    if (filters?.company) params.append('company', String(filters.company));
+    if (filters?.agency) params.append('agency', String(filters.agency));
+    if (filters?.guest) params.append('guest', String(filters.guest));
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.type) params.append('type', filters.type);
+    if (filters?.targetType) params.append('targetType', filters.targetType);
+    const qs = params.toString();
+    return api.get<ApiAccountTransaction[]>(`/account-transactions/${qs ? '?' + qs : ''}`).then((r) => r.data);
+  },
+
+  /** DataGrid için: tüm açık cari hareketler + özet */
+  getDebtorList: () =>
+    api.get<AccountTransactionDebtorListResponse>('/account-transactions/debtor_list/').then((r) => r.data),
+
+  /** Cari hareketi kapat — source reservation'a payment folio eklenir */
+  settle: (id: number, data: { amount?: number; description?: string; staffName?: string }) =>
+    api.post<{ success: boolean; transactionId: number; status: string; folioItemId: number | null }>(
+      `/account-transactions/${id}/settle/`, data,
+    ).then((r) => r.data),
 };
 
 /* ==================== RESERVATIONS API ==================== */
@@ -1524,4 +1598,138 @@ export const bmsApi = {
 
   getAlerts: () =>
     api.get<BmsAlert[]>('/bms/alerts/').then((r) => r.data),
+};
+
+/* ==================== INVOICES API ==================== */
+
+export interface ApiInvoiceItem {
+  id: number;
+  templateId: number | null;
+  description: string;
+  quantity: string;
+  unitPrice: string;
+  vatRate: number;
+  total: string;
+}
+
+export interface ApiInvoice {
+  id: number;
+  invoiceNo: string;
+  type: string;
+  documentType: string;
+  status: 'draft' | 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
+  customerType: 'individual' | 'company';
+  customerName: string;
+  taxNumber: string;
+  taxOffice: string;
+  address: string;
+  phone: string;
+  email: string;
+  reservationId: number | null;
+  guestId: number | null;
+  companyId: number | null;
+  subtotal: string;
+  vatAmount: string;
+  hasAccommodationTax: boolean;
+  accommodationTaxAmount: string;
+  totalAmount: string;
+  pdfUrl: string;
+  errorMessage: string;
+  issueDate: string;
+  dueDate: string | null;
+  notes: string;
+  createdBy: string;
+  createdAt: string;
+  items: ApiInvoiceItem[];
+}
+
+export interface InvoiceCreatePayload {
+  type: 'sales' | 'purchase' | 'return' | 'incoming' | 'outgoing';
+  documentType?: 'e_archive' | 'e_invoice';
+  customerType: 'individual' | 'company';
+  customerName: string;
+  taxNumber?: string;
+  taxOffice?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  reservationId?: number | null;
+  guestId?: number | null;
+  companyId?: number | null;
+  issueDate: string;
+  dueDate?: string | null;
+  notes?: string;
+  createdBy?: string;
+  hasAccommodationTax?: boolean;
+  items: Array<{
+    templateId?: number | null;
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    vatRate: number;
+  }>;
+}
+
+export interface InvoicePrepareResponse {
+  roomNumber: string;
+  reservationId: number;
+  guests: Array<{ id: number; name: string; tcNo: string; phone: string; email: string; companyId: number | null; companyName: string | null }>;
+  customerType: 'individual' | 'company';
+  customerName: string;
+  taxNumber: string;
+  taxOffice: string;
+  address: string;
+  phone: string;
+  email: string;
+  companyId: number | null;
+  guestId: number;
+  notes: string;
+  folioItems: Array<{ description: string; category: string; amount: string; date: string }>;
+  folioTotal: string;
+  hasAccommodationTax: boolean;
+  accommodationTaxRate: number;
+}
+
+export interface ParasutSettingsPayload {
+  clientId: string;
+  clientSecret: string;
+  username: string;
+  password: string;
+  companyId: string;
+  accountId: string;
+  isActive: boolean;
+}
+
+export const invoicesApi = {
+  prepare: (roomId: number) =>
+    api.get<InvoicePrepareResponse>(`/invoices/prepare/${roomId}/`).then((r) => r.data),
+
+  create: (payload: InvoiceCreatePayload) =>
+    api.post<ApiInvoice>('/invoices/', payload).then((r) => r.data),
+
+  send: (id: number) =>
+    api.post<ApiInvoice>(`/invoices/${id}/send/`).then((r) => r.data),
+
+  checkStatus: (id: number) =>
+    api.post<ApiInvoice>(`/invoices/${id}/check-status/`).then((r) => r.data),
+
+  get: (id: number) =>
+    api.get<ApiInvoice>(`/invoices/${id}/`).then((r) => r.data),
+
+  list: (filters?: { type?: string; status?: string; dateFrom?: string; dateTo?: string }) =>
+    api.get<ApiInvoice[]>('/invoices/', { params: filters }).then((r) => r.data),
+
+  cancel: (id: number) =>
+    api.post<ApiInvoice>(`/invoices/${id}/cancel/`).then((r) => r.data),
+
+  getParasutSettings: () =>
+    api.get<ParasutSettingsPayload>('/invoices/parasut-settings/').then((r) => r.data),
+
+  updateParasutSettings: (payload: ParasutSettingsPayload) =>
+    api.put<ParasutSettingsPayload>('/invoices/parasut-settings/', payload).then((r) => r.data),
+
+  testParasutSettings: (payload: Omit<ParasutSettingsPayload, 'isActive' | 'accountId'> & { accountId?: string }) =>
+    api
+      .post<{ success: boolean; message: string }>('/invoices/parasut-settings/test/', payload)
+      .then((r) => r.data),
 };

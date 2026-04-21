@@ -26,7 +26,15 @@ export type PaymentStatus = 'unpaid' | 'partial' | 'paid';
 export type ReservationSource = 'walkin' | 'phone' | 'web' | 'ota';
 
 /** Folio kategorisi tipi */
-export type FolioCategory = 'room_charge' | 'minibar' | 'restaurant' | 'service' | 'discount' | 'payment';
+export type FolioCategory =
+  | 'room_charge'
+  | 'minibar'
+  | 'restaurant'
+  | 'service'
+  | 'discount'
+  | 'payment'
+  | 'account_transfer_debit'
+  | 'account_transfer_credit';
 
 /** Manzara tipi */
 export type ViewType = 'sea' | 'city' | 'garden' | 'none';
@@ -357,6 +365,8 @@ export const FOLIO_CATEGORIES: Record<string, FolioCategory> = {
   SERVICE: 'service',
   DISCOUNT: 'discount',
   PAYMENT: 'payment',
+  ACCOUNT_TRANSFER_DEBIT: 'account_transfer_debit',
+  ACCOUNT_TRANSFER_CREDIT: 'account_transfer_credit',
 };
 
 export const FOLIO_CATEGORY_LABELS: Record<string, string> = {
@@ -366,6 +376,8 @@ export const FOLIO_CATEGORY_LABELS: Record<string, string> = {
   [FOLIO_CATEGORIES.SERVICE]: 'Ek Hizmet',
   [FOLIO_CATEGORIES.DISCOUNT]: 'İndirim',
   [FOLIO_CATEGORIES.PAYMENT]: 'Ödeme',
+  [FOLIO_CATEGORIES.ACCOUNT_TRANSFER_DEBIT]: 'Cariye Borçlu Aktar',
+  [FOLIO_CATEGORIES.ACCOUNT_TRANSFER_CREDIT]: 'Cariye Alacaklı Aktar',
 };
 
 /* ==================== MANZARA TİPLERİ ==================== */
@@ -452,6 +464,7 @@ export const MENU_ITEMS: MenuItem[] = [
       { id: 'guest-list', label: 'Müşteri Listesi', path: '/guests' },
       { id: 'companies', label: 'Firmalar', path: '/guests/companies' },
       { id: 'agencies', label: 'Acenteler', path: '/guests/agencies' },
+      { id: 'debtors', label: 'Borçlular', path: '/guests/debtors' },
     ],
   },
   {

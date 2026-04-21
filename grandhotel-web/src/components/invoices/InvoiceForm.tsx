@@ -42,6 +42,8 @@ import {
   Search as SearchIcon,
   Business as BusinessIcon,
 } from '@mui/icons-material';
+import Alert from '@mui/material/Alert';
+import CircularProgress from '@mui/material/CircularProgress';
 
 import { FormField, CurrencyInput } from '../forms';
 import {
@@ -49,13 +51,20 @@ import {
   InvoiceCustomerType,
   InvoiceItemCategory,
   InvoiceItem,
-  Invoice,
   Company,
   INVOICE_TYPE_LABELS,
   INVOICE_ITEM_CATEGORY_LABELS,
 } from '../../utils/constants';
-import { addInvoice } from '../../utils/invoiceStorage';
-import { companiesApi } from '../../api/services';
+import { companiesApi, invoicesApi, type ApiInvoice, type InvoiceCreatePayload } from '../../api/services';
+import { pollInvoiceStatus } from '../../utils/pollInvoiceStatus';
+
+export interface InvoiceSaveResult {
+  status: 'completed' | 'failed' | 'timeout';
+  invoice: ApiInvoice | null;
+  pdfUrl: string;
+  invoiceNo: string;
+  errorMessage?: string;
+}
 
 interface InvoiceFormProps {
   defaultType?: InvoiceType;
@@ -65,9 +74,31 @@ interface InvoiceFormProps {
   defaultAddress?: string;
   defaultCompanyId?: number;
   defaultRoomId?: number;
+  defaultGuestId?: number;
+  defaultReservationId?: number;
   defaultDescription?: string;
-  onSave?: (invoice: Invoice) => void;
+  createdBy?: string;
+  onSave?: (result: InvoiceSaveResult) => void;
   onCancel?: () => void;
+}
+
+type SubmissionStage = 'idle' | 'creating' | 'sending' | 'polling';
+
+const DOC_TYPE_BY_CUSTOMER: Record<InvoiceCustomerType, 'e_archive' | 'e_invoice'> = {
+  individual: 'e_archive',
+  company: 'e_invoice',
+};
+
+function extractError(err: unknown, fallback: string): string {
+  const e = err as { response?: { data?: Record<string, unknown> }; message?: string };
+  const data = e?.response?.data;
+  if (data && typeof data === 'object') {
+    const error = (data as { error?: unknown }).error;
+    if (typeof error === 'string') return error;
+    const detail = (data as { detail?: unknown }).detail;
+    if (typeof detail === 'string') return detail;
+  }
+  return e?.message || fallback;
 }
 
 const CATEGORY_SHORTCUTS: { key: InvoiceItemCategory; label: string; color: string }[] = [
@@ -87,7 +118,10 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   defaultAddress = '',
   defaultCompanyId,
   defaultRoomId,
+  defaultGuestId,
+  defaultReservationId,
   defaultDescription = '',
+  createdBy,
   onSave,
   onCancel,
 }) => {
@@ -106,6 +140,9 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   const [companySearchOpen, setCompanySearchOpen] = useState(false);
   const [companySearchQuery, setCompanySearchQuery] = useState('');
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [submissionStage, setSubmissionStage] = useState<SubmissionStage>('idle');
+  const [submissionError, setSubmissionError] = useState('');
+  const submitting = submissionStage !== 'idle';
 
   /* Firma arama açılınca firmaları API'den çek */
   useEffect(() => {
@@ -186,30 +223,109 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     return Object.keys(errs).length === 0;
   };
 
-  const handleSubmit = () => {
-    if (!validate()) return;
+  const handleSubmit = async () => {
+    if (!validate() || submitting) return;
 
-    const invoice = addInvoice({
+    setSubmissionError('');
+    setSubmissionStage('creating');
+
+    const payload: InvoiceCreatePayload = {
       type: invoiceType,
-      date,
-      dueDate: dueDate || undefined,
+      documentType: DOC_TYPE_BY_CUSTOMER[customerType],
       customerType,
       customerName: customerName.trim(),
       taxNumber: taxNumber.trim() || undefined,
       address: address.trim() || undefined,
-      items,
-      subtotal,
-      taxRate,
-      taxAmount,
-      total,
-      status: 'issued',
+      reservationId: defaultReservationId ?? null,
+      guestId: defaultGuestId ?? null,
+      companyId: defaultCompanyId ?? null,
+      issueDate: date,
+      dueDate: dueDate || null,
       notes: notes.trim() || undefined,
-      relatedRoomId: defaultRoomId,
-      relatedCompanyId: defaultCompanyId,
-    });
+      createdBy: createdBy || undefined,
+      hasAccommodationTax,
+      items: items.map((it) => ({
+        description: it.description.trim(),
+        quantity: Number(it.quantity) || 1,
+        unitPrice: Number(it.unitPrice) || 0,
+        vatRate: taxRate,
+      })),
+    };
 
-    onSave?.(invoice);
+    let draft: ApiInvoice;
+    try {
+      draft = await invoicesApi.create(payload);
+    } catch (err) {
+      setSubmissionStage('idle');
+      setSubmissionError(extractError(err, 'Fatura oluşturulamadı'));
+      return;
+    }
+
+    setSubmissionStage('sending');
+    let sent: ApiInvoice;
+    try {
+      sent = await invoicesApi.send(draft.id);
+    } catch (err) {
+      setSubmissionStage('idle');
+      setSubmissionError(extractError(err, 'Paraşüt\'e gönderilemedi. Ayarlarınızı kontrol edin.'));
+      return;
+    }
+
+    // Mock modda veya senkron tamamlananlarda direkt completed dönebilir
+    if (sent.status === 'completed') {
+      setSubmissionStage('idle');
+      onSave?.({
+        status: 'completed',
+        invoice: sent,
+        pdfUrl: sent.pdfUrl || '',
+        invoiceNo: sent.invoiceNo,
+      });
+      return;
+    }
+    if (sent.status === 'failed') {
+      setSubmissionStage('idle');
+      setSubmissionError(sent.errorMessage || 'Paraşüt faturayı reddetti.');
+      return;
+    }
+
+    setSubmissionStage('polling');
+    const outcome = await pollInvoiceStatus(draft.id, { intervalMs: 3000, timeoutMs: 60000 });
+    setSubmissionStage('idle');
+
+    if (outcome.status === 'completed') {
+      onSave?.({
+        status: 'completed',
+        invoice: outcome.invoice,
+        pdfUrl: outcome.invoice.pdfUrl || '',
+        invoiceNo: outcome.invoice.invoiceNo,
+      });
+      return;
+    }
+    if (outcome.status === 'failed') {
+      setSubmissionError(outcome.invoice.errorMessage || 'Fatura kesilemedi.');
+      return;
+    }
+    // timeout → dialog kapanabilir, kullanıcı listeden takip etsin
+    onSave?.({
+      status: 'timeout',
+      invoice: outcome.invoice,
+      pdfUrl: outcome.invoice?.pdfUrl || '',
+      invoiceNo: outcome.invoice?.invoiceNo || '',
+    });
   };
+
+  const submitButtonLabel = (() => {
+    switch (submissionStage) {
+      case 'creating':
+        return 'Kayıt oluşturuluyor...';
+      case 'sending':
+        return 'Paraşüt\'e gönderiliyor...';
+      case 'polling':
+        return 'Fatura bekleniyor...';
+      default:
+        return 'Fatura Kes';
+    }
+  })();
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -507,19 +623,31 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
         placeholder="Opsiyonel not ekleyin..."
       />
 
+      {submissionError && (
+        <Alert severity="error" onClose={() => setSubmissionError('')}>
+          {submissionError}
+        </Alert>
+      )}
+      {submissionStage === 'polling' && (
+        <Alert severity="info">
+          Paraşüt faturayı hazırlıyor, bu işlem birkaç saniye sürebilir...
+        </Alert>
+      )}
+
       {/* Butonlar */}
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
         {onCancel && (
-          <Button variant="outlined" color="inherit" onClick={onCancel}>
+          <Button variant="outlined" color="inherit" onClick={onCancel} disabled={submitting}>
             İptal
           </Button>
         )}
         <Button
           variant="contained"
-          startIcon={<SaveIcon />}
+          startIcon={submitting ? <CircularProgress size={18} color="inherit" /> : <SaveIcon />}
           onClick={handleSubmit}
+          disabled={submitting}
         >
-          Fatura Oluştur
+          {submitButtonLabel}
         </Button>
       </Box>
 

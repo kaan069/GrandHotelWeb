@@ -148,6 +148,9 @@ const FolioAddDialog: React.FC<FolioAddDialogProps> = ({
   };
 
   const isMinibar = category === FOLIO_CATEGORIES.MINIBAR;
+  const isAccountTransfer =
+    category === FOLIO_CATEGORIES.ACCOUNT_TRANSFER_DEBIT ||
+    category === FOLIO_CATEGORIES.ACCOUNT_TRANSFER_CREDIT;
   const selectedProduct = minibarProducts.find((p) => String(p.id) === selectedProductId);
 
   return (
@@ -164,7 +167,12 @@ const FolioAddDialog: React.FC<FolioAddDialogProps> = ({
           value={category}
           onChange={(e) => handleCategoryChange(e.target.value)}
           error={!!errors.category}
-          helperText={errors.category}
+          helperText={
+            errors.category ||
+            (isAccountTransfer
+              ? 'Firma/Acente müşterisi ise ilgili cari hesaba, yoksa misafir hesabına yazılır. Borçlular ekranından takip edilir.'
+              : undefined)
+          }
           fullWidth
         >
           {Object.entries(FOLIO_CATEGORIES).map(([key, value]) => (

@@ -31,10 +31,12 @@ import {
   Info as InfoIcon,
   Receipt as ReceiptIcon,
   Link as LinkIcon,
+  BoltOutlined as TestIcon,
 } from '@mui/icons-material';
 
 import { PageHeader } from '../../components/common';
 import { FormField } from '../../components/forms';
+import { invoicesApi } from '../../api/services';
 
 interface ParasutSettings {
   clientId: string;
@@ -64,6 +66,8 @@ const ParasutIntegration: React.FC = () => {
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showSecret, setShowSecret] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
   useEffect(() => {
     fetchSettings();
@@ -72,8 +76,7 @@ const ParasutIntegration: React.FC = () => {
   const fetchSettings = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/invoices/parasut-settings/');
-      const data = await response.json();
+      const data = await invoicesApi.getParasutSettings();
       setSettings(data);
     } catch {
       setSettings(EMPTY_SETTINGS);
@@ -87,26 +90,48 @@ const ParasutIntegration: React.FC = () => {
     setSaved(false);
     setError('');
     try {
-      const response = await fetch('/api/invoices/parasut-settings/', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings),
-      });
-      if (response.ok) {
-        setSaved(true);
-        setTimeout(() => setSaved(false), 3000);
-      } else {
-        setError('Ayarlar kaydedilemedi');
-      }
-    } catch {
-      setError('Bağlantı hatası');
+      await invoicesApi.updateParasutSettings(settings);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: Record<string, string> }; message?: string };
+      const detail = Object.values(e?.response?.data || {})[0];
+      setError(detail || e?.message || 'Ayarlar kaydedilemedi');
     } finally {
       setSaving(false);
     }
   };
 
+  const handleTest = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const result = await invoicesApi.testParasutSettings({
+        clientId: settings.clientId,
+        clientSecret: settings.clientSecret,
+        username: settings.username,
+        password: settings.password,
+        companyId: settings.companyId,
+        accountId: settings.accountId,
+      });
+      setTestResult(result);
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { success?: boolean; message?: string } }; message?: string };
+      setTestResult({
+        success: false,
+        message: e?.response?.data?.message || e?.message || 'Bağlantı testi başarısız.',
+      });
+    } finally {
+      setTesting(false);
+    }
+  };
+
   const handleChange = (field: keyof ParasutSettings, value: string | boolean) => {
     setSettings((prev) => ({ ...prev, [field]: value }));
+    // Credential değişince önceki test sonucu geçersiz — temizle
+    if (field !== 'isActive' && field !== 'accountId') {
+      setTestResult(null);
+    }
   };
 
   const allFieldsFilled = settings.clientId && settings.clientSecret
@@ -272,7 +297,18 @@ const ParasutIntegration: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Kaydet */}
+      {/* Test Sonucu */}
+      {testResult && (
+        <Alert
+          severity={testResult.success ? 'success' : 'error'}
+          sx={{ mb: 2 }}
+          onClose={() => setTestResult(null)}
+        >
+          {testResult.message}
+        </Alert>
+      )}
+
+      {/* Aksiyon Butonları */}
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, alignItems: 'center' }}>
         {saved && (
           <Alert severity="success" sx={{ py: 0 }}>Ayarlar kaydedildi</Alert>
@@ -281,10 +317,20 @@ const ParasutIntegration: React.FC = () => {
           <Alert severity="error" sx={{ py: 0 }}>{error}</Alert>
         )}
         <Button
+          variant="outlined"
+          color="info"
+          startIcon={testing ? <CircularProgress size={18} color="inherit" /> : <TestIcon />}
+          onClick={handleTest}
+          disabled={testing || saving || !allFieldsFilled}
+          size="large"
+        >
+          Bağlantı Testi
+        </Button>
+        <Button
           variant="contained"
           startIcon={saving ? <CircularProgress size={18} color="inherit" /> : <SaveIcon />}
           onClick={handleSave}
-          disabled={saving}
+          disabled={saving || testing}
           size="large"
         >
           Kaydet
