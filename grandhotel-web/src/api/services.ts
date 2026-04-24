@@ -240,6 +240,7 @@ export interface ApiHotel {
   taxCertificate: ApiHotelDocument | null;
   tourismLicense: ApiHotelDocument | null;
   images: ApiHotelImage[];
+  logo: string | null;
   requirePaymentAtCheckin?: boolean;
   companyExemptFromCheckinPayment?: boolean;
   createdAt: string;
@@ -1023,6 +1024,19 @@ export const hotelApi = {
   /** Görsel sil */
   deleteImage: (id: number) =>
     api.delete(`/hotel/images/${id}/`),
+
+  /** Otel logosu yükle (eski varsa silinir) */
+  uploadLogo: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post<{ logo: string | null }>('/hotel/logo/', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then((r) => r.data);
+  },
+
+  /** Otel logosunu kaldır */
+  deleteLogo: () =>
+    api.delete('/hotel/logo/'),
 
   /** Modül bilgilerini getir */
   getModules: () =>

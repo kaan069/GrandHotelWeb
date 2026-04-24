@@ -14,6 +14,7 @@ import {
   Button,
   Grid,
   Alert,
+  Avatar,
   Chip,
   CircularProgress,
   IconButton,
@@ -31,6 +32,7 @@ import {
 import { hotelApi } from '../../api/services';
 import type { ApiHotel, ApiHotelDocument, ApiHotelImage } from '../../api/services';
 import { FormField } from '../forms';
+import { useHotel } from '../../contexts/HotelContext';
 
 const STATUS_CONFIG: Record<string, { label: string; color: 'warning' | 'success' | 'error' }> = {
   pending: { label: 'Onay Bekleniyor', color: 'warning' },
@@ -50,6 +52,10 @@ const HotelInfoSection: React.FC = () => {
   const docInputRef = useRef<HTMLInputElement>(null);
   const [docUploadType, setDocUploadType] = useState('');
   const imgInputRef = useRef<HTMLInputElement>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
+
+  const { refreshHotel } = useHotel();
 
   useEffect(() => {
     hotelApi.get()
@@ -160,6 +166,39 @@ const HotelInfoSection: React.FC = () => {
     e.target.value = '';
   };
 
+  /* Logo yükleme */
+  const handleLogoClick = () => {
+    logoInputRef.current?.click();
+  };
+
+  const handleLogoFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLogoUploading(true);
+    try {
+      const res = await hotelApi.uploadLogo(file);
+      setHotel((prev) => prev ? { ...prev, logo: res.logo } : prev);
+      refreshHotel();
+      setSnackbar({ open: true, message: 'Logo yüklendi', severity: 'success' });
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } } };
+      setSnackbar({ open: true, message: axiosErr?.response?.data?.error || 'Logo yüklenemedi', severity: 'error' });
+    } finally {
+      setLogoUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleLogoDelete = async () => {
+    try {
+      await hotelApi.deleteLogo();
+      setHotel((prev) => prev ? { ...prev, logo: null } : prev);
+      refreshHotel();
+    } catch {
+      setSnackbar({ open: true, message: 'Logo silinemedi', severity: 'error' });
+    }
+  };
+
   const handleImageDelete = async (img: ApiHotelImage) => {
     try {
       await hotelApi.deleteImage(img.id);
@@ -217,6 +256,45 @@ const HotelInfoSection: React.FC = () => {
               )}
             </Box>
           )}
+        </Box>
+
+        {/* Otel Logosu */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, p: 2, borderRadius: 1, bgcolor: 'grey.50', border: '1px solid', borderColor: 'divider' }}>
+          <Avatar
+            src={hotel?.logo || undefined}
+            sx={{ width: 72, height: 72, bgcolor: 'primary.main', fontSize: '1.4rem', fontWeight: 700 }}
+          >
+            {form.name?.[0]?.toUpperCase() || 'H'}
+          </Avatar>
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="subtitle2" fontWeight={600}>Otel Logosu</Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+              Üst menü avatar'ı ve branding için kullanılır. Kare/yuvarlak tercih edilir.
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={logoUploading ? <CircularProgress size={14} /> : <UploadIcon />}
+                onClick={handleLogoClick}
+                disabled={logoUploading}
+              >
+                {hotel?.logo ? 'Logoyu Değiştir' : 'Logo Yükle'}
+              </Button>
+              {hotel?.logo && (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="error"
+                  startIcon={<DeleteIcon />}
+                  onClick={handleLogoDelete}
+                  disabled={logoUploading}
+                >
+                  Kaldır
+                </Button>
+              )}
+            </Box>
+          </Box>
         </Box>
 
         <Grid container spacing={2.5}>
@@ -282,6 +360,7 @@ const HotelInfoSection: React.FC = () => {
         {/* Gizli file input'lar */}
         <input ref={docInputRef} type="file" hidden accept=".pdf,.jpg,.jpeg,.png" onChange={handleDocFileSelect} />
         <input ref={imgInputRef} type="file" hidden accept="image/*" onChange={handleImageFileSelect} />
+        <input ref={logoInputRef} type="file" hidden accept="image/png,image/jpeg,image/webp" onChange={handleLogoFileSelect} />
 
         {/* Kaydet */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 3 }}>

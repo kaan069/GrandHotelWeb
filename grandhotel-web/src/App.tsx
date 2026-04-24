@@ -17,6 +17,7 @@ import theme from './theme';
 import router from './routes';
 import { AuthProvider } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { HotelProvider } from './contexts/HotelContext';
 
 const App: React.FC = () => {
   return (
@@ -27,11 +28,14 @@ const App: React.FC = () => {
 
       {/* Kimlik doğrulama sağlayıcı */}
       <AuthProvider>
-        {/* Bildirim (toast) sağlayıcı */}
-        <NotificationProvider>
-          {/* Sayfa yönlendirme */}
-          <RouterProvider router={router} />
-        </NotificationProvider>
+        {/* Otel bilgileri sağlayıcı (logo, ad vb.) */}
+        <HotelProvider>
+          {/* Bildirim (toast) sağlayıcı */}
+          <NotificationProvider>
+            {/* Sayfa yönlendirme */}
+            <RouterProvider router={router} />
+          </NotificationProvider>
+        </HotelProvider>
       </AuthProvider>
     </ThemeProvider>
   );

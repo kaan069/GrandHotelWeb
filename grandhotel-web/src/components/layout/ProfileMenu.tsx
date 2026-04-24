@@ -23,11 +23,13 @@ import {
 
 import { ROLE_LABELS } from '../../utils/constants';
 import useAuth from '../../hooks/useAuth';
+import { useHotel } from '../../contexts/HotelContext';
 
 const ProfileMenu: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { user, logout } = useAuth();
+  const { hotel } = useHotel();
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
@@ -52,6 +54,7 @@ const ProfileMenu: React.FC = () => {
         }}
       >
         <Avatar
+          src={hotel?.logo || undefined}
           sx={{ width: 36, height: 36, bgcolor: 'primary.main', fontSize: '0.875rem', fontWeight: 600 }}
         >
           {user?.firstName?.[0]}{user?.lastName?.[0]}
