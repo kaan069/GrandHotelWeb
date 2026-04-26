@@ -77,6 +77,8 @@ interface InvoiceFormProps {
   defaultGuestId?: number;
   defaultReservationId?: number;
   defaultDescription?: string;
+  /** Folio'daki ödemelerin toplamı (KDV dahil) — varsa otomatik 1 kalem hazırlanır */
+  defaultPaymentsTotal?: number;
   createdBy?: string;
   onSave?: (result: InvoiceSaveResult) => void;
   onCancel?: () => void;
@@ -87,6 +89,13 @@ type SubmissionStage = 'idle' | 'creating' | 'sending' | 'polling';
 const DOC_TYPE_BY_CUSTOMER: Record<InvoiceCustomerType, 'e_archive' | 'e_invoice'> = {
   individual: 'e_archive',
   company: 'e_invoice',
+};
+
+/* type=number input'larındaki yukarı/aşağı spinner'ları gizle (Webkit + Firefox) */
+const NO_SPINNER_SX = {
+  '& input[type=number]': { MozAppearance: 'textfield' },
+  '& input[type=number]::-webkit-outer-spin-button': { WebkitAppearance: 'none', margin: 0 },
+  '& input[type=number]::-webkit-inner-spin-button': { WebkitAppearance: 'none', margin: 0 },
 };
 
 function extractError(err: unknown, fallback: string): string {
@@ -121,6 +130,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   defaultGuestId,
   defaultReservationId,
   defaultDescription = '',
+  defaultPaymentsTotal = 0,
   createdBy,
   onSave,
   onCancel,
@@ -177,6 +187,23 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   const taxAmount = subtotal * (taxRate / 100);
   const accommodationTaxAmount = hasAccommodationTax ? subtotal * 0.02 : 0;
   const total = subtotal + taxAmount + accommodationTaxAmount;
+
+  /* Folio'daki ödemelerin toplamı varsa, otomatik 1 'Konaklama Hizmeti' kalemi hazırla.
+     KDV dahil tutar = paymentsTotal → unitPrice = paymentsTotal / (1 + taxRate/100). */
+  useEffect(() => {
+    if (defaultPaymentsTotal > 0 && items.length === 0) {
+      const unitPrice = +(defaultPaymentsTotal / (1 + taxRate / 100)).toFixed(2);
+      setItems([{
+        id: 1,
+        category: 'konaklama',
+        description: 'Konaklama Hizmeti',
+        quantity: 1,
+        unitPrice,
+        amount: unitPrice,
+      }]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultPaymentsTotal]);
 
   const addItem = useCallback((category: InvoiceItemCategory) => {
     const newItem: InvoiceItem = {
@@ -527,7 +554,12 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
                         type="number"
                         value={item.quantity}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateItem(item.id, 'quantity', Number(e.target.value))}
-                        sx={{ '& .MuiInputBase-root': { fontSize: '0.8125rem' } }}
+                        sx={{
+                          minWidth: 80,
+                          '& .MuiInputBase-root': { fontSize: '0.95rem' },
+                          '& input': { textAlign: 'center', padding: '10px 8px' },
+                          ...NO_SPINNER_SX,
+                        }}
                       />
                     </TableCell>
                     <TableCell>
@@ -582,7 +614,12 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
                   type="number"
                   value={taxRate}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTaxRate(Number(e.target.value))}
-                  sx={{ width: 60, '& .MuiInputBase-root': { fontSize: '0.8125rem' } }}
+                  sx={{
+                    width: 100,
+                    '& .MuiInputBase-root': { fontSize: '0.95rem' },
+                    '& input': { textAlign: 'center', padding: '10px 8px' },
+                    ...NO_SPINNER_SX,
+                  }}
                   InputProps={{ endAdornment: <Typography variant="caption">%</Typography> }}
                 />
               </Box>

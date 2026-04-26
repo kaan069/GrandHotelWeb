@@ -101,6 +101,8 @@ const InvoiceCreateDialog: React.FC<InvoiceCreateDialogProps> = ({
   const effectiveGuestId = prepareData?.guestId;
   const effectiveReservationId = prepareData?.reservationId;
   const effectiveNotes = prepareData?.notes || defaultDescription;
+  // Folio'ya girilmiş ödemelerin toplamı — fatura otomatik bu tutara hazırlanır
+  const effectivePaymentsTotal = parseFloat(prepareData?.paymentsTotal || '0') || 0;
 
   return (
     <>
@@ -143,6 +145,7 @@ const InvoiceCreateDialog: React.FC<InvoiceCreateDialogProps> = ({
                 defaultGuestId={effectiveGuestId}
                 defaultReservationId={effectiveReservationId}
                 defaultDescription={effectiveNotes}
+                defaultPaymentsTotal={effectivePaymentsTotal}
                 createdBy={user ? `${user.firstName} ${user.lastName}`.trim() : undefined}
                 onSave={handleSave}
                 onCancel={onClose}

@@ -1781,6 +1781,7 @@ export interface InvoicePrepareResponse {
   notes: string;
   folioItems: Array<{ description: string; category: string; amount: string; date: string }>;
   folioTotal: string;
+  paymentsTotal?: string;   // folio'daki ödemelerin toplamı (KDV dahil) — fatura default tutarı
   hasAccommodationTax: boolean;
   accommodationTaxRate: number;
 }
