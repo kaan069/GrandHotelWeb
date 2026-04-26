@@ -55,10 +55,17 @@ export default function useRestaurantWebSocket({
   const connect = useCallback(() => {
     if (!enabled) return;
 
-    let url = WS_BASE;
-    if (groupsRef.current && groupsRef.current.length > 0) {
-      url += `?groups=${groupsRef.current.join(',')}`;
+    // Multi-tenant: hotel_id query param zorunlu (backend reddediyor)
+    const hotelId = localStorage.getItem('grandhotel_hotel_id');
+    if (!hotelId) {
+      console.warn('[WS Restaurant] hotel_id yok, bağlantı atlandı');
+      return;
     }
+    const params = new URLSearchParams({ hotel_id: hotelId });
+    if (groupsRef.current && groupsRef.current.length > 0) {
+      params.set('groups', groupsRef.current.join(','));
+    }
+    const url = `${WS_BASE}?${params.toString()}`;
 
     const ws = new WebSocket(url);
     wsRef.current = ws;

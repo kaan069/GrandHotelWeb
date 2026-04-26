@@ -53,7 +53,15 @@ export default function useRoomWebSocket({ onRoomUpdate, enabled = true }: UseRo
   const connect = useCallback(() => {
     if (!enabled) return;
 
-    const ws = new WebSocket(WS_URL);
+    // Multi-tenant: hotel_id query param zorunlu (backend reddediyor)
+    const hotelId = localStorage.getItem('grandhotel_hotel_id');
+    if (!hotelId) {
+      console.warn('[WS] hotel_id yok, bağlantı atlandı');
+      return;
+    }
+    const url = `${WS_URL}?hotel_id=${encodeURIComponent(hotelId)}`;
+
+    const ws = new WebSocket(url);
     wsRef.current = ws;
 
     ws.onopen = () => {
