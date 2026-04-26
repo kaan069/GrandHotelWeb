@@ -17,11 +17,14 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  FormControlLabel,
   Grid,
   IconButton,
   List,
   ListItemButton,
   ListItemText,
+  Snackbar,
+  Switch,
   TextField,
   Typography,
 } from '@mui/material';
@@ -32,14 +35,20 @@ import {
   RestaurantMenu as MenuIcon,
   CheckCircle as AvailableIcon,
   Cancel as UnavailableIcon,
+  QrCode2 as QrCodeIcon,
+  Image as ImageIcon,
+  Tv as TvIcon,
 } from '@mui/icons-material';
 
 import { PageHeader } from '../../components/common';
-import { menuApi } from '../../api/services';
+import { menuApi, hotelApi } from '../../api/services';
 import type { ApiMenuCategory, ApiMenuItem } from '../../api/services';
 import { formatCurrency } from '../../utils/formatters';
+import useAuth from '../../hooks/useAuth';
+import MenuQRDialog from './MenuQRDialog';
 
 const MenuManagement: React.FC = () => {
+  const { user } = useAuth();
   const [categories, setCategories] = useState<ApiMenuCategory[]>([]);
   const [items, setItems] = useState<ApiMenuItem[]>([]);
   const [selectedCatId, setSelectedCatId] = useState<number | null>(null);
@@ -54,6 +63,44 @@ const MenuManagement: React.FC = () => {
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
   const [itemEditId, setItemEditId] = useState<number | null>(null);
   const [itemForm, setItemForm] = useState({ name: '', description: '', price: '', categoryId: 0 });
+  const [itemImageFile, setItemImageFile] = useState<File | null>(null);
+  const [itemImagePreview, setItemImagePreview] = useState<string | null>(null);
+
+  /* QR dialog */
+  const [qrDialogOpen, setQrDialogOpen] = useState(false);
+
+  /* Servis aç/kapat + menü token */
+  const [serviceOpen, setServiceOpen] = useState<boolean>(true);
+  const [menuToken, setMenuToken] = useState<string | null>(null);
+  const [serviceToggling, setServiceToggling] = useState(false);
+  const [snack, setSnack] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+
+  useEffect(() => {
+    hotelApi.get()
+      .then((h) => {
+        setServiceOpen(h.serviceOpen ?? true);
+        setMenuToken(h.menuAccessToken ?? null);
+      })
+      .catch(() => { /* sessizce geç */ });
+  }, []);
+
+  const handleServiceToggle = async (next: boolean) => {
+    const previous = serviceOpen;
+    setServiceOpen(next);
+    setServiceToggling(true);
+    try {
+      await hotelApi.update({ serviceOpen: next });
+      setSnack({
+        msg: next ? 'Servis açıldı — müşteriler sipariş verebilir.' : 'Servis kapatıldı — yeni sipariş alınmayacak.',
+        type: 'success',
+      });
+    } catch {
+      setServiceOpen(previous);
+      setSnack({ msg: 'Servis durumu güncellenemedi.', type: 'error' });
+    } finally {
+      setServiceToggling(false);
+    }
+  };
 
   /* Kategori yükle */
   const fetchCategories = useCallback(async () => {
@@ -127,24 +174,34 @@ const MenuManagement: React.FC = () => {
       formData.append('description', itemForm.description.trim());
       formData.append('price', itemForm.price);
       formData.append('categoryId', String(itemForm.categoryId || selectedCatId));
+      if (itemImageFile) {
+        formData.append('image', itemImageFile);
+      }
 
       if (itemEditId) {
-        await menuApi.updateItem(itemEditId, {
-          name: itemForm.name.trim(),
-          description: itemForm.description.trim(),
-          price: itemForm.price,
-          categoryId: itemForm.categoryId || selectedCatId,
-        });
+        await menuApi.updateItem(itemEditId, formData);
       } else {
         await menuApi.createItem(formData);
       }
       setItemDialogOpen(false);
       setItemEditId(null);
       setItemForm({ name: '', description: '', price: '', categoryId: 0 });
+      setItemImageFile(null);
+      setItemImagePreview(null);
       fetchItems();
     } catch (err) {
       console.error('Ürün kayıt hatası:', err);
     }
+  };
+
+  /* Resim seç */
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setItemImageFile(file);
+    const reader = new FileReader();
+    reader.onload = () => setItemImagePreview(reader.result as string);
+    reader.readAsDataURL(file);
   };
 
   /* Ürün sil */
@@ -167,6 +224,8 @@ const MenuManagement: React.FC = () => {
       price: item.price,
       categoryId: item.categoryId,
     });
+    setItemImageFile(null);
+    setItemImagePreview(item.imageUrl);
     setItemDialogOpen(true);
   };
 
@@ -183,6 +242,65 @@ const MenuManagement: React.FC = () => {
       <PageHeader
         title="Menü Yönetimi"
         subtitle={`${categories.length} kategori, ${items.length} ürün`}
+        actions={
+          <>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                px: 1.5,
+                py: 0.5,
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: serviceOpen ? 'success.light' : 'error.light',
+                bgcolor: serviceOpen ? 'success.lighter' : 'error.lighter',
+              }}
+            >
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={serviceOpen}
+                    onChange={(e) => handleServiceToggle(e.target.checked)}
+                    disabled={serviceToggling}
+                    color={serviceOpen ? 'success' : 'error'}
+                  />
+                }
+                label={
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      fontWeight: 600,
+                      color: serviceOpen ? 'success.dark' : 'error.dark',
+                    }}
+                  >
+                    {serviceOpen ? 'Servis Açık' : 'Servis Kapalı'}
+                  </Typography>
+                }
+                sx={{ m: 0 }}
+              />
+            </Box>
+            <Button
+              variant="outlined"
+              startIcon={<TvIcon />}
+              onClick={() => {
+                if (user && menuToken) {
+                  const url = `/menu/${user.branchCode}/tv?t=${encodeURIComponent(menuToken)}`;
+                  window.open(url, '_blank', 'noopener,noreferrer');
+                }
+              }}
+              disabled={!user || !menuToken}
+            >
+              TV'ye Yansıt
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<QrCodeIcon />}
+              onClick={() => setQrDialogOpen(true)}
+            >
+              Menü QR Kodu
+            </Button>
+          </>
+        }
       />
 
       <Grid container spacing={2}>
@@ -240,7 +358,7 @@ const MenuManagement: React.FC = () => {
                     size="small"
                     variant="contained"
                     startIcon={<AddIcon />}
-                    onClick={() => { setItemEditId(null); setItemForm({ name: '', description: '', price: '', categoryId: selectedCatId }); setItemDialogOpen(true); }}
+                    onClick={() => { setItemEditId(null); setItemForm({ name: '', description: '', price: '', categoryId: selectedCatId }); setItemImageFile(null); setItemImagePreview(null); setItemDialogOpen(true); }}
                   >
                     Ürün Ekle
                   </Button>
@@ -357,12 +475,81 @@ const MenuManagement: React.FC = () => {
             onChange={(e) => setItemForm((p) => ({ ...p, price: e.target.value }))}
             inputProps={{ min: 0, step: 0.01 }}
           />
+
+          {/* Resim yükleme */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            {itemImagePreview ? (
+              <Box
+                component="img"
+                src={itemImagePreview}
+                sx={{
+                  width: 80, height: 80, objectFit: 'cover',
+                  borderRadius: 1, border: '1px solid', borderColor: 'divider',
+                }}
+              />
+            ) : (
+              <Box sx={{
+                width: 80, height: 80, display: 'flex',
+                alignItems: 'center', justifyContent: 'center',
+                bgcolor: 'action.hover', borderRadius: 1,
+              }}>
+                <ImageIcon sx={{ color: 'text.disabled' }} />
+              </Box>
+            )}
+            <Box sx={{ flex: 1 }}>
+              <Button
+                variant="outlined"
+                component="label"
+                size="small"
+                startIcon={<ImageIcon />}
+              >
+                {itemImagePreview ? 'Resmi Değiştir' : 'Resim Seç'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  onChange={handleImageSelect}
+                />
+              </Button>
+              {itemImageFile && (
+                <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'text.secondary' }}>
+                  {itemImageFile.name}
+                </Typography>
+              )}
+            </Box>
+          </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setItemDialogOpen(false)} color="inherit">İptal</Button>
           <Button onClick={handleItemSave} variant="contained">Kaydet</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Menü QR Dialog */}
+      {user && (
+        <MenuQRDialog
+          open={qrDialogOpen}
+          onClose={() => setQrDialogOpen(false)}
+          branchCode={user.branchCode}
+          hotelName={user.hotelName}
+        />
+      )}
+
+      {/* Servis durumu snackbar */}
+      <Snackbar
+        open={!!snack}
+        autoHideDuration={3500}
+        onClose={() => setSnack(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        message={snack?.msg}
+        slotProps={{
+          content: {
+            sx: {
+              bgcolor: snack?.type === 'error' ? 'error.main' : 'success.main',
+            },
+          },
+        }}
+      />
     </div>
   );
 };

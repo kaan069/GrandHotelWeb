@@ -49,6 +49,8 @@ const TableManagement = React.lazy(() => import('../pages/tables/TableManagement
 const CashRegisterPage = React.lazy(() => import('../pages/kasa/CashRegisterPage'));
 const QROrderPage = React.lazy(() => import('../pages/qr-order/QROrderPage'));
 const QRRoomOrderPage = React.lazy(() => import('../pages/qr-order/QRRoomOrderPage'));
+const MenuCatalog = React.lazy(() => import('../pages/public/MenuCatalog'));
+const MenuTVDisplay = React.lazy(() => import('../pages/public/MenuTVDisplay'));
 const CustomerDisplay = React.lazy(() => import('../pages/kasa/CustomerDisplay'));
 const GuestDetail = React.lazy(() => import('../pages/guests/GuestDetail'));
 const Settings = React.lazy(() => import('../pages/settings/Settings'));
@@ -144,6 +146,26 @@ const router = createBrowserRouter([
     element: (
       <React.Suspense fallback={<div>Yükleniyor...</div>}>
         <QRRoomOrderPage />
+      </React.Suspense>
+    ),
+  },
+
+  /* === Public Menü Kataloğu (auth yok, şube koduyla) === */
+  {
+    path: '/menu/:branchCode',
+    element: (
+      <React.Suspense fallback={<div>Yükleniyor...</div>}>
+        <MenuCatalog />
+      </React.Suspense>
+    ),
+  },
+
+  /* === Menü TV Ekranı (cafe duvar TV, dikey, scroll yok) === */
+  {
+    path: '/menu/:branchCode/tv',
+    element: (
+      <React.Suspense fallback={<div>Yükleniyor...</div>}>
+        <MenuTVDisplay />
       </React.Suspense>
     ),
   },

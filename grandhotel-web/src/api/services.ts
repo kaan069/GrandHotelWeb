@@ -243,6 +243,8 @@ export interface ApiHotel {
   logo: string | null;
   requirePaymentAtCheckin?: boolean;
   companyExemptFromCheckinPayment?: boolean;
+  serviceOpen?: boolean;
+  menuAccessToken?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -995,8 +997,13 @@ export const hotelApi = {
   update: (data: Partial<{
     name: string; address: string; phone: string; email: string; taxNumber: string;
     requirePaymentAtCheckin: boolean; companyExemptFromCheckinPayment: boolean;
+    serviceOpen: boolean;
   }>) =>
     api.put<ApiHotel>('/hotel/', data).then((r) => r.data),
+
+  /** Menü QR token'ını yenile (eski QR geçersiz olur) */
+  regenerateMenuToken: () =>
+    api.post<{ menuAccessToken: string }>('/hotel/menu-token/regenerate/').then((r) => r.data),
 
   /** Belge yükle */
   uploadDocument: (file: File, type: string) => {
@@ -1110,8 +1117,12 @@ export const menuApi = {
     }).then((r) => r.data),
 
   /** Ürün güncelle */
-  updateItem: (id: number, data: FormData | Record<string, unknown>) =>
-    api.patch<ApiMenuItem>(`/menu-items/${id}/`, data).then((r) => r.data),
+  updateItem: (id: number, data: FormData | Record<string, unknown>) => {
+    const config = data instanceof FormData
+      ? { headers: { 'Content-Type': 'multipart/form-data' } }
+      : undefined;
+    return api.patch<ApiMenuItem>(`/menu-items/${id}/`, data, config).then((r) => r.data);
+  },
 
   /** Ürün sil */
   deleteItem: (id: number) =>
@@ -1120,7 +1131,75 @@ export const menuApi = {
   /** Public menü (QR kod) */
   getPublicMenu: () =>
     api.get<ApiMenuCategory[]>('/menu/public/').then((r) => r.data),
+
+  /** Public katalog (otel branding + kategoriler) — şube koduyla */
+  getCatalog: (branchCode: string, token?: string) => {
+    const qs = token ? `?t=${encodeURIComponent(token)}` : '';
+    return api.get<ApiCatalogResponse>(`/menu/catalog/${branchCode}/${qs}`).then((r) => r.data);
+  },
+
+  /** Katalog için müsait odalar (sadece check-in olmuş) */
+  getCatalogRooms: (branchCode: string, token?: string) => {
+    const qs = token ? `?t=${encodeURIComponent(token)}` : '';
+    return api.get<ApiCatalogRoom[]>(`/menu/catalog/${branchCode}/rooms/${qs}`).then((r) => r.data);
+  },
+
+  /** Katalogtan sipariş ver */
+  placeCatalogOrder: (branchCode: string, payload: CatalogOrderPayload, token?: string) => {
+    const qs = token ? `?t=${encodeURIComponent(token)}` : '';
+    return api.post<CatalogOrderResponse>(`/menu/catalog/${branchCode}/order/${qs}`, payload).then((r) => r.data);
+  },
 };
+
+export interface ApiCatalogRoom {
+  roomNumber: string;
+}
+
+export interface CatalogOrderItem {
+  menuItemId: number;
+  quantity: number;
+  notes?: string;
+}
+
+export interface CatalogOrderPayload {
+  roomNumber: string;
+  customerName: string;
+  items: CatalogOrderItem[];
+}
+
+export interface CatalogOrderResponse {
+  tabId: number;
+  tabNo: string;
+  roomNumber: string;
+  customerName: string;
+  itemCount: number;
+  totalAmount: string;
+  message: string;
+}
+
+export interface ApiCatalogItem {
+  id: number;
+  name: string;
+  description: string;
+  price: string;
+  imageUrl: string | null;
+}
+
+export interface ApiCatalogCategory {
+  id: number;
+  name: string;
+  items: ApiCatalogItem[];
+}
+
+export interface ApiCatalogResponse {
+  hotel: {
+    name: string;
+    branchCode: string;
+    logoUrl: string | null;
+    serviceOpen?: boolean;
+  };
+  categories: ApiCatalogCategory[];
+}
 
 /* ==================== ADİSYON (TAB) API ==================== */
 
