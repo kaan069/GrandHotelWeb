@@ -12,6 +12,7 @@ import {
   Delete as DeleteIcon,
   EventAvailable as LeaveIcon,
   Key as KeyIcon,
+  QrCode2 as QrCodeIcon,
 } from '@mui/icons-material';
 
 import { GridRenderCellParams } from '@mui/x-data-grid';
@@ -19,6 +20,7 @@ import { PageHeader, DataTable } from '../../components/common';
 import EmployeeAddDialog from '../../components/employees/EmployeeAddDialog';
 import EmployeeDetailDialog from '../../components/employees/EmployeeDetailDialog';
 import LeaveDialog from '../../components/employees/LeaveDialog';
+import AttendanceQRDialog from './AttendanceQRDialog';
 import { ROLE_LABELS } from '../../utils/constants';
 import { getYearsOfService } from '../../utils/leaveCalculator';
 import { staffApi, leavesApi } from '../../api/services';
@@ -170,6 +172,7 @@ const EmployeeList: React.FC = () => {
   const [employees, setEmployees] = useState<ApiEmployee[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [qrDialogOpen, setQrDialogOpen] = useState(false);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [leaveTarget, setLeaveTarget] = useState<ApiEmployee | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
@@ -272,9 +275,18 @@ const EmployeeList: React.FC = () => {
         title="Eleman Yönetimi"
         subtitle={`Toplam ${employees.length} eleman`}
         actions={
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
-            Yeni Eleman
-          </Button>
+          <>
+            <Button
+              variant="outlined"
+              startIcon={<QrCodeIcon />}
+              onClick={() => setQrDialogOpen(true)}
+            >
+              Mesai QR Kodları
+            </Button>
+            <Button variant="contained" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
+              Yeni Eleman
+            </Button>
+          </>
         }
       />
 
@@ -289,6 +301,11 @@ const EmployeeList: React.FC = () => {
       </Box>
 
       <EmployeeAddDialog open={dialogOpen} onClose={() => setDialogOpen(false)} onSave={handleSave} />
+      <AttendanceQRDialog
+        open={qrDialogOpen}
+        onClose={() => setQrDialogOpen(false)}
+        hotelName={user?.hotelName || 'GrandHotel'}
+      />
 
       <EmployeeDetailDialog
         open={detailDialogOpen}

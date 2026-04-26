@@ -93,6 +93,48 @@ const CashRegisterPage: React.FC = () => {
   const [summary, setSummary] = useState<ApiCashSummary | null>(null);
   const [summaryOpen, setSummaryOpen] = useState(false);
 
+  /* Kasa aç/kapa dialog */
+  const [openRegisterDialog, setOpenRegisterDialog] = useState<{ register: ApiCashRegister; mode: 'open' | 'close' } | null>(null);
+  const [balanceInput, setBalanceInput] = useState('0');
+  const [registerActionLoading, setRegisterActionLoading] = useState(false);
+
+  const handleOpenRegisterClick = (register: ApiCashRegister) => {
+    setBalanceInput('0');
+    setOpenRegisterDialog({ register, mode: 'open' });
+  };
+
+  const handleCloseRegisterClick = (register: ApiCashRegister) => {
+    setBalanceInput(register.todayTotals?.collected || register.todayTotals?.total || '0');
+    setOpenRegisterDialog({ register, mode: 'close' });
+  };
+
+  const submitRegisterAction = async () => {
+    if (!openRegisterDialog) return;
+    const { register, mode } = openRegisterDialog;
+    const amount = parseFloat(balanceInput || '0');
+    if (Number.isNaN(amount) || amount < 0) {
+      setSnackbar({ open: true, message: 'Geçerli bir tutar girin', severity: 'error' });
+      return;
+    }
+    setRegisterActionLoading(true);
+    try {
+      if (mode === 'open') {
+        await kasaApi.open(register.id, { openingBalance: amount });
+        setSnackbar({ open: true, message: 'Kasa açıldı', severity: 'success' });
+      } else {
+        await kasaApi.close(register.id, { closingBalance: amount });
+        setSnackbar({ open: true, message: 'Kasa kapatıldı', severity: 'success' });
+      }
+      setOpenRegisterDialog(null);
+      await fetchRegisters();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { error?: string } } };
+      setSnackbar({ open: true, message: e?.response?.data?.error || 'İşlem başarısız', severity: 'error' });
+    } finally {
+      setRegisterActionLoading(false);
+    }
+  };
+
   /** Kasaları yükle */
   const fetchRegisters = useCallback(async () => {
     try {
@@ -318,39 +360,90 @@ const CashRegisterPage: React.FC = () => {
     <div>
       <PageHeader
         title="Kasa"
-        subtitle={selectedRegister ? `${selectedRegister.name} · ${occupiedCount} dolu masa · Masalarda: ${formatCurrency(totalOnTables)}` : 'Kasa seçin'}
+        subtitle={
+          selectedRegister
+            ? `${selectedRegister.name} · ${selectedRegister.status === 'open' ? '🟢 Açık' : '⚪ Kapalı'} · ${occupiedCount} dolu masa · Masalarda: ${formatCurrency(totalOnTables)}`
+            : 'Kasa seçin'
+        }
       />
 
       <Grid container spacing={1.5} sx={{ height: 'calc(100vh - 140px)' }}>
         {/* ══ SOL: Kasalar ══ */}
         <Grid size={{ xs: 12, md: 2 }}>
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, px: 0.5 }}>Kasalar</Typography>
-          {registers.map(reg => (
-            <Card
-              key={reg.id}
-              sx={{
-                mb: 0.5, cursor: 'pointer',
-                border: selectedRegister?.id === reg.id ? '2px solid #3b82f6' : '1px solid #e2e8f0',
-                '&:hover': { boxShadow: 2 },
-              }}
-              onClick={() => selectRegister(reg)}
-            >
-              <CardContent sx={{ py: 1, px: 1.5, pb: '8px !important' }}>
-                <Typography variant="body2" fontWeight={600} noWrap>{reg.name}</Typography>
-                <Chip
-                  label={reg.status === 'open' ? 'Açık' : 'Kapalı'}
-                  color={reg.status === 'open' ? 'success' : 'default'}
-                  size="small"
-                  sx={{ fontSize: '0.65rem', height: 20 }}
-                />
-                {reg.todayTotals && (
-                  <Typography variant="caption" display="block" color="text.secondary">
-                    {formatCurrency(parseFloat(reg.todayTotals.total))}
-                  </Typography>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+          {registers.map(reg => {
+            const isOpen = reg.status === 'open';
+            const collected = parseFloat(reg.todayTotals?.collected || '0');
+            const pending = parseFloat(reg.todayTotals?.pending || '0');
+            return (
+              <Card
+                key={reg.id}
+                sx={{
+                  mb: 0.5, cursor: 'pointer',
+                  border: selectedRegister?.id === reg.id ? '2px solid #3b82f6' : '1px solid #e2e8f0',
+                  '&:hover': { boxShadow: 2 },
+                }}
+                onClick={() => selectRegister(reg)}
+              >
+                <CardContent sx={{ py: 1, px: 1.5, pb: '8px !important' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                    <Typography variant="body2" fontWeight={600} noWrap sx={{ flex: 1 }}>
+                      {reg.name}
+                    </Typography>
+                    <Chip
+                      label={isOpen ? 'Açık' : 'Kapalı'}
+                      color={isOpen ? 'success' : 'default'}
+                      size="small"
+                      sx={{ fontSize: '0.65rem', height: 20, ml: 0.5 }}
+                    />
+                  </Box>
+                  {reg.todayTotals && (
+                    <Box sx={{ mt: 0.5 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="caption" color="text.secondary">Tahsil:</Typography>
+                        <Typography variant="caption" fontWeight={600}>{formatCurrency(collected)}</Typography>
+                      </Box>
+                      {pending > 0 && (
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography variant="caption" color="warning.main">Bekleyen:</Typography>
+                          <Typography variant="caption" fontWeight={600} color="warning.main">
+                            {formatCurrency(pending)}
+                          </Typography>
+                        </Box>
+                      )}
+                    </Box>
+                  )}
+                  {canPay && (
+                    <Box sx={{ mt: 1 }}>
+                      {isOpen ? (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="error"
+                          fullWidth
+                          sx={{ fontSize: '0.7rem', py: 0.25 }}
+                          onClick={(e) => { e.stopPropagation(); handleCloseRegisterClick(reg); }}
+                        >
+                          Kasayı Kapat
+                        </Button>
+                      ) : (
+                        <Button
+                          size="small"
+                          variant="contained"
+                          color="success"
+                          fullWidth
+                          sx={{ fontSize: '0.7rem', py: 0.25 }}
+                          onClick={(e) => { e.stopPropagation(); handleOpenRegisterClick(reg); }}
+                        >
+                          Kasayı Aç
+                        </Button>
+                      )}
+                    </Box>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
           {selectedRegister && (
             <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
               <Button size="small" variant="outlined" startIcon={<ReceiptIcon />} onClick={loadTransactions} fullWidth>
@@ -570,6 +663,56 @@ const CashRegisterPage: React.FC = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      {/* Kasa Aç/Kapa Dialog */}
+      <Dialog
+        open={!!openRegisterDialog}
+        onClose={() => !registerActionLoading && setOpenRegisterDialog(null)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>
+          {openRegisterDialog?.mode === 'open' ? 'Kasayı Aç' : 'Kasayı Kapat'}
+          {openRegisterDialog && (
+            <Typography variant="body2" color="text.secondary">
+              {openRegisterDialog.register.name}
+            </Typography>
+          )}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 1 }}>
+            <TextField
+              autoFocus
+              fullWidth
+              type="number"
+              label={openRegisterDialog?.mode === 'open' ? 'Açılış Bakiyesi (₺)' : 'Sayım Sonucu (₺)'}
+              value={balanceInput}
+              onChange={(e) => setBalanceInput(e.target.value)}
+              helperText={
+                openRegisterDialog?.mode === 'open'
+                  ? 'Kasada hâlihazırda olan nakit miktarını girin (yoksa 0).'
+                  : 'Kasada saydığınız fiili nakit miktarını girin. Sistem ile farkı kayda geçer.'
+              }
+              inputProps={{ min: 0, step: 0.01 }}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenRegisterDialog(null)} disabled={registerActionLoading} color="inherit">
+            İptal
+          </Button>
+          <Button
+            onClick={submitRegisterAction}
+            disabled={registerActionLoading}
+            variant="contained"
+            color={openRegisterDialog?.mode === 'open' ? 'success' : 'error'}
+          >
+            {registerActionLoading
+              ? <CircularProgress size={18} sx={{ color: '#fff' }} />
+              : openRegisterDialog?.mode === 'open' ? 'Kasayı Aç' : 'Kasayı Kapat'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Özet Dialog */}
       <Dialog open={summaryOpen} onClose={() => setSummaryOpen(false)} maxWidth="sm" fullWidth>

@@ -1505,7 +1505,9 @@ export interface ApiCashRegister {
     card: string;
     roomCharge: string;
     expense: string;
-    total: string;
+    collected?: string;   // bugün kasaya tahsil edilen
+    pending?: string;     // açık masalardaki bekleyen toplam
+    total: string;        // collected + pending
   };
 }
 
