@@ -604,8 +604,10 @@ export interface DashboardStats {
     maintenanceRooms: number;
     blockedRooms: number;
     occupancyRate: number;
-    singleRooms: number;
-    doubleRooms: number;
+    singleRooms: number;            // yatak tipi bazlı (eski)
+    doubleRooms: number;            // yatak tipi bazlı (eski)
+    singleOccupancyRooms?: number;  // bugün 1 misafirli oda sayısı
+    doubleOccupancyRooms?: number;  // bugün 2+ misafirli oda sayısı
   };
   revenue: {
     dailyRevenue: number;
@@ -901,6 +903,24 @@ export const leavesApi = {
 
   getForEmployee: (employeeId: number) =>
     api.get<ApiLeave[]>(`/staff/${employeeId}/leaves/`).then((r) => r.data),
+};
+
+export interface ApiAttendanceLog {
+  date: string;
+  status: 'present' | 'absent' | 'leave' | 'day_off' | string;
+  checkInTime: string | null;
+  checkOutTime: string | null;
+  workedHours: string | null;
+}
+
+export const attendanceApi = {
+  getForEmployee: (employeeId: number, dateFrom?: string, dateTo?: string) => {
+    const params = new URLSearchParams();
+    if (dateFrom) params.append('dateFrom', dateFrom);
+    if (dateTo) params.append('dateTo', dateTo);
+    const qs = params.toString();
+    return api.get<ApiAttendanceLog[]>(`/staff/${employeeId}/attendance/${qs ? '?' + qs : ''}`).then((r) => r.data);
+  },
 };
 
 /* ==================== STOCK API ==================== */

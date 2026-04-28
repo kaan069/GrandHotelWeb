@@ -49,19 +49,21 @@ const StatisticsSection: React.FC<StatisticsSectionProps> = ({
 
       <Grid size={{ xs: 12, sm: 6, md: 3 }}>
         <StatCard
-          title="Tek Kişilik Oda"
+          title="Tek Konaklayan"
           value={singleRooms}
           icon={<SingleBedIcon />}
           color="info"
+          subtitle="1 misafirli oda sayısı"
         />
       </Grid>
 
       <Grid size={{ xs: 12, sm: 6, md: 3 }}>
         <StatCard
-          title="Çift Kişilik Oda"
+          title="Çift Konaklayan"
           value={doubleRooms}
           icon={<KingBedIcon />}
           color="primary"
+          subtitle="2+ misafirli oda sayısı"
         />
       </Grid>
 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Grid,
   Card,
@@ -9,10 +9,14 @@ import {
   ListItem,
   ListItemText,
   Chip,
+  Collapse,
+  IconButton,
 } from '@mui/material';
 import {
   Login as CheckInIcon,
   Logout as CheckOutIcon,
+  ExpandLess,
+  ExpandMore,
 } from '@mui/icons-material';
 
 interface CheckInOutItem {
@@ -27,93 +31,101 @@ interface CheckInOutListsProps {
   checkOuts: CheckInOutItem[];
 }
 
+interface CollapsibleListProps {
+  title: string;
+  icon: React.ReactNode;
+  chipColor: 'info' | 'warning';
+  items: CheckInOutItem[];
+  emptyText: string;
+  defaultOpen?: boolean;
+}
+
+const CollapsibleList: React.FC<CollapsibleListProps> = ({
+  title, icon, chipColor, items, emptyText, defaultOpen = true,
+}) => {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <Card>
+      <CardContent sx={{ pb: open ? undefined : '16px !important' }}>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            mb: open ? 2 : 0,
+            cursor: 'pointer',
+            userSelect: 'none',
+          }}
+          onClick={() => setOpen((v) => !v)}
+        >
+          <Typography variant="h4" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {icon}
+            {title}
+          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Chip label={items.length} color={chipColor} size="small" />
+            <IconButton size="small" sx={{ ml: 0.5 }} aria-label={open ? 'Kapat' : 'Aç'}>
+              {open ? <ExpandLess /> : <ExpandMore />}
+            </IconButton>
+          </Box>
+        </Box>
+        <Collapse in={open} timeout="auto" unmountOnExit>
+          <List disablePadding>
+            {items.map((item) => (
+              <ListItem
+                key={item.id}
+                disableGutters
+                sx={{
+                  borderBottom: '1px solid',
+                  borderColor: 'divider',
+                  '&:last-child': { borderBottom: 'none' },
+                }}
+              >
+                <ListItemText
+                  primary={item.guest}
+                  secondary={`Oda ${item.room}`}
+                  primaryTypographyProps={{ fontWeight: 500, fontSize: '0.875rem' }}
+                  secondaryTypographyProps={{ fontSize: '0.8125rem' }}
+                />
+                <Typography variant="body2" color="text.secondary">
+                  {item.time}
+                </Typography>
+              </ListItem>
+            ))}
+            {items.length === 0 && (
+              <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
+                {emptyText}
+              </Typography>
+            )}
+          </List>
+        </Collapse>
+      </CardContent>
+    </Card>
+  );
+};
+
 const CheckInOutLists: React.FC<CheckInOutListsProps> = ({ checkIns, checkOuts }) => {
   return (
     <Grid container spacing={2.5}>
-      {/* Bugünkü Check-in'ler */}
       <Grid size={{ xs: 12, md: 6 }}>
-        <Card>
-          <CardContent>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h4" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <CheckInIcon color="info" fontSize="small" />
-                Bugünkü Girişler
-              </Typography>
-              <Chip label={checkIns.length} color="info" size="small" />
-            </Box>
-            <List disablePadding>
-              {checkIns.map((item) => (
-                <ListItem
-                  key={item.id}
-                  disableGutters
-                  sx={{
-                    borderBottom: '1px solid',
-                    borderColor: 'divider',
-                    '&:last-child': { borderBottom: 'none' },
-                  }}
-                >
-                  <ListItemText
-                    primary={item.guest}
-                    secondary={`Oda ${item.room}`}
-                    primaryTypographyProps={{ fontWeight: 500, fontSize: '0.875rem' }}
-                    secondaryTypographyProps={{ fontSize: '0.8125rem' }}
-                  />
-                  <Typography variant="body2" color="text.secondary">
-                    {item.time}
-                  </Typography>
-                </ListItem>
-              ))}
-              {checkIns.length === 0 && (
-                <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
-                  Bugün giriş yapacak misafir bulunmuyor
-                </Typography>
-              )}
-            </List>
-          </CardContent>
-        </Card>
+        <CollapsibleList
+          title="Bugünkü Girişler"
+          icon={<CheckInIcon color="info" fontSize="small" />}
+          chipColor="info"
+          items={checkIns}
+          emptyText="Bugün giriş yapacak misafir bulunmuyor"
+        />
       </Grid>
 
-      {/* Bugünkü Check-out'lar */}
       <Grid size={{ xs: 12, md: 6 }}>
-        <Card>
-          <CardContent>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h4" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <CheckOutIcon color="warning" fontSize="small" />
-                Bugünkü Çıkışlar
-              </Typography>
-              <Chip label={checkOuts.length} color="warning" size="small" />
-            </Box>
-            <List disablePadding>
-              {checkOuts.map((item) => (
-                <ListItem
-                  key={item.id}
-                  disableGutters
-                  sx={{
-                    borderBottom: '1px solid',
-                    borderColor: 'divider',
-                    '&:last-child': { borderBottom: 'none' },
-                  }}
-                >
-                  <ListItemText
-                    primary={item.guest}
-                    secondary={`Oda ${item.room}`}
-                    primaryTypographyProps={{ fontWeight: 500, fontSize: '0.875rem' }}
-                    secondaryTypographyProps={{ fontSize: '0.8125rem' }}
-                  />
-                  <Typography variant="body2" color="text.secondary">
-                    {item.time}
-                  </Typography>
-                </ListItem>
-              ))}
-              {checkOuts.length === 0 && (
-                <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
-                  Bugün çıkış yapacak misafir bulunmuyor
-                </Typography>
-              )}
-            </List>
-          </CardContent>
-        </Card>
+        <CollapsibleList
+          title="Bugünkü Çıkışlar"
+          icon={<CheckOutIcon color="warning" fontSize="small" />}
+          chipColor="warning"
+          items={checkOuts}
+          emptyText="Bugün çıkış yapacak misafir bulunmuyor"
+        />
       </Grid>
     </Grid>
   );

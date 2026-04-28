@@ -37,12 +37,13 @@ import {
   Save as SaveIcon,
   Close as CloseIcon,
   Cancel as CancelIcon,
+  AccessTime as AccessTimeIcon,
 } from '@mui/icons-material';
 import { ROLE_LABELS } from '../../utils/constants';
 import { getYearsOfService } from '../../utils/leaveCalculator';
-import { leavesApi, staffApi } from '../../api/services';
+import { leavesApi, staffApi, attendanceApi } from '../../api/services';
 import { formatCurrency } from '../../utils/formatters';
-import type { ApiEmployee, ApiLeave } from '../../api/services';
+import type { ApiEmployee, ApiLeave, ApiAttendanceLog } from '../../api/services';
 
 interface EmployeeDetailDialogProps {
   open: boolean;
@@ -70,9 +71,31 @@ const LEAVE_STATUS_COLORS: Record<string, 'success' | 'warning' | 'error' | 'def
   cancelled: 'error',
 };
 
+const ATTENDANCE_STATUS_LABELS: Record<string, string> = {
+  present: 'Geldi',
+  absent: 'Gelmedi',
+  leave: 'İzinli',
+  day_off: 'Hafta Tatili',
+};
+
+const ATTENDANCE_STATUS_COLORS: Record<string, 'success' | 'error' | 'info' | 'default'> = {
+  present: 'success',
+  absent: 'error',
+  leave: 'info',
+  day_off: 'default',
+};
+
+const formatHm = (t: string | null): string => {
+  if (!t) return '-';
+  const parts = t.split(':');
+  return parts.length >= 2 ? `${parts[0]}:${parts[1]}` : t;
+};
+
 const EmployeeDetailDialog: React.FC<EmployeeDetailDialogProps> = ({ open, onClose, employee, onSaved }) => {
   const [leaves, setLeaves] = useState<ApiLeave[]>([]);
   const [loadingLeaves, setLoadingLeaves] = useState(false);
+  const [attendance, setAttendance] = useState<ApiAttendanceLog[]>([]);
+  const [loadingAttendance, setLoadingAttendance] = useState(false);
   const [editingSalary, setEditingSalary] = useState(false);
   const [salaryInput, setSalaryInput] = useState('');
   const [savingSalary, setSavingSalary] = useState(false);
@@ -80,11 +103,16 @@ const EmployeeDetailDialog: React.FC<EmployeeDetailDialogProps> = ({ open, onClo
   useEffect(() => {
     if (open && employee) {
       setLoadingLeaves(true);
+      setLoadingAttendance(true);
       setEditingSalary(false);
       leavesApi.getForEmployee(employee.id)
         .then(setLeaves)
         .catch((err) => console.error('İzin geçmişi yüklenemedi:', err))
         .finally(() => setLoadingLeaves(false));
+      attendanceApi.getForEmployee(employee.id)
+        .then(setAttendance)
+        .catch((err) => console.error('Mesai kayıtları yüklenemedi:', err))
+        .finally(() => setLoadingAttendance(false));
     }
   }, [open, employee]);
 
@@ -213,6 +241,62 @@ const EmployeeDetailDialog: React.FC<EmployeeDetailDialogProps> = ({ open, onClo
             <Chip label="Bugün İzinli" color="info" size="small" />
           )}
         </Box>
+
+        <Divider sx={{ mb: 2 }} />
+
+        {/* Mesai Kayıtları (Giriş/Çıkış) */}
+        <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <AccessTimeIcon sx={{ fontSize: 18 }} />
+          Mesai Kayıtları (Son 60 Gün)
+        </Typography>
+
+        {loadingAttendance ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+            <CircularProgress size={24} />
+          </Box>
+        ) : attendance.length > 0 ? (
+          <TableContainer sx={{ maxHeight: 280, mb: 2 }}>
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Tarih</TableCell>
+                  <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Durum</TableCell>
+                  <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Giriş</TableCell>
+                  <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Çıkış</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Saat</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {attendance.map((a) => (
+                  <TableRow key={a.date}>
+                    <TableCell sx={{ fontSize: '0.8rem' }}>{formatDate(a.date)}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={ATTENDANCE_STATUS_LABELS[a.status] || a.status}
+                        size="small"
+                        color={ATTENDANCE_STATUS_COLORS[a.status] || 'default'}
+                        sx={{ fontSize: '0.7rem' }}
+                      />
+                    </TableCell>
+                    <TableCell sx={{ fontSize: '0.8rem', fontVariantNumeric: 'tabular-nums' }}>
+                      {formatHm(a.checkInTime)}
+                    </TableCell>
+                    <TableCell sx={{ fontSize: '0.8rem', fontVariantNumeric: 'tabular-nums' }}>
+                      {formatHm(a.checkOutTime)}
+                    </TableCell>
+                    <TableCell align="center" sx={{ fontSize: '0.8rem', fontVariantNumeric: 'tabular-nums' }}>
+                      {a.workedHours ? `${Number(a.workedHours).toFixed(1)} sa` : '-'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        ) : (
+          <Typography variant="body2" color="text.secondary" sx={{ py: 1, mb: 2 }}>
+            Mesai kaydı bulunmuyor.
+          </Typography>
+        )}
 
         <Divider sx={{ mb: 2 }} />
 

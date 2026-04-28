@@ -238,8 +238,9 @@ const Dashboard: React.FC = () => {
   const totalRooms = rooms.length;
   const occupiedRooms = rooms.filter((r) => r.status === ROOM_STATUS.OCCUPIED).length;
   const availableRooms = rooms.filter((r) => r.status === ROOM_STATUS.AVAILABLE).length;
-  const singleRooms = rooms.filter((r) => r.bedType === 'single').length;
-  const doubleRooms = rooms.filter((r) => r.bedType === 'double' || r.bedType === 'king' || r.bedType === 'twin').length;
+  // Tek/Çift kişilik = bugün **konaklama sayısı** (yatak tipi değil) — backend'den gelir
+  const singleRooms = stats?.occupancy.singleOccupancyRooms ?? 0;
+  const doubleRooms = stats?.occupancy.doubleOccupancyRooms ?? 0;
   const occupancyRate = totalRooms > 0 ? ((occupiedRooms / totalRooms) * 100).toFixed(1) : 0;
 
   /** Header tab'ları (AppBar'a iletilir) */
