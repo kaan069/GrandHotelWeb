@@ -12,6 +12,7 @@ import {
   MenuItem,
 } from '@mui/material';
 import { EventNote as EventNoteIcon } from '@mui/icons-material';
+import { getLocalDateStr } from '../../utils/formatters';
 
 interface Room {
   id: number;
@@ -44,21 +45,21 @@ interface NewReservationDialogProps {
   onSave: (result: NewReservationResult) => void;
 }
 
-const emptyForm: NewReservationForm = {
+const buildEmptyForm = (): NewReservationForm => ({
   firstName: '',
   lastName: '',
   phone: '',
   room: '',
-  checkIn: new Date().toISOString().split('T')[0],
-  checkOut: '',
-};
+  checkIn: getLocalDateStr(),
+  checkOut: getLocalDateStr(1),
+});
 
 const NewReservationDialog: React.FC<NewReservationDialogProps> = ({ open, onClose, rooms, onSave }) => {
-  const [form, setForm] = useState<NewReservationForm>(emptyForm);
+  const [form, setForm] = useState<NewReservationForm>(buildEmptyForm());
   const [errors, setErrors] = useState<Partial<NewReservationForm>>({});
 
   const handleOpen = () => {
-    setForm(emptyForm);
+    setForm(buildEmptyForm());
     setErrors({});
   };
 

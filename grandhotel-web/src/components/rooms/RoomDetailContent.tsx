@@ -19,6 +19,7 @@ import {
   FOLIO_CATEGORY_LABELS,
 } from '../../utils/constants';
 import { companiesApi, agenciesApi, guestsApi, foliosApi, roomsApi, reservationsApi, auditApi, minibarApi } from '../../api/services';
+import { getLocalDateStr } from '../../utils/formatters';
 import usePermission from '../../hooks/usePermission';
 import useAuth from '../../hooks/useAuth';
 import type { ApiRoomMinibarItem } from '../../api/services';
@@ -109,13 +110,9 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
     if (isNaN(d.getTime())) return '';
     return d.toISOString().split('T')[0]; // YYYY-MM-DD — HTML date input formatı
   };
-  /* Boş odada default tarih: bugün / yarın */
-  const todayStr = () => new Date().toISOString().split('T')[0];
-  const tomorrowStr = () => {
-    const t = new Date();
-    t.setDate(t.getDate() + 1);
-    return t.toISOString().split('T')[0];
-  };
+  /* Boş odada default tarih: bugün / yarın (lokal saate göre) */
+  const todayStr = () => getLocalDateStr();
+  const tomorrowStr = () => getLocalDateStr(1);
   const [checkInDate, setCheckInDate] = useState(
     formatDateForInput(room.reservationCheckIn) || todayStr()
   );
@@ -438,7 +435,7 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
       await reservationsApi.create({
         roomId: room.id,
         guestId: apiGuest.id,
-        checkIn: checkInDate || new Date().toISOString().split('T')[0],
+        checkIn: checkInDate || getLocalDateStr(),
         checkOut: checkOutDate || undefined,
         notes: roomNote,
       });
@@ -476,7 +473,7 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
           category: data.category,
           description: data.description,
           amount: data.amount,
-          date: new Date().toISOString().split('T')[0],
+          date: getLocalDateStr(),
         });
       }
 
@@ -581,7 +578,7 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
           companyId: selectedCompanyId ? Number(selectedCompanyId) : undefined,
           agencyId: selectedAgencyId ? Number(selectedAgencyId) : undefined,
           agencyReservationCode: agencyReservationCode || undefined,
-          checkIn: checkInDate || new Date().toISOString().split('T')[0],
+          checkIn: checkInDate || getLocalDateStr(),
           checkOut: checkOutDate || undefined,
           notes: roomNote,
         });

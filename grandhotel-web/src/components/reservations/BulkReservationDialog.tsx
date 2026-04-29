@@ -16,7 +16,7 @@ import {
 } from '@mui/material';
 import { GroupWork as GroupIcon } from '@mui/icons-material';
 
-import { formatCurrency } from '../../utils/formatters';
+import { formatCurrency, getLocalDateStr } from '../../utils/formatters';
 
 interface Room {
   id: number;
@@ -59,24 +59,24 @@ interface BulkReservationDialogProps {
   onSave: (result: BulkReservationResult) => void;
 }
 
-const emptyBulkForm: BulkReservationForm = {
+const buildEmptyBulkForm = (): BulkReservationForm => ({
   groupName: '',
   contactPerson: '',
   phone: '',
   source: 'Acente',
-  checkIn: new Date().toISOString().split('T')[0],
-  checkOut: '',
-};
+  checkIn: getLocalDateStr(),
+  checkOut: getLocalDateStr(1),
+});
 
 const BulkReservationDialog: React.FC<BulkReservationDialogProps> = ({ open, onClose, rooms, onSave }) => {
-  const [form, setForm] = useState<BulkReservationForm>(emptyBulkForm);
+  const [form, setForm] = useState<BulkReservationForm>(buildEmptyBulkForm());
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [selectedRooms, setSelectedRooms] = useState<Set<number>>(new Set());
   const [roomGuests, setRoomGuests] = useState<Record<number, string>>({});
   const [roomFilter, setRoomFilter] = useState<BulkRoomFilter>({ floor: '', bedType: '' });
 
   const handleOpen = () => {
-    setForm(emptyBulkForm);
+    setForm(buildEmptyBulkForm());
     setSelectedRooms(new Set());
     setRoomGuests({});
     setRoomFilter({ floor: '', bedType: '' });

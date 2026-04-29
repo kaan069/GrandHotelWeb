@@ -19,6 +19,21 @@ type DateInput = string | Date | Dayjs | null | undefined;
 dayjs.locale('tr');
 
 /**
+ * Yerel saate göre bugünün tarihini YYYY-MM-DD olarak döner.
+ * `new Date().toISOString().split('T')[0]` UTC tarih döndürdüğü için
+ * Türkiye'de gece saatlerinde bir gün geride kalabiliyor — bu helper
+ * lokal takvim gününü döndürür.
+ */
+export const getLocalDateStr = (offsetDays = 0): string => {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+/**
  * Sayısal değeri Türk Lirası formatında gösterir.
  * @param amount - Para miktarı
  * @param showSymbol - Para birimi simgesini göster (varsayılan: true)
