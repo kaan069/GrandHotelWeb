@@ -423,29 +423,23 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
   const handleQuickReservation = async () => {
     if (!quickRes.firstName.trim() || !quickRes.lastName.trim() || !quickRes.phone.trim()) return;
     try {
-      // 1. Misafir oluştur
-      const apiGuest = await guestsApi.create({
-        tcNo: '',
-        firstName: quickRes.firstName.trim(),
-        lastName: quickRes.lastName.trim(),
-        phone: quickRes.phone.trim(),
-      });
-
-      // 2. Rezervasyon oluştur (check-in yapmadan, oda değişmez)
+      // Guest oluşturmadan rezervasyon — placeholder bilgi Reservation üzerinde durur,
+      // misafir geldiğinde NewGuestDialog'da prefill olur, TC ile gerçek Guest açılır.
       await reservationsApi.create({
         roomId: room.id,
-        guestId: apiGuest.id,
+        placeholderGuestName: `${quickRes.firstName.trim()} ${quickRes.lastName.trim()}`,
+        placeholderGuestPhone: quickRes.phone.trim(),
         checkIn: checkInDate || getLocalDateStr(),
         checkOut: checkOutDate || undefined,
         notes: roomNote,
       });
 
-      // 3. Formu temizle, odaya ekleme (ön rezervasyon — henüz gelmedi)
       setQuickRes({ firstName: '', lastName: '', phone: '' });
-      setSnackbar({ open: true, message: 'Rezervasyon kaydedildi. Misafir geldiğinde check-in yapılacak.', severity: 'success' });
+      setSnackbar({ open: true, message: 'Rezervasyon kaydedildi. Misafir geldiğinde kimlik taratıp check-in yapılacak.', severity: 'success' });
     } catch (err) {
       console.error('Hızlı rezervasyon hatası:', err);
-      setSnackbar({ open: true, message: 'Rezervasyon oluşturulamadı', severity: 'error' });
+      const axiosErr = err as { response?: { data?: { error?: string } }; message?: string };
+      setSnackbar({ open: true, message: axiosErr?.response?.data?.error || axiosErr?.message || 'Rezervasyon oluşturulamadı', severity: 'error' });
     }
   };
 
@@ -571,10 +565,16 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
         setSnackbar({ open: true, message: 'Kaydetmek için en az 1 misafir eklemelisiniz.', severity: 'warning' });
         return;
       }
+      // Placeholder guests (guestId=null) bu akışta olmamalı — burada kalıcı Guest gerekli
+      const realGuests = guests.filter((g): g is typeof g & { guestId: number } => g.guestId !== null);
+      if (realGuests.length === 0) {
+        setSnackbar({ open: true, message: 'Kalıcı misafir kaydı yok. Önce kimlik tarayıp müşteri ekleyin.', severity: 'warning' });
+        return;
+      }
       try {
         await reservationsApi.create({
           roomId: room.id,
-          guestId: guests[0].guestId,
+          guestId: realGuests[0].guestId,
           companyId: selectedCompanyId ? Number(selectedCompanyId) : undefined,
           agencyId: selectedAgencyId ? Number(selectedAgencyId) : undefined,
           agencyReservationCode: agencyReservationCode || undefined,
@@ -583,7 +583,7 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
           notes: roomNote,
         });
         // Misafirleri odaya ekle (addGuest check_in=now set eder → oda düzeninde görünür)
-        for (const g of guests) {
+        for (const g of realGuests) {
           try { await roomsApi.addGuest(room.id, g.guestId); } catch { /* ilk misafir zaten var, güncellenir */ }
         }
         setSnackbar({ open: true, message: 'Rezervasyon kaydedildi.', severity: 'success' });
@@ -596,8 +596,13 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
   };
 
   const handleCheckIn = async () => {
-    const guests = room.guests || [];
-    if (guests.length === 0) return;
+    const allGuests = room.guests || [];
+    // Placeholder rezervasyondaki hayali misafir check-in için kullanılamaz
+    const guests = allGuests.filter((g): g is typeof g & { guestId: number } => g.guestId !== null);
+    if (guests.length === 0) {
+      setSnackbar({ open: true, message: 'Check-in için kalıcı misafir kaydı gerekiyor. Önce kimlik tarayıp müşteri ekleyin.', severity: 'warning' });
+      return;
+    }
 
     const confirmed = window.confirm('Kaydetmeyi ve check-in yapmayı onaylıyor musunuz?');
     if (!confirmed) return;
@@ -931,7 +936,7 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
         onFolioDetailOpen={() => setFolioDetailOpen(true)}
         companyGuests={companyGuests}
         companyGuestsLoading={companyGuestsLoading}
-        roomGuestIds={(room.guests || []).map((g) => g.guestId)}
+        roomGuestIds={(room.guests || []).map((g) => g.guestId).filter((id): id is number => id !== null)}
         onSelectCompanyGuest={handleSelectCompanyGuest}
         onRemoveGuestFromCompany={handleOpenRemoveFromCompany}
       />
@@ -941,6 +946,8 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
         open={newGuestDialogOpen}
         onClose={() => setNewGuestDialogOpen(false)}
         onSave={handleNewGuestSave}
+        defaultName={(room.guests?.find((g) => g.guestId === null)?.guestName) || undefined}
+        defaultPhone={(room.guests?.find((g) => g.guestId === null)?.phone) || undefined}
       />
 
       <FolioDetailDialog

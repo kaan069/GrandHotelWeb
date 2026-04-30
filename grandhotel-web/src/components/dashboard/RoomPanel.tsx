@@ -29,7 +29,7 @@ interface RoomPanelRoom {
   floor: number;
   status: string;
   guestName?: string;
-  guests?: { guestId: number; guestName: string; phone?: string }[];
+  guests?: { guestId: number | null; guestName: string; phone?: string }[];
   reservationStatus?: string | null;
   reservationOwnerName?: string | null;
   reservationCheckIn?: string | null;

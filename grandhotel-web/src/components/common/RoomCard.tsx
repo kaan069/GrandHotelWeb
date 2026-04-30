@@ -38,9 +38,11 @@ import {
 } from '@mui/icons-material';
 
 import { ROOM_STATUS, ROOM_STATUS_LABELS, BED_TYPE_LABELS } from '../../utils/constants';
+import { getLocalDateStr } from '../../utils/formatters';
 
 interface RoomGuestInfo {
-  guestId: number;
+  /** null = placeholder rezervasyon misafiri */
+  guestId: number | null;
   guestName: string;
   phone?: string;
 }
@@ -130,7 +132,7 @@ const RoomCard: React.FC<RoomCardProps> = ({ room, onStatusChange, onAction, onC
   const isReserved = (() => {
     if (room.reservationStatus !== 'reserved' || room.status !== ROOM_STATUS.AVAILABLE) return false;
     if (room.reservationCheckIn) {
-      const today = new Date().toISOString().split('T')[0];
+      const today = getLocalDateStr();
       const checkIn = room.reservationCheckIn.split('T')[0];
       if (checkIn !== today) return false;
     }

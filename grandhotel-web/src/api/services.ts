@@ -85,10 +85,11 @@ export interface ApiMinibarRoomItem {
 }
 
 export interface ApiRoomGuest {
-  guestId: number;
+  /** null = henüz Guest yaratılmamış placeholder rezervasyon misafiri */
+  guestId: number | null;
   guestName: string;
   phone: string;
-  checkIn: string;
+  checkIn: string | null;
   checkOut: string | null;
   isActive: boolean;
 }
@@ -182,6 +183,9 @@ export interface ApiReservation {
   paidAmount: string;
   isActive: boolean;
   createdByStaff: string | null;
+  /** Hızlı rezervasyonda kalıcı Guest oluşmaz; geçici isim/telefon burada */
+  placeholderGuestName?: string;
+  placeholderGuestPhone?: string;
 }
 
 export interface ApiReservationDetail extends ApiReservation {
@@ -512,9 +516,17 @@ export const reservationsApi = {
   getById: (id: number) =>
     api.get<ApiReservationDetail>(`/reservations/${id}/`).then((r) => r.data),
 
-  /** Yeni rezervasyon oluştur (check-in yapmadan) */
+  /**
+   * Yeni rezervasyon oluştur (check-in yapmadan).
+   * Ya `guestId` ya da `placeholderGuestName` zorunlu.
+   * Placeholder verilirse Guest oluşturulmaz, Stay yaratılmaz —
+   * misafir geldiğinde NewGuestDialog'da placeholder bilgisi prefill edilir.
+   */
   create: (data: {
-    roomId: number; guestId: number;
+    roomId: number;
+    guestId?: number;
+    placeholderGuestName?: string;
+    placeholderGuestPhone?: string;
     checkIn: string; checkOut?: string;
     notes?: string; staffName?: string;
     companyId?: number;

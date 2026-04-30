@@ -267,7 +267,7 @@ const GuestListSection: React.FC<GuestListSectionProps> = ({ guests, beds, onMen
                           <Box
                             key={guest.guestId}
                             draggable={!isCheckedOut}
-                            onDragStart={isCheckedOut ? undefined : (e) => handleDragStart(e, guest.guestId)}
+                            onDragStart={isCheckedOut || guest.guestId === null ? undefined : (e) => handleDragStart(e, guest.guestId as number)}
                             onDragEnd={isCheckedOut ? undefined : handleDragEnd}
                             sx={{
                               display: 'flex',
@@ -305,10 +305,10 @@ const GuestListSection: React.FC<GuestListSectionProps> = ({ guests, beds, onMen
                               >
                                 {guest.guestName}
                               </Typography>
-                              {!isCheckedOut && (
+                              {!isCheckedOut && guest.guestId !== null && (
                                 <IconButton
                                   size="small"
-                                  onClick={(e) => handleMenuOpen(e, guest.guestId)}
+                                  onClick={(e) => handleMenuOpen(e, guest.guestId as number)}
                                   sx={{ p: 0.25 }}
                                 >
                                   <MoreVertIcon sx={{ fontSize: 16 }} />

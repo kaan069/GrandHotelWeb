@@ -65,7 +65,7 @@ const mapApiRoom = (r: ApiRoom): Room => ({
   price: parseFloat(r.price) || 0,
   status: r.status,
   guestName: r.guestName || undefined,
-  guests: r.guests?.map((g) => ({ guestId: g.guestId, guestName: g.guestName, phone: g.phone, checkIn: g.checkIn, checkOut: g.checkOut ?? undefined, isActive: g.isActive })),
+  guests: r.guests?.map((g) => ({ guestId: g.guestId, guestName: g.guestName, phone: g.phone, checkIn: g.checkIn ?? undefined, checkOut: g.checkOut ?? undefined, isActive: g.isActive })),
   notes: r.notes || undefined,
   reservationId: r.reservationId,
   reservationCheckIn: r.reservationCheckIn,

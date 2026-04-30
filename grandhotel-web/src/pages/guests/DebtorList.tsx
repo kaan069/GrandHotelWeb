@@ -78,11 +78,11 @@ const mapApiRoomToDetail = (r: ApiRoom): RoomForDetail => ({
   price: parseFloat(r.price) || 0,
   status: r.status,
   guestName: r.guestName ?? undefined,
-  guests: r.guests?.map((g) => ({
-    guestId: g.guestId,
+  guests: r.guests?.filter((g) => g.guestId !== null && g.checkIn).map((g) => ({
+    guestId: g.guestId as number,
     guestName: g.guestName,
     phone: g.phone,
-    checkIn: g.checkIn,
+    checkIn: g.checkIn as string,
     checkOut: g.checkOut ?? undefined,
     isActive: g.isActive,
   })),

@@ -57,11 +57,13 @@ export interface Guest {
 
 /** Odada kalan misafir */
 export interface RoomGuest {
-  guestId: number;
+  /** null = placeholder rezervasyon (henüz kalıcı Guest yok) */
+  guestId: number | null;
   guestName: string;
   phone?: string;
-  checkIn?: string;
-  checkOut?: string;
+  /** placeholder rezervasyon için null gelir (henüz check-in olmamış) */
+  checkIn?: string | null;
+  checkOut?: string | null;
   isActive?: boolean;
 }
 

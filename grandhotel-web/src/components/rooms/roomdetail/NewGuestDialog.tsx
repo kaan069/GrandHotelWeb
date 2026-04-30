@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   Grid,
   TextField,
@@ -10,36 +10,82 @@ import {
   Alert,
   CircularProgress,
   Chip,
+  Box,
 } from '@mui/material';
 import {
   PersonAdd as PersonAddIcon,
   Block as BlockIcon,
   CheckCircle as CheckIcon,
+  CreditCard as CardIcon,
 } from '@mui/icons-material';
 import { guestsApi } from '../../../api/services';
+import IdScanDialog from '../IdScanDialog';
+import type { MrzData } from '../../../utils/mrzParser';
 
 interface NewGuestDialogProps {
   open: boolean;
   onClose: () => void;
   onSave: (data: { tcNo: string; firstName: string; lastName: string; phone: string; email: string }) => void;
+  /** Hızlı rezervasyondan gelen geçici isim (Reservation.placeholder_guest_name) — TC alanı boş */
+  defaultName?: string;
+  /** Hızlı rezervasyondan gelen geçici telefon */
+  defaultPhone?: string;
 }
 
-const NewGuestDialog: React.FC<NewGuestDialogProps> = ({ open, onClose, onSave }) => {
+const splitFullName = (full: string): { first: string; last: string } => {
+  const parts = full.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { first: '', last: '' };
+  if (parts.length === 1) return { first: parts[0], last: '' };
+  // Son parça soyad, gerisi ad
+  const last = parts[parts.length - 1];
+  const first = parts.slice(0, -1).join(' ');
+  return { first, last };
+};
+
+const NewGuestDialog: React.FC<NewGuestDialogProps> = ({ open, onClose, onSave, defaultName, defaultPhone }) => {
   const [form, setForm] = useState({ tcNo: '', firstName: '', lastName: '', phone: '', email: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [tcStatus, setTcStatus] = useState<'idle' | 'checking' | 'found' | 'blocked' | 'new'>('idle');
   const [foundGuestId, setFoundGuestId] = useState<number | null>(null);
+  const [scanOpen, setScanOpen] = useState(false);
 
-  const resetForm = () => {
-    setForm({ tcNo: '', firstName: '', lastName: '', phone: '', email: '' });
+  const resetForm = useCallback(() => {
+    const { first, last } = splitFullName(defaultName || '');
+    setForm({
+      tcNo: '',
+      firstName: first,
+      lastName: last,
+      phone: defaultPhone || '',
+      email: '',
+    });
     setErrors({});
     setTcStatus('idle');
     setFoundGuestId(null);
+  }, [defaultName, defaultPhone]);
+
+  // Modal açılırken placeholder bilgileriyle prefill et
+  useEffect(() => {
+    if (open) resetForm();
+  }, [open, resetForm]);
+
+  const handleScan = (data: MrzData) => {
+    // MRZ'den gelen veriyi forma yaz; varsa mevcut prefill'i ezer
+    setForm((p) => ({
+      ...p,
+      tcNo: data.tcNo,
+      firstName: data.firstName || p.firstName,
+      lastName: data.lastName || p.lastName,
+    }));
+    setErrors({});
+    setScanOpen(false);
+    // TC dolduğunda kontrol akışı manuel olarak tetiklenebilmesi için onBlur'a bırakıyoruz;
+    // burada doğrudan aynı kontrolü çalıştırmak için TC'yi dolu kabul edip handleTcBlur'u tekrar çağırıyoruz
+    setTimeout(() => handleTcBlur(data.tcNo), 0);
   };
 
-  // TC girilip alan dışına çıkınca kontrol et
-  const handleTcBlur = useCallback(async () => {
-    const tc = form.tcNo.trim();
+  // TC girilip alan dışına çıkınca veya barkod ile gelince kontrol et
+  const handleTcBlur = useCallback(async (overrideTc?: string) => {
+    const tc = (overrideTc ?? form.tcNo).trim();
     if (tc.length !== 11) {
       setTcStatus('idle');
       return;
@@ -104,9 +150,19 @@ const NewGuestDialog: React.FC<NewGuestDialogProps> = ({ open, onClose, onSave }
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <PersonAddIcon color="primary" />
-        Yeni Müşteri Kaydı
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'space-between' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <PersonAddIcon color="primary" />
+          Yeni Müşteri Kaydı
+        </Box>
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<CardIcon />}
+          onClick={() => setScanOpen(true)}
+        >
+          Kimlik Tara
+        </Button>
       </DialogTitle>
       <DialogContent dividers>
         {/* Blokeli uyarısı */}
@@ -135,7 +191,7 @@ const NewGuestDialog: React.FC<NewGuestDialogProps> = ({ open, onClose, onSave }
                 setErrors((p) => ({ ...p, tcNo: '' }));
                 if (v.length < 11) { setTcStatus('idle'); setFoundGuestId(null); }
               }}
-              onBlur={handleTcBlur}
+              onBlur={() => handleTcBlur()}
               error={!!errors.tcNo}
               helperText={errors.tcNo}
               inputProps={{ maxLength: 11 }}
@@ -207,6 +263,12 @@ const NewGuestDialog: React.FC<NewGuestDialogProps> = ({ open, onClose, onSave }
           {tcStatus === 'found' ? 'Kayıtlı Müşteriyi Ekle' : 'Kaydet ve Odaya Ekle'}
         </Button>
       </DialogActions>
+
+      <IdScanDialog
+        open={scanOpen}
+        onClose={() => setScanOpen(false)}
+        onScan={handleScan}
+      />
     </Dialog>
   );
 };
