@@ -89,8 +89,14 @@ export function parseMrz(raw: string): MrzData | null {
   const birthRaw = line2.slice(0, 6);
   const gender = line2.slice(7, 8);
   const expiryRaw = line2.slice(8, 14);
-  // TC numarası optional data alanında — pozisyon 15-25 (11 hane)
-  const tcRaw = line2.slice(15, 26).replace(/</g, '').trim();
+  /* TC kimlik no — Türk yetkilileri TC'yi satır 1'in opsiyonel alanına (pos 15-29) yazıyor,
+     bazen başında '<' filler olur. Bazı eski kartlarda satır 2 pos 18-28'de olabilir.
+     '<'leri silip 11 haneli rakam dizisi ara. */
+  const tcFromL1 = line1.slice(15, 30).replace(/</g, '');
+  const tcFromL2 = line2.slice(18, 29).replace(/</g, '');
+  const tcRaw = /^\d{11}$/.test(tcFromL1) ? tcFromL1
+    : /^\d{11}$/.test(tcFromL2) ? tcFromL2
+    : '';
 
   const birthDate = parseMrzDate(birthRaw);
   const expiryDate = parseMrzDate(expiryRaw);
