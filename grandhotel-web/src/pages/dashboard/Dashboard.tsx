@@ -22,7 +22,7 @@ import RoomDetailContent from '../../components/rooms/RoomDetailContent';
 import RoomMoveDialog from '../../components/rooms/RoomMoveDialog';
 import usePermission from '../../hooks/usePermission';
 import usePageTabs from '../../hooks/usePageTabs';
-import useRoomWebSocket from '../../hooks/useRoomWebSocket';
+import { useRoomUpdates } from '../../contexts/RoomWebSocketContext';
 import { ROOM_STATUS, RoomTab, RoomGuest } from '../../utils/constants';
 import { roomsApi, kazancApi } from '../../api/services';
 import type { ApiRoom, ApiRoomMinibarItem, DashboardStats } from '../../api/services';
@@ -125,13 +125,11 @@ const Dashboard: React.FC = () => {
   }, []);
 
   /* WebSocket: Oda güncellenince state'te güncelle */
-  useRoomWebSocket({
-    onRoomUpdate: (updatedApiRoom) => {
-      const updated = mapApiRoom(updatedApiRoom);
-      setRooms((prev) =>
-        prev.map((r) => r.id === updated.id ? updated : r)
-      );
-    },
+  useRoomUpdates((updatedApiRoom) => {
+    const updated = mapApiRoom(updatedApiRoom);
+    setRooms((prev) =>
+      prev.map((r) => r.id === updated.id ? updated : r)
+    );
   });
 
   /* Tab sistemi */

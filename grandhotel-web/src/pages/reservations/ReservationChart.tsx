@@ -17,7 +17,7 @@ import RoomDetailContent from '../../components/rooms/RoomDetailContent';
 import { RoomTabBar, ChartNavBar, ChartGrid, VISIBLE_DAYS } from '../../components/reservations/reservationchart';
 import { roomsApi, reservationsApi } from '../../api/services';
 import type { ApiRoom, ApiReservation } from '../../api/services';
-import useRoomWebSocket from '../../hooks/useRoomWebSocket';
+import { useRoomUpdates } from '../../contexts/RoomWebSocketContext';
 
 dayjs.locale('tr');
 
@@ -103,15 +103,13 @@ const ReservationChart: React.FC = () => {
   }, [fetchData]);
 
   /* WebSocket: Oda güncellemelerini canlı al */
-  useRoomWebSocket({
-    onRoomUpdate: (updatedApiRoom) => {
-      setRooms((prev) =>
-        prev.map((r) => r.id === updatedApiRoom.id ? updatedApiRoom : r)
-      );
-      reservationsApi.getAll({ status: 'reserved,checked_in' })
-        .then(setReservations)
-        .catch(() => {});
-    },
+  useRoomUpdates((updatedApiRoom) => {
+    setRooms((prev) =>
+      prev.map((r) => r.id === updatedApiRoom.id ? updatedApiRoom : r)
+    );
+    reservationsApi.getAll({ status: 'reserved,checked_in' })
+      .then(setReservations)
+      .catch(() => {});
   });
 
   /* Tab'dan çizelgeye dönünce veriyi tazele */

@@ -18,6 +18,7 @@ import router from './routes';
 import { AuthProvider } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { HotelProvider } from './contexts/HotelContext';
+import { RoomWebSocketProvider } from './contexts/RoomWebSocketContext';
 
 const App: React.FC = () => {
   return (
@@ -32,8 +33,11 @@ const App: React.FC = () => {
         <HotelProvider>
           {/* Bildirim (toast) sağlayıcı */}
           <NotificationProvider>
-            {/* Sayfa yönlendirme */}
-            <RouterProvider router={router} />
+            {/* Paylaşılan WebSocket — oda güncellemeleri tek bağlantıda */}
+            <RoomWebSocketProvider>
+              {/* Sayfa yönlendirme */}
+              <RouterProvider router={router} />
+            </RoomWebSocketProvider>
           </NotificationProvider>
         </HotelProvider>
       </AuthProvider>

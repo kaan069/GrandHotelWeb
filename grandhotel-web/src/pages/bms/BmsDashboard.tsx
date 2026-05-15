@@ -29,7 +29,7 @@ import {
 } from '@mui/icons-material';
 
 import usePageTabs from '../../hooks/usePageTabs';
-import useRoomWebSocket from '../../hooks/useRoomWebSocket';
+import { useRoomUpdates } from '../../contexts/RoomWebSocketContext';
 import { ROOM_STATUS, ROOM_STATUS_LABELS, ROOM_STATUS_COLORS, RoomTab, RoomGuest } from '../../utils/constants';
 import { roomsApi } from '../../api/services';
 import type { ApiRoom, ApiRoomMinibarItem } from '../../api/services';
@@ -104,11 +104,9 @@ const BmsDashboard: React.FC = () => {
   }, []);
 
   /* WebSocket */
-  useRoomWebSocket({
-    onRoomUpdate: (updatedApiRoom) => {
-      const updated = mapApiRoom(updatedApiRoom);
-      setRooms((prev) => prev.map((r) => r.id === updated.id ? updated : r));
-    },
+  useRoomUpdates((updatedApiRoom) => {
+    const updated = mapApiRoom(updatedApiRoom);
+    setRooms((prev) => prev.map((r) => r.id === updated.id ? updated : r));
   });
 
   /* Kat filtresi */
