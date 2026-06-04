@@ -1176,6 +1176,12 @@ export const menuApi = {
     return api.get<ApiCatalogRoom[]>(`/menu/catalog/${branchCode}/rooms/${qs}`).then((r) => r.data);
   },
 
+  /** Katalog için aktif masalar (restoran/kafe) */
+  getCatalogTables: (branchCode: string, token?: string) => {
+    const qs = token ? `?t=${encodeURIComponent(token)}` : '';
+    return api.get<ApiCatalogTable[]>(`/menu/catalog/${branchCode}/tables/${qs}`).then((r) => r.data);
+  },
+
   /** Katalogtan sipariş ver */
   placeCatalogOrder: (branchCode: string, payload: CatalogOrderPayload, token?: string) => {
     const qs = token ? `?t=${encodeURIComponent(token)}` : '';
@@ -1187,6 +1193,11 @@ export interface ApiCatalogRoom {
   roomNumber: string;
 }
 
+export interface ApiCatalogTable {
+  tableNumber: string;
+  serviceAreaName: string;
+}
+
 export interface CatalogOrderItem {
   menuItemId: number;
   quantity: number;
@@ -1194,7 +1205,8 @@ export interface CatalogOrderItem {
 }
 
 export interface CatalogOrderPayload {
-  roomNumber: string;
+  roomNumber?: string;
+  tableNumber?: string;
   customerName: string;
   items: CatalogOrderItem[];
 }
@@ -1202,7 +1214,8 @@ export interface CatalogOrderPayload {
 export interface CatalogOrderResponse {
   tabId: number;
   tabNo: string;
-  roomNumber: string;
+  roomNumber?: string;
+  tableNumber?: string;
   customerName: string;
   itemCount: number;
   totalAmount: string;

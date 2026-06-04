@@ -28,6 +28,8 @@ import {
   StepLabel,
   Stepper,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from '@mui/material';
 import {
@@ -46,6 +48,7 @@ import type {
   ApiCatalogResponse,
   ApiCatalogItem,
   ApiCatalogRoom,
+  ApiCatalogTable,
 } from '../../api/services';
 import { formatCurrency } from '../../utils/formatters';
 
@@ -72,10 +75,13 @@ const MenuCatalog: React.FC = () => {
 
   /* Sipariş dialog */
   const [orderDialogOpen, setOrderDialogOpen] = useState(false);
-  const [orderStep, setOrderStep] = useState(0); // 0: cart, 1: oda+isim, 2: ödeme, 3: başarı
+  const [orderStep, setOrderStep] = useState(0); // 0: cart, 1: konum+isim, 2: ödeme (sadece oda modu), 3: başarı
+  const [orderMode, setOrderMode] = useState<'room' | 'table'>('room');
   const [rooms, setRooms] = useState<ApiCatalogRoom[]>([]);
+  const [tables, setTables] = useState<ApiCatalogTable[]>([]);
   const [roomsLoading, setRoomsLoading] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState('');
+  const [selectedTable, setSelectedTable] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [cardNumber, setCardNumber] = useState('');
   const [cardExpiry, setCardExpiry] = useState('');
@@ -157,7 +163,9 @@ const MenuCatalog: React.FC = () => {
     if (orderResult) {
       // Başarılıysa sepeti temizle ve formu sıfırla
       setCart([]);
+      setOrderMode('room');
       setSelectedRoom('');
+      setSelectedTable('');
       setCustomerName('');
       setCardNumber('');
       setCardExpiry('');
@@ -168,58 +176,80 @@ const MenuCatalog: React.FC = () => {
     }
   };
 
-  const goToRoomStep = async () => {
+  const goToLocationStep = async () => {
     if (!branchCode) return;
     setRoomsLoading(true);
     setOrderError(null);
     try {
-      const list = await menuApi.getCatalogRooms(branchCode, accessToken);
-      setRooms(list);
+      const [roomsList, tablesList] = await Promise.all([
+        menuApi.getCatalogRooms(branchCode, accessToken).catch(() => [] as ApiCatalogRoom[]),
+        menuApi.getCatalogTables(branchCode, accessToken).catch(() => [] as ApiCatalogTable[]),
+      ]);
+      setRooms(roomsList);
+      setTables(tablesList);
       setOrderStep(1);
     } catch {
-      setOrderError('Odalar yüklenemedi.');
+      setOrderError('Konum bilgileri yüklenemedi.');
     } finally {
       setRoomsLoading(false);
     }
   };
 
-  const goToPaymentStep = () => {
-    if (!selectedRoom) {
-      setOrderError('Lütfen oda numaranızı seçin.');
-      return;
-    }
-    if (!customerName.trim()) {
-      setOrderError('Lütfen adınızı girin.');
-      return;
-    }
-    setOrderError(null);
-    setOrderStep(2);
-  };
-
-  const submitOrder = async () => {
+  const submitOrder = async (overrideMode?: 'room' | 'table') => {
     if (!branchCode) return;
-    // Kart bilgileri minimum dolu olsun (UI doğrulama, ödeme yok)
-    if (!cardNumber.trim() || !cardExpiry.trim() || !cardCvv.trim() || !cardHolder.trim()) {
-      setOrderError('Lütfen kart bilgilerini eksiksiz girin.');
-      return;
+    const mode = overrideMode ?? orderMode;
+    // Oda modunda kart bilgileri doldurulmalı (UI doğrulama, ödeme yok)
+    if (mode === 'room') {
+      if (!cardNumber.trim() || !cardExpiry.trim() || !cardCvv.trim() || !cardHolder.trim()) {
+        setOrderError('Lütfen kart bilgilerini eksiksiz girin.');
+        return;
+      }
     }
     setSubmitting(true);
     setOrderError(null);
     try {
-      const res = await menuApi.placeCatalogOrder(branchCode, {
-        roomNumber: selectedRoom,
-        customerName: customerName.trim(),
-        items: cart.map((l) => ({
-          menuItemId: l.item.id,
-          quantity: l.quantity,
-        })),
-      }, accessToken);
+      const payload =
+        mode === 'table'
+          ? {
+              tableNumber: selectedTable,
+              customerName: customerName.trim(),
+              items: cart.map((l) => ({ menuItemId: l.item.id, quantity: l.quantity })),
+            }
+          : {
+              roomNumber: selectedRoom,
+              customerName: customerName.trim(),
+              items: cart.map((l) => ({ menuItemId: l.item.id, quantity: l.quantity })),
+            };
+      const res = await menuApi.placeCatalogOrder(branchCode, payload, accessToken);
       setOrderResult({ tabNo: res.tabNo, total: res.totalAmount });
       setOrderStep(3);
     } catch (e: any) {
       setOrderError(e?.response?.data?.error || 'Sipariş gönderilemedi.');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const continueFromLocationStep = () => {
+    if (!customerName.trim()) {
+      setOrderError('Lütfen adınızı girin.');
+      return;
+    }
+    if (orderMode === 'room') {
+      if (!selectedRoom) {
+        setOrderError('Lütfen oda numaranızı seçin.');
+        return;
+      }
+      setOrderError(null);
+      setOrderStep(2);
+    } else {
+      if (!selectedTable) {
+        setOrderError('Lütfen masa numaranızı seçin.');
+        return;
+      }
+      setOrderError(null);
+      // Masa modunda ödeme adımı yok, doğrudan gönder
+      void submitOrder('table');
     }
   };
 
@@ -623,7 +653,7 @@ const MenuCatalog: React.FC = () => {
       >
         <DialogTitle sx={{ pb: 1 }}>
           {orderStep === 0 && 'Sepetiniz'}
-          {orderStep === 1 && 'Oda Bilgisi'}
+          {orderStep === 1 && (orderMode === 'table' ? 'Masa Bilgisi' : 'Oda Bilgisi')}
           {orderStep === 2 && 'Ödeme'}
           {orderStep === 3 && 'Sipariş Alındı'}
         </DialogTitle>
@@ -632,8 +662,10 @@ const MenuCatalog: React.FC = () => {
           <Box sx={{ px: 3, pb: 1 }}>
             <Stepper activeStep={orderStep} alternativeLabel>
               <Step><StepLabel>Sepet</StepLabel></Step>
-              <Step><StepLabel>Oda</StepLabel></Step>
-              <Step><StepLabel>Ödeme</StepLabel></Step>
+              <Step><StepLabel>{orderMode === 'table' ? 'Masa' : 'Oda'}</StepLabel></Step>
+              {orderMode === 'room' && (
+                <Step><StepLabel>Ödeme</StepLabel></Step>
+              )}
             </Stepper>
           </Box>
         )}
@@ -693,52 +725,110 @@ const MenuCatalog: React.FC = () => {
             </Stack>
           )}
 
-          {/* 1: Oda + isim */}
+          {/* 1: Konum (oda/masa) + isim */}
           {orderStep === 1 && (
             <Stack spacing={2} sx={{ pt: 1 }}>
-              {rooms.length === 0 ? (
-                <Box sx={{
-                  p: 2.5,
-                  borderRadius: 2,
-                  bgcolor: '#FFF7E6',
-                  border: '1px solid #F5D08A',
-                  color: '#7A5A00',
-                }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
-                    Şu an aktif misafir bulunmuyor
-                  </Typography>
-                  <Typography variant="body2">
-                    Sipariş verebilmek için odanın resepsiyondan check-in yapılmış olması gerekir.
-                    Lütfen resepsiyona danışın.
-                  </Typography>
-                </Box>
+              <ToggleButtonGroup
+                value={orderMode}
+                exclusive
+                onChange={(_, v) => {
+                  if (v) {
+                    setOrderMode(v);
+                    setOrderError(null);
+                  }
+                }}
+                fullWidth
+                color="primary"
+              >
+                <ToggleButton value="room">Odamdayım</ToggleButton>
+                <ToggleButton value="table">Restoran / Kafedeyim</ToggleButton>
+              </ToggleButtonGroup>
+
+              {orderMode === 'room' ? (
+                rooms.length === 0 ? (
+                  <Box sx={{
+                    p: 2.5,
+                    borderRadius: 2,
+                    bgcolor: '#FFF7E6',
+                    border: '1px solid #F5D08A',
+                    color: '#7A5A00',
+                  }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+                      Şu an aktif misafir bulunmuyor
+                    </Typography>
+                    <Typography variant="body2">
+                      Sipariş verebilmek için odanın resepsiyondan check-in yapılmış olması gerekir.
+                      Lütfen resepsiyona danışın.
+                    </Typography>
+                  </Box>
+                ) : (
+                  <TextField
+                    select
+                    label="Oda Numarası"
+                    fullWidth
+                    value={selectedRoom}
+                    onChange={(e) => setSelectedRoom(e.target.value)}
+                    SelectProps={{
+                      MenuProps: {
+                        PaperProps: { style: { maxHeight: 320 } },
+                      },
+                    }}
+                    helperText="Lütfen kaldığınız odayı seçin."
+                  >
+                    {rooms.map((r) => (
+                      <MenuItem key={r.roomNumber} value={r.roomNumber}>
+                        Oda {r.roomNumber}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                )
               ) : (
-                <TextField
-                  select
-                  label="Oda Numarası"
-                  fullWidth
-                  value={selectedRoom}
-                  onChange={(e) => setSelectedRoom(e.target.value)}
-                  SelectProps={{
-                    MenuProps: {
-                      PaperProps: { style: { maxHeight: 320 } },
-                    },
-                  }}
-                  helperText="Lütfen kaldığınız odayı seçin."
-                >
-                  {rooms.map((r) => (
-                    <MenuItem key={r.roomNumber} value={r.roomNumber}>
-                      Oda {r.roomNumber}
-                    </MenuItem>
-                  ))}
-                </TextField>
+                tables.length === 0 ? (
+                  <Box sx={{
+                    p: 2.5,
+                    borderRadius: 2,
+                    bgcolor: '#FFF7E6',
+                    border: '1px solid #F5D08A',
+                    color: '#7A5A00',
+                  }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+                      Aktif masa bulunmuyor
+                    </Typography>
+                    <Typography variant="body2">
+                      Lütfen personele danışın.
+                    </Typography>
+                  </Box>
+                ) : (
+                  <TextField
+                    select
+                    label="Masa Numarası"
+                    fullWidth
+                    value={selectedTable}
+                    onChange={(e) => setSelectedTable(e.target.value)}
+                    SelectProps={{
+                      MenuProps: {
+                        PaperProps: { style: { maxHeight: 320 } },
+                      },
+                    }}
+                    helperText="Lütfen oturduğunuz masayı seçin."
+                  >
+                    {tables.map((t) => (
+                      <MenuItem key={`${t.serviceAreaName}-${t.tableNumber}`} value={t.tableNumber}>
+                        Masa {t.tableNumber} — {t.serviceAreaName}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                )
               )}
               <TextField
                 label="Adınız Soyadınız"
                 fullWidth
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
-                disabled={rooms.length === 0}
+                disabled={
+                  (orderMode === 'room' && rooms.length === 0) ||
+                  (orderMode === 'table' && tables.length === 0)
+                }
               />
             </Stack>
           )}
@@ -803,7 +893,7 @@ const MenuCatalog: React.FC = () => {
                 Adisyon No: <strong>{orderResult.tabNo}</strong>
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Mutfağımıza iletildi. En kısa sürede odanıza getirilecek.
+                Mutfağımıza iletildi. En kısa sürede {orderMode === 'table' ? 'masanıza' : 'odanıza'} getirilecek.
               </Typography>
             </Box>
           )}
@@ -821,7 +911,7 @@ const MenuCatalog: React.FC = () => {
               <Button onClick={closeOrderDialog} color="inherit">İptal</Button>
               <Button
                 variant="contained"
-                onClick={goToRoomStep}
+                onClick={goToLocationStep}
                 disabled={cart.length === 0 || roomsLoading}
                 sx={{ bgcolor: '#3E2C1C', '&:hover': { bgcolor: '#2D1F12' } }}
               >
@@ -831,14 +921,18 @@ const MenuCatalog: React.FC = () => {
           )}
           {orderStep === 1 && (
             <>
-              <Button onClick={() => setOrderStep(0)} color="inherit">Geri</Button>
+              <Button onClick={() => setOrderStep(0)} color="inherit" disabled={submitting}>Geri</Button>
               <Button
                 variant="contained"
-                onClick={goToPaymentStep}
-                disabled={rooms.length === 0}
+                onClick={continueFromLocationStep}
+                disabled={
+                  submitting ||
+                  (orderMode === 'room' && rooms.length === 0) ||
+                  (orderMode === 'table' && tables.length === 0)
+                }
                 sx={{ bgcolor: '#3E2C1C', '&:hover': { bgcolor: '#2D1F12' } }}
               >
-                Devam Et
+                {submitting ? <CircularProgress size={20} sx={{ color: '#FFF' }} /> : 'Devam Et'}
               </Button>
             </>
           )}
@@ -849,7 +943,7 @@ const MenuCatalog: React.FC = () => {
               </Button>
               <Button
                 variant="contained"
-                onClick={submitOrder}
+                onClick={() => submitOrder()}
                 disabled={submitting}
                 sx={{ bgcolor: '#3E2C1C', '&:hover': { bgcolor: '#2D1F12' } }}
               >
