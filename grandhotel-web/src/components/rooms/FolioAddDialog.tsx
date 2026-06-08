@@ -44,6 +44,10 @@ interface FolioAddDialogProps {
   roomId: number;
   onClose: () => void;
   onSave: (data: FolioAddData) => void;
+  /** Cari kontrolü için: account_transfer_* kategorilerinde hedef firma adı (varsa) */
+  companyName?: string | null;
+  /** Cari kontrolü için: account_transfer_* kategorilerinde hedef acente adı (varsa) */
+  agencyName?: string | null;
 }
 
 const FolioAddDialog: React.FC<FolioAddDialogProps> = ({
@@ -51,6 +55,8 @@ const FolioAddDialog: React.FC<FolioAddDialogProps> = ({
   roomId,
   onClose,
   onSave,
+  companyName,
+  agencyName,
 }) => {
   const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
@@ -170,7 +176,11 @@ const FolioAddDialog: React.FC<FolioAddDialogProps> = ({
           helperText={
             errors.category ||
             (isAccountTransfer
-              ? 'Firma/Acente müşterisi ise ilgili cari hesaba, yoksa misafir hesabına yazılır. Borçlular ekranından takip edilir.'
+              ? (companyName
+                  ? `→ ${companyName} firmasının cari hesabına yazılacak.`
+                  : agencyName
+                  ? `→ ${agencyName} acentesinin cari hesabına yazılacak.`
+                  : 'Hedef: misafir hesabı. Firma/acente müşterisi için önce rezervasyona firma/acente seçin.')
               : undefined)
           }
           fullWidth

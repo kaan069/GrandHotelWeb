@@ -29,6 +29,8 @@ import FolioAddDialog from './FolioAddDialog';
 import type { FolioAddData } from './FolioAddDialog';
 import DetailDialog from './DetailDialog';
 import { InvoiceCreateDialog } from '../invoices';
+import CheckOutDialog, { type EarlyDepartureMode } from './CheckOutDialog';
+import { PAYMENT_LIKE_CATEGORIES, DEDUCTION_CATEGORIES } from '../../utils/folio';
 
 /* Alt bileşenler */
 import RoomDetailSections, {
@@ -640,27 +642,40 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
     }
   };
 
+  const [checkoutServerError, setCheckoutServerError] = useState<{ message: string; balance?: number; refundPending?: number } | null>(null);
+
   const handleCheckOutClick = () => {
-    if (folioTotal > 0) {
-      setSnackbar({ open: true, message: `Odanın ${folioTotal.toLocaleString('tr-TR')} ₺ borcu bulunmaktadır. Lütfen ödeme yapınız.`, severity: 'warning' });
-      return;
-    }
-    if (!hasPayment) {
-      setSnackbar({ open: true, message: 'Bu konaklama için folio\'ya henüz ücret/ödeme eklenmemiş. Lütfen önce folio kayıtlarını oluşturup ödeme alınız.', severity: 'warning' });
-      return;
-    }
+    // Yeni dialog backend ile tam entegre — eksik room_charge, şirket cariye, force, hepsi dialog'da.
+    setCheckoutServerError(null);
     setCheckoutConfirmOpen(true);
   };
 
-  const handleCheckOutConfirm = async () => {
+  const handleCheckOutConfirm = async (params: {
+    force: boolean;
+    forceReason: string;
+    earlyDepartureMode: EarlyDepartureMode;
+    transferToCompany: boolean;
+  }) => {
     setCheckoutLoading(true);
+    setCheckoutServerError(null);
     try {
-      await roomsApi.checkOut(room.id);
+      await roomsApi.checkOut(room.id, {
+        force: params.force,
+        forceReason: params.forceReason,
+        earlyDepartureMode: params.earlyDepartureMode,
+        transferToCompany: params.transferToCompany,
+        staffName: currentUserName,
+      });
       setCheckoutConfirmOpen(false);
     } catch (err: unknown) {
       console.error('Check-out hatası:', err);
-      const axiosErr = err as { response?: { data?: { error?: string } }; message?: string };
-      setSnackbar({ open: true, message: axiosErr?.response?.data?.error || axiosErr?.message || 'Check-out yapılamadı', severity: 'error' });
+      const axiosErr = err as { response?: { data?: { error?: string; balance?: number; refundPending?: number } }; message?: string };
+      const data = axiosErr?.response?.data;
+      setCheckoutServerError({
+        message: data?.error || axiosErr?.message || 'Check-out yapılamadı',
+        balance: data?.balance,
+        refundPending: data?.refundPending,
+      });
     } finally {
       setCheckoutLoading(false);
     }
@@ -840,19 +855,15 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
    *   - account_transfer_credit (cariye alacaklı aktar → fazla ödeme kredi oldu)
    *   - discount (indirim)
    */
-  const PAYMENT_LIKE_CATEGORIES = new Set([
-    'payment',
-    'account_transfer_debit',
-    'account_transfer_credit',
-  ]);
+  // PAYMENT_LIKE_CATEGORIES + DEDUCTION_CATEGORIES utils/folio.ts'den import.
+  // Backend `apps/stays/models.py` ile birebir uyumlu — tek doğruluk kaynağı.
   const folioTotal = folios.reduce((sum, f) => {
-    if (f.category === 'discount') return sum - f.amount;
+    if (DEDUCTION_CATEGORIES.has(f.category)) return sum - f.amount;
     if (PAYMENT_LIKE_CATEGORIES.has(f.category)) return sum - f.amount;
     return sum + f.amount;
   }, 0);
 
   const hasGuests = room.guests && room.guests.length > 0;
-  const hasPayment = folios.some((f) => PAYMENT_LIKE_CATEGORIES.has(f.category));
   const isCheckInDisabled = !hasGuests;
   const isOccupied = room.status === ROOM_STATUS.OCCUPIED;
 
@@ -1009,6 +1020,18 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
         roomId={Number(room.id)}
         onClose={() => setFolioAddOpen(false)}
         onSave={handleFolioAdd}
+        companyName={(() => {
+          const id = selectedCompanyId ? Number(selectedCompanyId) : null;
+          if (!id) return null;
+          const c = companies.find((co) => co.id === id);
+          return c ? c.name : null;
+        })()}
+        agencyName={(() => {
+          const id = selectedAgencyId ? Number(selectedAgencyId) : null;
+          if (!id) return null;
+          const a = agencies.find((ag) => ag.id === id);
+          return a ? a.name : null;
+        })()}
       />
 
       <DetailDialog
@@ -1056,16 +1079,26 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
         loading={cancelLoading}
       />
 
-      {/* Check-out Onay */}
-      <ConfirmDialog
+      {/* Check-out Dialog — eksik room_charge + erken çıkış + şirket cari + force */}
+      <CheckOutDialog
         open={checkoutConfirmOpen}
-        title="Check-out"
-        message={`Oda ${room.roomNumber} için check-out yapmak istediğinize emin misiniz?`}
-        confirmText="Check-out Yap"
-        confirmColor="secondary"
+        onClose={() => setCheckoutConfirmOpen(false)}
         onConfirm={handleCheckOutConfirm}
-        onCancel={() => setCheckoutConfirmOpen(false)}
         loading={checkoutLoading}
+        roomNumber={room.roomNumber}
+        nightlyRate={Number(nightlyRate) || room.price || 0}
+        checkInISO={room.reservationCheckIn || ''}
+        plannedCheckOutISO={room.reservationCheckOut || null}
+        folioItems={folios}
+        companyId={selectedCompanyId ? Number(selectedCompanyId) : null}
+        companyName={(() => {
+          const id = selectedCompanyId ? Number(selectedCompanyId) : null;
+          if (!id) return null;
+          const c = companies.find((co) => co.id === id);
+          return c ? c.name : null;
+        })()}
+        canForce={user?.role === 'patron' || user?.role === 'manager'}
+        serverError={checkoutServerError}
       />
 
       <Snackbar

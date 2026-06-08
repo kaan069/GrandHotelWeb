@@ -30,6 +30,7 @@ import {
 } from '@mui/icons-material';
 
 import { Company, Agency, FolioItem, FOLIO_CATEGORY_LABELS } from '../../../utils/constants';
+import { isFolioDeductionRow } from '../../../utils/folio';
 
 export interface CompanyGuestRow {
   id: number;
@@ -335,7 +336,7 @@ const StayInfoPanel: React.FC<StayInfoPanelProps> = ({
                         {folio.description ? ` - ${folio.description}` : ''}
                       </TableCell>
                       <TableCell align="right" sx={{ fontSize: '0.8125rem' }}>
-                        {(folio.category === 'discount' || folio.category === 'payment' ? '-' : '')}
+                        {isFolioDeductionRow(folio.category) ? '-' : ''}
                         {folio.amount.toLocaleString('tr-TR')} ₺
                       </TableCell>
                     </TableRow>

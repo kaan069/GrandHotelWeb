@@ -33,6 +33,7 @@ import { FolioItem, FOLIO_CATEGORY_LABELS } from '../../../utils/constants';
 import { formatDateTime } from '../../../utils/formatters';
 import { tabsApi } from '../../../api/services';
 import type { ApiTab } from '../../../api/services';
+import { PAYMENT_LIKE_CATEGORIES, isFolioDeductionRow } from '../../../utils/folio';
 
 interface FolioDetailDialogProps {
   open: boolean;
@@ -52,12 +53,6 @@ const extractTabNo = (description: string): string | null => {
   return match ? match[1] : null;
 };
 
-/** Ödeme gibi davranan kategoriler (folio'da negatif olarak gösterilir) */
-const PAYMENT_LIKE_CATEGORIES = new Set([
-  'payment',
-  'account_transfer_debit',
-  'account_transfer_credit',
-]);
 
 const FolioDetailDialog: React.FC<FolioDetailDialogProps> = ({
   open,
@@ -170,7 +165,7 @@ const FolioDetailDialog: React.FC<FolioDetailDialogProps> = ({
                         {folio.createdAt ? formatDateTime(folio.createdAt) : (folio.date || '-')}
                       </TableCell>
                       <TableCell align="right" sx={{ fontWeight: 500 }}>
-                        {(folio.category === 'discount' || PAYMENT_LIKE_CATEGORIES.has(folio.category) ? '-' : '')}
+                        {isFolioDeductionRow(folio.category) ? '-' : ''}
                         {folio.amount.toLocaleString('tr-TR')} ₺
                       </TableCell>
                       <TableCell align="center">

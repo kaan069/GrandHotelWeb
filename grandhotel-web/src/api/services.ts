@@ -310,8 +310,17 @@ export const roomsApi = {
   checkIn: (roomId: number, body: { guestId: number; notes?: string; checkOut?: string; companyId?: number; agencyId?: number; agencyReservationCode?: string }) =>
     api.post<ApiRoom>(`/rooms/${roomId}/check_in/`, body).then((r) => r.data),
 
-  checkOut: (roomId: number, body?: { guestId?: number }) =>
-    api.post<ApiRoom>(`/rooms/${roomId}/check_out/`, body || {}).then((r) => r.data),
+  checkOut: (
+    roomId: number,
+    body?: {
+      guestId?: number;
+      force?: boolean;
+      forceReason?: string;
+      earlyDepartureMode?: 'refund' | 'full' | 'penalty';
+      transferToCompany?: boolean;
+      staffName?: string;
+    }
+  ) => api.post<ApiRoom>(`/rooms/${roomId}/check_out/`, body || {}).then((r) => r.data),
 
   addGuest: (roomId: number, guestId: number) =>
     api.post<ApiRoom>(`/rooms/${roomId}/add_guest/`, { guestId }).then((r) => r.data),
