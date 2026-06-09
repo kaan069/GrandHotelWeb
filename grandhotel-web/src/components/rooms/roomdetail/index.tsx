@@ -130,11 +130,16 @@ const RoomDetailSections: React.FC<RoomDetailSectionsProps> = ({
           </Grid>
         </Grid>
 
-        <QuickReservationSection
-          quickRes={quickRes}
-          onQuickResChange={onQuickResChange}
-          onSubmit={onQuickResSubmit}
-        />
+        {/* Hızlı Rezervasyon — sadece BOŞ oda + kayıtlı misafir yokken görünür.
+            Kayıtlı misafir eklendiyse üstteki "Kaydet & Rezerve Et" akışı (handleSaveReservation)
+            kullanılmalı — placeholder yerine gerçek guestId ile reservation oluşur. */}
+        {!isOccupied && guests.filter((g) => g.guestId !== null).length === 0 && (
+          <QuickReservationSection
+            quickRes={quickRes}
+            onQuickResChange={onQuickResChange}
+            onSubmit={onQuickResSubmit}
+          />
+        )}
 
         <RoomNoteSection
           note={note}

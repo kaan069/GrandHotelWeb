@@ -247,19 +247,9 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
           createdAt: f.createdAt ?? undefined,
         })));
 
-        // Rezervasyon varsa sahibinin bilgisini hızlı rezervasyon alanına getir
-        if (room.reservationId) {
-          const resDetail = await reservationsApi.getById(room.reservationId);
-          if (resDetail.stays && resDetail.stays.length > 0) {
-            const owner = resDetail.stays[0];
-            const nameParts = (owner.guestName || '').split(' ');
-            setQuickRes({
-              firstName: nameParts[0] || '',
-              lastName: nameParts.slice(1).join(' ') || '',
-              phone: owner.phone || '',
-            });
-          }
-        }
+        // NOT: Owner bilgisini quickRes'e otomatik yazma kaldırıldı.
+        // Eski davranış kullanıcının kayıtlı misafirini placeholder olarak gönderiyordu
+        // (bkz. handleQuickReservation) — bug kaynağıydı.
       } catch (err) {
         console.error('Veri yüklenirken hata:', err);
       }
