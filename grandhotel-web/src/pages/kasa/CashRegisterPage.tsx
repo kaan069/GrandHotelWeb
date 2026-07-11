@@ -569,6 +569,17 @@ const CashRegisterPage: React.FC = () => {
                     </Typography>
                   )}
 
+                  {(tableDetail?.currentTab?.paymentLocation === 'cashier' ||
+                    tableDetail?.currentTab?.paymentLocation === 'table') && (
+                    <Chip
+                      size="small"
+                      variant="outlined"
+                      color={tableDetail.currentTab.paymentLocation === 'cashier' ? 'primary' : 'default'}
+                      label={`Ödeme: ${tableDetail.currentTab.paymentLocation === 'cashier' ? 'Kasada' : 'Masada'}`}
+                      sx={{ mb: 1 }}
+                    />
+                  )}
+
                   {/* Adisyon kalemleri */}
                   {tableDetail?.currentTab?.items && tableDetail.currentTab.items.length > 0 && (
                     <>

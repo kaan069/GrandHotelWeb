@@ -81,7 +81,8 @@ const MenuCatalog: React.FC = () => {
   const [tables, setTables] = useState<ApiCatalogTable[]>([]);
   const [roomsLoading, setRoomsLoading] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState('');
-  const [selectedTable, setSelectedTable] = useState('');
+  const [selectedTable, setSelectedTable] = useState(''); // masa id (string)
+  const [paymentLocation, setPaymentLocation] = useState<'cashier' | 'table'>('cashier');
   const [customerName, setCustomerName] = useState('');
   const [cardNumber, setCardNumber] = useState('');
   const [cardExpiry, setCardExpiry] = useState('');
@@ -166,6 +167,7 @@ const MenuCatalog: React.FC = () => {
       setOrderMode('room');
       setSelectedRoom('');
       setSelectedTable('');
+      setPaymentLocation('cashier');
       setCustomerName('');
       setCardNumber('');
       setCardExpiry('');
@@ -211,7 +213,8 @@ const MenuCatalog: React.FC = () => {
       const payload =
         mode === 'table'
           ? {
-              tableNumber: selectedTable,
+              tableId: Number(selectedTable),
+              paymentLocation,
               customerName: customerName.trim(),
               items: cart.map((l) => ({ menuItemId: l.item.id, quantity: l.quantity })),
             }
@@ -799,25 +802,43 @@ const MenuCatalog: React.FC = () => {
                     </Typography>
                   </Box>
                 ) : (
-                  <TextField
-                    select
-                    label="Masa Numarası"
-                    fullWidth
-                    value={selectedTable}
-                    onChange={(e) => setSelectedTable(e.target.value)}
-                    SelectProps={{
-                      MenuProps: {
-                        PaperProps: { style: { maxHeight: 320 } },
-                      },
-                    }}
-                    helperText="Lütfen oturduğunuz masayı seçin."
-                  >
-                    {tables.map((t) => (
-                      <MenuItem key={`${t.serviceAreaName}-${t.tableNumber}`} value={t.tableNumber}>
-                        Masa {t.tableNumber} — {t.serviceAreaName}
-                      </MenuItem>
-                    ))}
-                  </TextField>
+                  <>
+                    <TextField
+                      select
+                      label="Masa Numarası"
+                      fullWidth
+                      value={selectedTable}
+                      onChange={(e) => setSelectedTable(e.target.value)}
+                      SelectProps={{
+                        MenuProps: {
+                          PaperProps: { style: { maxHeight: 320 } },
+                        },
+                      }}
+                      helperText="Lütfen oturduğunuz masayı seçin."
+                    >
+                      {tables.map((t) => (
+                        <MenuItem key={t.id} value={String(t.id)}>
+                          Masa {t.tableNumber} — {t.serviceAreaName}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                    <Box>
+                      <Typography variant="body2" sx={{ mb: 0.75, fontWeight: 600 }}>
+                        Ödeme nerede alınsın?
+                      </Typography>
+                      <ToggleButtonGroup
+                        value={paymentLocation}
+                        exclusive
+                        onChange={(_, v) => { if (v) setPaymentLocation(v); }}
+                        fullWidth
+                        color="primary"
+                        size="small"
+                      >
+                        <ToggleButton value="cashier">Kasada Öde</ToggleButton>
+                        <ToggleButton value="table">Masada Öde</ToggleButton>
+                      </ToggleButtonGroup>
+                    </Box>
+                  </>
                 )
               )}
               <TextField

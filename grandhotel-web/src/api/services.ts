@@ -1203,6 +1203,7 @@ export interface ApiCatalogRoom {
 }
 
 export interface ApiCatalogTable {
+  id: number;
   tableNumber: string;
   serviceAreaName: string;
 }
@@ -1215,7 +1216,8 @@ export interface CatalogOrderItem {
 
 export interface CatalogOrderPayload {
   roomNumber?: string;
-  tableNumber?: string;
+  tableId?: number;
+  paymentLocation?: 'cashier' | 'table';
   customerName: string;
   items: CatalogOrderItem[];
 }
@@ -1228,6 +1230,7 @@ export interface CatalogOrderResponse {
   customerName: string;
   itemCount: number;
   totalAmount: string;
+  paymentLocation?: 'cashier' | 'table' | '';
   message: string;
 }
 
@@ -1285,6 +1288,7 @@ export interface ApiTab {
   closedByName: string | null;
   totalAmount: string;
   paymentMethod: string | null;
+  paymentLocation?: 'cashier' | 'table' | '';
   notes: string;
   openedAt: string;
   closedAt: string | null;
