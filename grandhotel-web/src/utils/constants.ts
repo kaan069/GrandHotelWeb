@@ -169,7 +169,7 @@ export const MODULE_DEFINITIONS: ModuleDefinition[] = [
   { id: 'invoices', label: 'Faturalar', description: 'Fatura yönetimi, Paraşüt entegrasyonu', alwaysOn: false, dependsOn: [] },
   { id: 'cameras', label: 'Kameralar', description: 'Kamera sistemi entegrasyonu', alwaysOn: false, dependsOn: [] },
   { id: 'bms', label: 'Bina Yönetim Sistemi', description: 'Aydınlatma, klima, enerji yönetimi', alwaysOn: false, dependsOn: [] },
-  { id: 'accounting', label: 'Muhasebe', description: 'Cari hesaplar, borçlular, gelir-gider ve muhasebe raporları', alwaysOn: false, dependsOn: [] },
+  { id: 'accounting', label: 'Muhasebe', description: 'Cari hesaplar, borçlular, gelir-gider ve muhasebe raporları', alwaysOn: false, dependsOn: ['invoices'] },
 ];
 
 /* ==================== LAYOUT ==================== */
@@ -590,6 +590,25 @@ export const MENU_ITEMS: MenuItem[] = [
     icon: 'SwapHoriz',
     roles: [ROLES.RECEPTION],
     module: 'staff',
+  },
+  {
+    id: 'accounting',
+    label: 'Muhasebe',
+    path: '/muhasebe',
+    icon: 'AccountBalance',
+    roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.ACCOUNTING_MANAGER, ROLES.ACCOUNTANT],
+    module: 'accounting',
+    children: [
+      { id: 'acc-dashboard', label: 'Muhasebe Paneli', path: '/muhasebe' },
+      { id: 'acc-debtors', label: 'Borçlular / Alacaklılar', path: '/guests/debtors' },
+      { id: 'acc-guest-cari', label: 'Şahıs Carileri', path: '/muhasebe/sahis-cari' },
+      { id: 'acc-company-cari', label: 'Firma Carileri', path: '/guests/companies' },
+      { id: 'acc-agency-cari', label: 'Acente Carileri', path: '/guests/agencies' },
+      { id: 'acc-income-expense', label: 'Gelir-Gider', path: '/muhasebe/gelir-gider' },
+      { id: 'acc-invoices', label: 'Faturalar', path: '/invoices/sales' },
+      { id: 'acc-parasut', label: 'Paraşüt e-Fatura', path: '/integrations/parasut', roles: [ROLES.PATRON, ROLES.MANAGER] },
+      { id: 'acc-reports', label: 'Raporlar', path: '/reports/general' },
+    ],
   },
   {
     id: 'settings',

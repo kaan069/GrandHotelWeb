@@ -36,6 +36,9 @@ const CompanyReport = React.lazy(() => import('../pages/reports/CompanyReport'))
 const GeneralReport = React.lazy(() => import('../pages/reports/GeneralReport'));
 const NightAuditReport = React.lazy(() => import('../pages/reports/NightAuditReport'));
 const FixedExpensesReport = React.lazy(() => import('../pages/reports/FixedExpensesReport'));
+const AccountingDashboard = React.lazy(() => import('../pages/accounting/AccountingDashboard'));
+const IncomeExpense = React.lazy(() => import('../pages/accounting/IncomeExpense'));
+const GuestDebtors = React.lazy(() => import('../pages/accounting/GuestDebtors'));
 const StockManagement = React.lazy(() => import('../pages/minibar/StockManagement'));
 
 const MenuManagement = React.lazy(() => import('../pages/menu/MenuManagement'));
@@ -330,6 +333,21 @@ const router = createBrowserRouter([
           { path: '/invoices/purchase', element: <React.Suspense fallback={null}><InvoiceList /></React.Suspense> },
           { path: '/invoices/return', element: <React.Suspense fallback={null}><InvoiceList /></React.Suspense> },
           { path: '/invoices/incoming', element: <React.Suspense fallback={null}><InvoiceList /></React.Suspense> },
+        ],
+      },
+    ],
+  },
+
+  /* === Muhasebe modülü route'ları === */
+  {
+    element: <ProtectedRoute requiredModule="accounting" />,
+    children: [
+      {
+        element: <MainLayout />,
+        children: [
+          { path: '/muhasebe', element: <React.Suspense fallback={null}><AccountingDashboard /></React.Suspense> },
+          { path: '/muhasebe/gelir-gider', element: <React.Suspense fallback={null}><IncomeExpense /></React.Suspense> },
+          { path: '/muhasebe/sahis-cari', element: <React.Suspense fallback={null}><GuestDebtors /></React.Suspense> },
         ],
       },
     ],

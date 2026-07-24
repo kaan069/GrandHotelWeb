@@ -497,6 +497,121 @@ export const accountTransactionsApi = {
     ).then((r) => r.data),
 };
 
+/* ==================== MUHASEBE (ACCOUNTING) API ==================== */
+
+export interface ApiExpense {
+  id: number;
+  category: string;
+  categoryLabel: string;
+  amount: string;
+  date: string;
+  description: string;
+  vendor: string;
+  paymentMethod: string;
+  paymentMethodLabel: string;
+  isRecurring: boolean;
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface ExpensePayload {
+  category: string;
+  amount: number | string;
+  date: string;
+  description?: string;
+  vendor?: string;
+  paymentMethod?: string;
+  isRecurring?: boolean;
+  staffName?: string;
+}
+
+export interface CategoryTotal { category: string; total: string; }
+
+export interface IncomeExpenseSummary {
+  income: string;
+  expense: string;
+  net: string;
+  incomeByCategory: CategoryTotal[];
+  expenseByCategory: CategoryTotal[];
+}
+
+export interface AccountingSummary {
+  openDebit: string;
+  openCredit: string;
+  netReceivable: string;
+  monthIncome: string;
+  monthExpense: string;
+  monthNet: string;
+}
+
+export interface GuestDebtor {
+  id: number;
+  name: string;
+  phone: string;
+  tcNo: string;
+  debit: string;
+  credit: string;
+  balance: string;
+}
+
+export interface GuestDebtorsResponse {
+  items: GuestDebtor[];
+  count: number;
+  totalBalance: string;
+}
+
+export const EXPENSE_CATEGORIES: { value: string; label: string }[] = [
+  { value: 'rent', label: 'Kira' },
+  { value: 'utilities', label: 'Elektrik/Su/Doğalgaz' },
+  { value: 'salary', label: 'Personel/Maaş' },
+  { value: 'tax', label: 'Vergi/SGK' },
+  { value: 'maintenance', label: 'Bakım/Onarım' },
+  { value: 'supplies', label: 'Malzeme/İkmal' },
+  { value: 'food', label: 'Gıda/İçecek' },
+  { value: 'marketing', label: 'Pazarlama' },
+  { value: 'commission', label: 'Komisyon' },
+  { value: 'other', label: 'Diğer' },
+];
+
+export const EXPENSE_PAYMENT_METHODS: { value: string; label: string }[] = [
+  { value: 'cash', label: 'Nakit' },
+  { value: 'card', label: 'Kart' },
+  { value: 'transfer', label: 'Havale/EFT' },
+  { value: 'other', label: 'Diğer' },
+];
+
+export const accountingApi = {
+  // ── Gider (gelir-gider defteri) ──
+  listExpenses: (filters?: { category?: string; dateFrom?: string; dateTo?: string; recurring?: boolean }) => {
+    const params = new URLSearchParams();
+    if (filters?.category) params.append('category', filters.category);
+    if (filters?.dateFrom) params.append('dateFrom', filters.dateFrom);
+    if (filters?.dateTo) params.append('dateTo', filters.dateTo);
+    if (filters?.recurring) params.append('recurring', 'true');
+    const qs = params.toString();
+    return api.get<ApiExpense[]>(`/accounting/expenses/${qs ? '?' + qs : ''}`).then((r) => r.data);
+  },
+  createExpense: (payload: ExpensePayload) =>
+    api.post<ApiExpense>('/accounting/expenses/', payload).then((r) => r.data),
+  updateExpense: (id: number, payload: Partial<ExpensePayload>) =>
+    api.put<ApiExpense>(`/accounting/expenses/${id}/`, payload).then((r) => r.data),
+  deleteExpense: (id: number) =>
+    api.delete(`/accounting/expenses/${id}/`).then((r) => r.data),
+
+  // ── Özet / gelir-gider / şahıs carileri ──
+  summary: () =>
+    api.get<AccountingSummary>('/accounting/summary/').then((r) => r.data),
+  incomeExpense: (filters?: { dateFrom?: string; dateTo?: string }) => {
+    const params = new URLSearchParams();
+    if (filters?.dateFrom) params.append('dateFrom', filters.dateFrom);
+    if (filters?.dateTo) params.append('dateTo', filters.dateTo);
+    const qs = params.toString();
+    return api.get<IncomeExpenseSummary>(`/accounting/income-expense/${qs ? '?' + qs : ''}`).then((r) => r.data);
+  },
+  guestDebtors: () =>
+    api.get<GuestDebtorsResponse>('/accounting/guest-debtors/').then((r) => r.data),
+};
+
 /* ==================== RESERVATIONS API ==================== */
 
 export const reservationsApi = {
