@@ -606,7 +606,6 @@ export const MENU_ITEMS: MenuItem[] = [
       { id: 'acc-agency-cari', label: 'Acente Carileri', path: '/guests/agencies' },
       { id: 'acc-income-expense', label: 'Gelir-Gider', path: '/muhasebe/gelir-gider' },
       { id: 'acc-invoices', label: 'Faturalar', path: '/invoices/sales' },
-      { id: 'acc-parasut', label: 'Paraşüt e-Fatura', path: '/integrations/parasut', roles: [ROLES.PATRON, ROLES.MANAGER] },
       { id: 'acc-reports', label: 'Raporlar', path: '/reports/general' },
     ],
   },
