@@ -8,7 +8,7 @@
 /* ==================== TİP TANIMLARI ==================== */
 
 /** Kullanıcı rol tipi */
-export type Role = 'patron' | 'manager' | 'reception' | 'reception_manager' | 'waiter' | 'chef' | 'restaurant_manager' | 'technician' | 'housekeeper' | 'housekeeping_manager' | 'security' | 'accountant' | 'lobby' | 'barista' | 'barman' | 'minibar' | 'cashier';
+export type Role = 'patron' | 'manager' | 'reception' | 'reception_manager' | 'waiter' | 'chef' | 'restaurant_manager' | 'technician' | 'housekeeper' | 'housekeeping_manager' | 'security' | 'accountant' | 'accounting_manager' | 'lobby' | 'barista' | 'barman' | 'minibar' | 'cashier';
 
 /** Oda durumu tipi */
 export type RoomStatus = 'available' | 'occupied' | 'dirty' | 'maintenance' | 'blocked';
@@ -169,6 +169,7 @@ export const MODULE_DEFINITIONS: ModuleDefinition[] = [
   { id: 'invoices', label: 'Faturalar', description: 'Fatura yönetimi, Paraşüt entegrasyonu', alwaysOn: false, dependsOn: [] },
   { id: 'cameras', label: 'Kameralar', description: 'Kamera sistemi entegrasyonu', alwaysOn: false, dependsOn: [] },
   { id: 'bms', label: 'Bina Yönetim Sistemi', description: 'Aydınlatma, klima, enerji yönetimi', alwaysOn: false, dependsOn: [] },
+  { id: 'accounting', label: 'Muhasebe', description: 'Cari hesaplar, borçlular, gelir-gider ve muhasebe raporları', alwaysOn: false, dependsOn: [] },
 ];
 
 /* ==================== LAYOUT ==================== */
@@ -201,6 +202,7 @@ export const ROLES: Record<string, Role> = {
   TECHNICIAN: 'technician',
   SECURITY: 'security',
   ACCOUNTANT: 'accountant',
+  ACCOUNTING_MANAGER: 'accounting_manager',
   LOBBY: 'lobby',
   BARISTA: 'barista',
   BARMAN: 'barman',
@@ -222,6 +224,7 @@ export const ROLE_LABELS: Record<string, string> = {
   [ROLES.TECHNICIAN]: 'Teknik',
   [ROLES.SECURITY]: 'Güvenlik',
   [ROLES.ACCOUNTANT]: 'Muhasebe',
+  [ROLES.ACCOUNTING_MANAGER]: 'Muhasebe Müdürü',
   [ROLES.LOBBY]: 'Lobi',
   [ROLES.BARISTA]: 'Barista',
   [ROLES.BARMAN]: 'Barmen',
