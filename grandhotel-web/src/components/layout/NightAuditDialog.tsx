@@ -46,8 +46,9 @@ import { kazancApi } from '../../api/services';
 import type {
   NightAuditPreviewResponse,
   NightAuditNoShowRoom,
+  NightAuditScheduleResponse,
 } from '../../api/services';
-import { formatCurrency, formatDate } from '../../utils/formatters';
+import { formatCurrency, formatDate, formatDateTime } from '../../utils/formatters';
 import useAuth from '../../hooks/useAuth';
 
 interface NightAuditDialogProps {
@@ -79,9 +80,12 @@ const NightAuditDialog: React.FC<NightAuditDialogProps> = ({ open, onClose }) =>
 
   /* Otomatik gün sonu */
   const [showSchedule, setShowSchedule] = useState(false);
+  const [schedule, setSchedule] = useState<NightAuditScheduleResponse | null>(null);
+  /** Saat alanının düzenlenen değeri — kaydedilene kadar schedule'dan bağımsız */
   const [scheduleTime, setScheduleTime] = useState<string>('');
-  const [scheduleEnabled, setScheduleEnabled] = useState(false);
   const [scheduleSaving, setScheduleSaving] = useState(false);
+
+  const scheduleEnabled = schedule?.enabled ?? false;
 
   /** Backend'den önizleme + zamanlama verisi yükle */
   React.useEffect(() => {
@@ -99,8 +103,8 @@ const NightAuditDialog: React.FC<NightAuditDialogProps> = ({ open, onClose }) =>
           kazancApi.getNightAuditSchedule(),
         ]);
         setPreview(previewData);
+        setSchedule(scheduleData);
         setScheduleTime(scheduleData.nightAuditTime || '');
-        setScheduleEnabled(scheduleData.enabled);
       } catch (err) {
         console.error('Gün sonu veri hatası:', err);
         setPreview(null);
@@ -139,29 +143,23 @@ const NightAuditDialog: React.FC<NightAuditDialogProps> = ({ open, onClose }) =>
     }
   };
 
-  /** Otomatik saati kaydet */
-  const handleScheduleSave = async () => {
+  /** Otomatik saati kaydet (time=null → kapat) */
+  const saveSchedule = async (time: string | null) => {
     setScheduleSaving(true);
     try {
-      const data = await kazancApi.setNightAuditSchedule(scheduleTime || null);
+      const data = await kazancApi.setNightAuditSchedule(time);
+      setSchedule(data);
       setScheduleTime(data.nightAuditTime || '');
-      setScheduleEnabled(data.enabled);
+      setSnackbar({
+        open: true,
+        message: data.enabled
+          ? `Otomatik gün sonu ${data.nightAuditTime} olarak ayarlandı.`
+          : 'Otomatik gün sonu kapatıldı.',
+        severity: 'success',
+      });
     } catch (err) {
       console.error('Zamanlama kayıt hatası:', err);
-    } finally {
-      setScheduleSaving(false);
-    }
-  };
-
-  /** Otomatik kapatma */
-  const handleScheduleDisable = async () => {
-    setScheduleSaving(true);
-    try {
-      const data = await kazancApi.setNightAuditSchedule(null);
-      setScheduleTime('');
-      setScheduleEnabled(data.enabled);
-    } catch (err) {
-      console.error('Zamanlama kapatma hatası:', err);
+      setSnackbar({ open: true, message: 'Zamanlama kaydedilemedi.', severity: 'error' });
     } finally {
       setScheduleSaving(false);
     }
@@ -225,7 +223,7 @@ const NightAuditDialog: React.FC<NightAuditDialogProps> = ({ open, onClose }) =>
             {scheduleEnabled && (
               <Chip
                 icon={<ScheduleIcon />}
-                label={`Otomatik: ${scheduleTime}`}
+                label={`Otomatik: ${schedule?.nightAuditTime}`}
                 size="small"
                 color="info"
                 variant="outlined"
@@ -391,7 +389,7 @@ const NightAuditDialog: React.FC<NightAuditDialogProps> = ({ open, onClose }) =>
                   <Button
                     variant="contained"
                     size="small"
-                    onClick={handleScheduleSave}
+                    onClick={() => saveSchedule(scheduleTime || null)}
                     disabled={scheduleSaving || !scheduleTime}
                   >
                     {scheduleSaving ? <CircularProgress size={18} /> : 'Kaydet'}
@@ -401,7 +399,7 @@ const NightAuditDialog: React.FC<NightAuditDialogProps> = ({ open, onClose }) =>
                       variant="outlined"
                       size="small"
                       color="error"
-                      onClick={handleScheduleDisable}
+                      onClick={() => saveSchedule(null)}
                       disabled={scheduleSaving}
                     >
                       Devre Dışı Bırak
@@ -415,10 +413,39 @@ const NightAuditDialog: React.FC<NightAuditDialogProps> = ({ open, onClose }) =>
                     Kapat
                   </Button>
                 </Box>
-                {scheduleEnabled && (
-                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                    Her gece saat {scheduleTime} da gün sonu otomatik çalışacak.
-                  </Typography>
+
+                {/* Durum: otomatiğin gerçekten işlediği buradan görülür */}
+                {schedule && (
+                  <Box sx={{ mt: 1.5, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                    {scheduleEnabled ? (
+                      <Typography variant="caption" color="text.secondary">
+                        Sıradaki otomatik çalışma:{' '}
+                        <strong>
+                          {schedule.nextRun ? formatDateTime(schedule.nextRun) : '—'}
+                        </strong>
+                        {schedule.ranToday && ' (bugünün gün sonu alındı)'}
+                      </Typography>
+                    ) : (
+                      <Typography variant="caption" color="text.secondary">
+                        Otomatik gün sonu kapalı — gün sonu yalnızca elle çalıştırılır.
+                      </Typography>
+                    )}
+
+                    <Typography variant="caption" color="text.secondary">
+                      {schedule.lastRun ? (
+                        <>
+                          Son gün sonu: <strong>{formatDate(schedule.lastRun.date)}</strong>
+                          {' · '}
+                          {schedule.lastRun.automatic ? 'otomatik' : `elle (${schedule.lastRun.processedBy})`}
+                          {' · '}
+                          {schedule.lastRun.roomsCharged} oda,{' '}
+                          {formatCurrency(schedule.lastRun.totalCharged)}
+                        </>
+                      ) : (
+                        'Henüz hiç gün sonu alınmamış.'
+                      )}
+                    </Typography>
+                  </Box>
                 )}
               </Box>
             </Collapse>

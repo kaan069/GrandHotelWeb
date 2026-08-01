@@ -719,26 +719,7 @@ export interface ShiftHandover {
   createdAt?: string;
 }
 
-/* ==================== GÜN SONU (NIGHT AUDIT) ==================== */
-
-/** Gün sonu detay satırı */
-export interface NightAuditDetail {
-  roomId: number;
-  roomNumber: string;
-  guestName: string;
-  amount: number;
-}
-
-/** Gün sonu işlem logu */
-export interface NightAuditLog {
-  id: number;
-  date: string;
-  roomsCharged: number;
-  totalAmount: number;
-  processedBy: string;
-  processedAt: string;
-  details: NightAuditDetail[];
-}
+/* Gün sonu tipleri api/services.ts içinde — veri backend'de tutulur */
 
 /* ==================== OTEL YÖNETİMİ ==================== */
 
@@ -837,7 +818,6 @@ export const FOLIOS_STORAGE_KEY = 'grandhotel_folios';
 export const STAY_HISTORY_STORAGE_KEY = 'grandhotel_stay_history';
 export const SHIFTS_STORAGE_KEY = 'grandhotel_shifts';
 export const INVOICES_STORAGE_KEY = 'grandhotel_invoices';
-export const NIGHT_AUDIT_STORAGE_KEY = 'grandhotel_night_audit';
 export const HOTEL_INFO_STORAGE_KEY = 'grandhotel_hotel_info';
 export const CHANNEL_SETTINGS_STORAGE_KEY = 'grandhotel_channel_settings';
 

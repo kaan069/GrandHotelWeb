@@ -798,6 +798,28 @@ export interface NightAuditExecuteResponse {
   noShowCancelled: number;
 }
 
+/** Son çalışan gün sonu — otomatik mi manuel mi olduğu dahil */
+export interface NightAuditLastRun {
+  date: string;
+  processedAt: string;
+  processedBy: string;
+  automatic: boolean;
+  roomsCharged: number;
+  totalCharged: number;
+}
+
+/** Otomatik gün sonu durumu */
+export interface NightAuditScheduleResponse {
+  /** Ayarlanan saat "HH:MM" — null ise otomatik kapalı */
+  nightAuditTime: string | null;
+  enabled: boolean;
+  /** Bugünün gün sonu alındı mı */
+  ranToday: boolean;
+  /** Sıradaki otomatik çalışma (ISO) — kapalıysa null */
+  nextRun: string | null;
+  lastRun: NightAuditLastRun | null;
+}
+
 export const kazancApi = {
   /** Dashboard özet istatistikler (doluluk + ciro + check-in/out) */
   dashboardStats: () =>
@@ -833,15 +855,13 @@ export const kazancApi = {
       '/kazanc/night-audit-cancel-noshow/', { reservationId }
     ).then((r) => r.data),
 
-  /** Otomatik gün sonu saatini getir */
+  /** Otomatik gün sonu durumu — saat + sıradaki çalışma + son çalışma */
   getNightAuditSchedule: () =>
-    api.get<{ nightAuditTime: string | null; enabled: boolean }>(
-      '/kazanc/night-audit-schedule/'
-    ).then((r) => r.data),
+    api.get<NightAuditScheduleResponse>('/kazanc/night-audit-schedule/').then((r) => r.data),
 
   /** Otomatik gün sonu saatini ayarla (null = kapat) */
   setNightAuditSchedule: (time: string | null) =>
-    api.post<{ nightAuditTime: string | null; enabled: boolean }>(
+    api.post<NightAuditScheduleResponse>(
       '/kazanc/night-audit-schedule/',
       { time }
     ).then((r) => r.data),
