@@ -16,8 +16,11 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 import type { ApiOrderItemStatus, ApiTable } from '../api/services';
+import { refreshAccessToken } from '../api/axiosConfig';
 
 const WS_BASE = process.env.REACT_APP_WS_URL_RESTAURANT || 'ws://localhost:8000/ws/restaurant/';
+/** Backend: token yok/geçersiz (apps/staff/ws_auth.py) */
+const WS_CLOSE_UNAUTHORIZED = 4401;
 
 interface UseRestaurantWebSocketOptions {
   onNewOrder?: (order: ApiOrderItemStatus) => void;
@@ -55,13 +58,13 @@ export default function useRestaurantWebSocket({
   const connect = useCallback(() => {
     if (!enabled) return;
 
-    // Multi-tenant: hotel_id query param zorunlu (backend reddediyor)
-    const hotelId = localStorage.getItem('grandhotel_hotel_id');
-    if (!hotelId) {
-      console.warn('[WS Restaurant] hotel_id yok, bağlantı atlandı');
+    // Kimlik: access JWT (backend oteli token'dan okur)
+    const token = localStorage.getItem('grandhotel_token');
+    if (!token) {
+      console.warn('[WS Restaurant] token yok, bağlantı atlandı');
       return;
     }
-    const params = new URLSearchParams({ hotel_id: hotelId });
+    const params = new URLSearchParams({ token });
     if (groupsRef.current && groupsRef.current.length > 0) {
       params.set('groups', groupsRef.current.join(','));
     }
@@ -96,7 +99,14 @@ export default function useRestaurantWebSocket({
       }
     };
 
-    ws.onclose = () => {
+    ws.onclose = (event) => {
+      if (event.code === WS_CLOSE_UNAUTHORIZED) {
+        // Token süresi doldu → yenile ve tekrar bağlan
+        refreshAccessToken().then((access) => {
+          reconnectTimer.current = setTimeout(connect, access ? 0 : 30000);
+        });
+        return;
+      }
       console.log('[WS Restaurant] Bağlantı koptu. 3s sonra tekrar...');
       reconnectTimer.current = setTimeout(connect, 3000);
     };

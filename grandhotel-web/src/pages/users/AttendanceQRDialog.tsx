@@ -1,16 +1,17 @@
 /**
  * Eleman Mesai QR Dialog — giriş/çıkış için QR üretir.
  *
- * 3 mod:
- *   - Otomatik (mesai:grandhotel) — tek QR, mobile son kayda göre giriş/çıkış belirler
- *   - Giriş (mesai:giris)
- *   - Çıkış (mesai:cikis)
+ * 3 mod (QR içeriği backend'den gelir: mesai:<mod>:<otel token'ı>):
+ *   - Otomatik (mesai:auto:…) — tek QR, backend o günkü kayda göre giriş/çıkış belirler
+ *   - Giriş (mesai:giris:…)
+ *   - Çıkış (mesai:cikis:…)
  *
- * Mobile uygulaması bu QR'ları okur, login olmuş elemanın staffNumber'ı ile
- * /api/staff/attendance/mark/ çağrısı yapar.
+ * Mobil uygulama QR'ı okur ve token'ı /api/staff/attendance/mark/'a gönderir;
+ * backend token'ı personelin oteliyle karşılaştırır (uydurma/başka otel QR'ı geçmez).
+ * "Kodları Yenile" eski (yazdırılmış) QR'ları geçersiz kılar.
  */
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Box,
   Button,
@@ -21,6 +22,8 @@ import {
   Tab,
   Tabs,
   Typography,
+  Alert,
+  CircularProgress,
 } from '@mui/material';
 import {
   Download as DownloadIcon,
@@ -28,8 +31,11 @@ import {
   Login as EntryIcon,
   Logout as ExitIcon,
   AutorenewRounded as AutoIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { QRCodeCanvas } from 'qrcode.react';
+
+import { attendanceApi, AttendanceQrCodes } from '../../api/services';
 
 interface Props {
   open: boolean;
@@ -39,21 +45,22 @@ interface Props {
 
 type Mode = 'auto' | 'entry' | 'exit';
 
-const MODES: Record<Mode, { value: string; label: string; subtitle: string; color: string }> = {
+/** codeKey: backend'in döndüğü codes sözlüğündeki anahtar */
+const MODES: Record<Mode, { codeKey: keyof AttendanceQrCodes; label: string; subtitle: string; color: string }> = {
   auto: {
-    value: 'mesai:grandhotel',
+    codeKey: 'auto',
     label: 'Otomatik (Tek QR)',
-    subtitle: 'Mobil uygulama elemanın o günkü son kaydına göre giriş ya da çıkış olarak işler.',
+    subtitle: 'Elemanın o günkü kaydına göre giriş ya da çıkış olarak işlenir.',
     color: '#3E2C1C',
   },
   entry: {
-    value: 'mesai:giris',
+    codeKey: 'giris',
     label: 'Sadece Giriş',
     subtitle: 'Bu QR sadece giriş kaydı oluşturur. Çalışan vardiya başlangıcında okutur.',
     color: '#2E7D32',
   },
   exit: {
-    value: 'mesai:cikis',
+    codeKey: 'cikis',
     label: 'Sadece Çıkış',
     subtitle: 'Bu QR sadece çıkış kaydı oluşturur. Çalışan vardiya bitiminde okutur.',
     color: '#C62828',
@@ -62,9 +69,33 @@ const MODES: Record<Mode, { value: string; label: string; subtitle: string; colo
 
 const AttendanceQRDialog: React.FC<Props> = ({ open, onClose, hotelName }) => {
   const [mode, setMode] = useState<Mode>('auto');
+  const [codes, setCodes] = useState<AttendanceQrCodes | null>(null);
+  const [error, setError] = useState('');
+  const [regenerating, setRegenerating] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   const current = MODES[mode];
+  const qrValue = codes ? codes[current.codeKey] : '';
+
+  useEffect(() => {
+    if (!open) return;
+    setError('');
+    attendanceApi.getQrCodes()
+      .then(setCodes)
+      .catch(() => setError('Mesai QR kodları alınamadı. Bu işlem için patron/müdür yetkisi gerekir.'));
+  }, [open]);
+
+  const handleRegenerate = async () => {
+    if (!window.confirm('Yeni QR kodları oluşturulacak. Yazdırılmış eski QR\'lar artık çalışmaz. Devam edilsin mi?')) return;
+    setRegenerating(true);
+    try {
+      setCodes(await attendanceApi.regenerateQrCodes());
+    } catch {
+      setError('QR kodları yenilenemedi.');
+    } finally {
+      setRegenerating(false);
+    }
+  };
 
   const handleDownload = () => {
     const canvas = wrapperRef.current?.querySelector('canvas');
@@ -124,13 +155,20 @@ const AttendanceQRDialog: React.FC<Props> = ({ open, onClose, hotelName }) => {
             py: 2,
           }}
         >
-          <QRCodeCanvas
-            value={current.value}
-            size={256}
-            level="H"
-            includeMargin
-            fgColor={current.color}
-          />
+          {error && <Alert severity="error" sx={{ mb: 2, width: '100%' }}>{error}</Alert>}
+          {qrValue ? (
+            <QRCodeCanvas
+              value={qrValue}
+              size={256}
+              level="H"
+              includeMargin
+              fgColor={current.color}
+            />
+          ) : !error && (
+            <Box sx={{ width: 256, height: 256, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <CircularProgress />
+            </Box>
+          )}
           <Typography
             variant="subtitle1"
             sx={{ mt: 2, fontWeight: 700, color: current.color }}
@@ -144,22 +182,18 @@ const AttendanceQRDialog: React.FC<Props> = ({ open, onClose, hotelName }) => {
           >
             {current.subtitle}
           </Typography>
-          <Typography
-            variant="caption"
-            color="text.disabled"
-            sx={{ mt: 1.5, fontFamily: 'monospace' }}
-          >
-            {current.value}
-          </Typography>
         </Box>
       </DialogContent>
 
       <DialogActions>
         <Button onClick={onClose} color="inherit">Kapat</Button>
-        <Button onClick={handleDownload} startIcon={<DownloadIcon />} variant="outlined">
+        <Button onClick={handleRegenerate} startIcon={<RefreshIcon />} color="warning" disabled={!codes || regenerating}>
+          Kodları Yenile
+        </Button>
+        <Button onClick={handleDownload} startIcon={<DownloadIcon />} variant="outlined" disabled={!qrValue}>
           PNG İndir
         </Button>
-        <Button onClick={handlePrint} startIcon={<PrintIcon />} variant="contained">
+        <Button onClick={handlePrint} startIcon={<PrintIcon />} variant="contained" disabled={!qrValue}>
           Yazdır
         </Button>
       </DialogActions>

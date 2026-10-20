@@ -1003,8 +1003,9 @@ export const staffApi = {
   login: (data: { branchCode: string; staffNumber: string; password: string }) =>
     api.post<ApiEmployee>('/staff/login/', data).then((r) => r.data),
 
-  me: (staffNumber: string) =>
-    api.get<ApiEmployee>(`/staff/me/?staffNumber=${staffNumber}`).then((r) => r.data),
+  /** Giriş yapmış personelin bilgisi — kimlik JWT'den belirlenir */
+  me: () =>
+    api.get<ApiEmployee>('/staff/me/').then((r) => r.data),
 
   roles: () =>
     api.get<{ value: string; label: string }[]>('/staff/roles/').then((r) => r.data),
@@ -1093,7 +1094,22 @@ export interface ApiAttendanceLog {
   workedHours: string | null;
 }
 
+/** Mesai QR içerikleri — mod başına "mesai:<mod>:<otel token'ı>" */
+export interface AttendanceQrCodes {
+  auto: string;
+  giris: string;
+  cikis: string;
+}
+
 export const attendanceApi = {
+  /** Otelin mesai QR içerikleri (sadece patron/müdür) */
+  getQrCodes: () =>
+    api.get<{ codes: AttendanceQrCodes }>('/staff/attendance/qr/').then((r) => r.data.codes),
+
+  /** QR token'ını yenile — yazdırılmış eski QR'lar çalışmaz hale gelir */
+  regenerateQrCodes: () =>
+    api.post<{ codes: AttendanceQrCodes }>('/staff/attendance/qr/regenerate/').then((r) => r.data.codes),
+
   getForEmployee: (employeeId: number, dateFrom?: string, dateTo?: string) => {
     const params = new URLSearchParams();
     if (dateFrom) params.append('dateFrom', dateFrom);
@@ -1804,10 +1820,11 @@ export const qrApi = {
     api.post(`/restaurant/qr/${token}/order/`, data).then((r) => r.data),
   getStatus: (token: string) =>
     api.get(`/restaurant/qr/${token}/status/`).then((r) => r.data),
-  getRoomMenu: (roomNumber: string) =>
-    api.get(`/restaurant/qr/room/${roomNumber}/menu/`).then((r) => r.data),
-  placeRoomOrder: (roomNumber: string, data: { items: Array<{ menuItemId: number; quantity: number; notes?: string }> }) =>
-    api.post(`/restaurant/qr/room/${roomNumber}/order/`, data).then((r) => r.data),
+  /** branch: şube kodu — aynı oda numarası birden fazla otelde varsa zorunlu (QR adresindeki ?branch=) */
+  getRoomMenu: (roomNumber: string, branch?: string) =>
+    api.get(`/restaurant/qr/room/${roomNumber}/menu/`, { params: branch ? { branch } : undefined }).then((r) => r.data),
+  placeRoomOrder: (roomNumber: string, data: { items: Array<{ menuItemId: number; quantity: number; notes?: string }> }, branch?: string) =>
+    api.post(`/restaurant/qr/room/${roomNumber}/order/`, data, { params: branch ? { branch } : undefined }).then((r) => r.data),
 };
 
 /* ==================== COMMISSION API ==================== */

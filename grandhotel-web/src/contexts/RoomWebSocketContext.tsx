@@ -16,10 +16,15 @@
  *   - Exponential backoff reconnect (1s, 2s, 4s, ... max 30s)
  *   - Başarılı bağlantıda backoff sıfırlanır
  *   - Provider unmount → WS kapanır, reconnect yapılmaz
+ *   - Kimlik: ?token=<access JWT>. Backend oteli token'dan okur.
+ *     4401 ile kapanırsa (token süresi doldu) token yenilenip tekrar bağlanılır.
+ *   - Henüz giriş yapılmadıysa (token yok) aralıklarla tekrar denenir →
+ *     login sonrası sayfa yenilemeden bağlantı kurulur.
  */
 
 import React, { createContext, useContext, useEffect, useRef, useCallback } from 'react';
 import type { ApiRoom } from '../api/services';
+import { refreshAccessToken } from '../api/axiosConfig';
 
 type Listener = (room: ApiRoom) => void;
 
@@ -32,6 +37,9 @@ const RoomWebSocketContext = createContext<RoomWSContextValue | null>(null);
 const WS_URL = process.env.REACT_APP_WS_URL || 'ws://localhost:8000/ws/rooms/';
 const INITIAL_BACKOFF_MS = 1000;
 const MAX_BACKOFF_MS = 30000;
+const NO_TOKEN_RETRY_MS = 5000;
+/** Backend: token yok/geçersiz (apps/staff/ws_auth.py) */
+const WS_CLOSE_UNAUTHORIZED = 4401;
 
 export const RoomWebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const listenersRef = useRef<Set<Listener>>(new Set());
@@ -41,12 +49,14 @@ export const RoomWebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
   const closedByUserRef = useRef<boolean>(false);
 
   const connect = useCallback(() => {
-    const hotelId = localStorage.getItem('grandhotel_hotel_id');
-    if (!hotelId) {
-      console.warn('[WS] hotel_id yok, bağlantı atlandı');
+    if (closedByUserRef.current) return;
+    const token = localStorage.getItem('grandhotel_token');
+    if (!token) {
+      // Henüz giriş yapılmadı — login olunca bağlanmak için tekrar dene
+      reconnectTimerRef.current = setTimeout(connect, NO_TOKEN_RETRY_MS);
       return;
     }
-    const url = `${WS_URL}?hotel_id=${encodeURIComponent(hotelId)}`;
+    const url = `${WS_URL}?token=${encodeURIComponent(token)}`;
     const ws = new WebSocket(url);
     wsRef.current = ws;
 
@@ -72,8 +82,16 @@ export const RoomWebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     };
 
-    ws.onclose = () => {
+    ws.onclose = (event) => {
       if (closedByUserRef.current) return;
+      if (event.code === WS_CLOSE_UNAUTHORIZED) {
+        // Token süresi doldu → yenile ve hemen tekrar bağlan (yenilenemezse backoff ile dene)
+        refreshAccessToken().then((access) => {
+          if (access) connect();
+          else reconnectTimerRef.current = setTimeout(connect, MAX_BACKOFF_MS);
+        });
+        return;
+      }
       const delay = backoffRef.current;
       backoffRef.current = Math.min(delay * 2, MAX_BACKOFF_MS);
       console.log(`[WS] Bağlantı koptu. ${delay}ms sonra tekrar bağlanılacak...`);

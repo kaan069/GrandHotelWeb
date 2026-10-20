@@ -24,7 +24,7 @@ export interface User {
   staffNumber: string;
   hotelId: number;
   hotelName: string;
-  isBmsAdmin?: boolean;  // staffNumber === "0000" → Bina Yönetim Sistemi erişimi
+  isBmsAdmin?: boolean;  // Backend Employee.is_bms_admin → Bina Yönetim Sistemi erişimi
 }
 
 export interface AuthContextType {
@@ -88,14 +88,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       enabledModules: employee.enabledModules || ['base'],
       branchCode: employee.branchCode || '001',
       staffNumber: employee.staffNumber,
-      hotelId: employee.hotelId || 1,
-      hotelName: employee.hotelName || 'Grand Hotel',
+      hotelId: employee.hotelId as number,
+      hotelName: employee.hotelName || '',
       isBmsAdmin: employee.isBmsAdmin || false,
     };
 
-    // Backend JWT token döner — yoksa eski fake token fallback
-    const accessToken = (employee as any).access || `staff-${employee.id}-${Date.now()}`;
-    const refreshToken = (employee as any).refresh || accessToken;
+    // Backend her başarılı login'de JWT döner. Eskiden token yoksa sahte
+    // "staff-…" token üretiliyordu; backend artık bunu kabul etmiyor.
+    const accessToken = (employee as any).access as string | undefined;
+    const refreshToken = (employee as any).refresh as string | undefined;
+    if (!accessToken || !refreshToken || !employee.hotelId) {
+      throw new Error('Giriş yanıtı eksik (token/otel bilgisi yok). Lütfen tekrar deneyin.');
+    }
 
     localStorage.setItem(TOKEN_KEY, accessToken);
     localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);

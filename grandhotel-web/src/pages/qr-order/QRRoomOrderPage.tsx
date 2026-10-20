@@ -29,7 +29,7 @@ import {
   CheckCircle as CheckIcon,
   Hotel as HotelIcon,
 } from '@mui/icons-material';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { qrApi } from '../../api/services';
 
 interface CartItem {
@@ -48,6 +48,8 @@ interface MenuCategory {
 
 const QRRoomOrderPage: React.FC = () => {
   const { roomNumber } = useParams<{ roomNumber: string }>();
+  // Çok otelli kurulumda QR adresi /qr-room/101?branch=001 olur
+  const branch = useSearchParams()[0].get('branch') || undefined;
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [roomInfo, setRoomInfo] = useState<{ roomNumber: string; guestName: string } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -60,7 +62,7 @@ const QRRoomOrderPage: React.FC = () => {
 
   useEffect(() => {
     if (!roomNumber) return;
-    qrApi.getRoomMenu(roomNumber)
+    qrApi.getRoomMenu(roomNumber, branch)
       .then((data: Record<string, unknown>) => {
         const cats = (data.categories || []) as MenuCategory[];
         setCategories(cats);
@@ -72,7 +74,7 @@ const QRRoomOrderPage: React.FC = () => {
       })
       .catch(() => setError('Geçersiz oda numarası veya aktif konaklama bulunamadı'))
       .finally(() => setLoading(false));
-  }, [roomNumber]);
+  }, [roomNumber, branch]);
 
   const addToCart = (item: { id: number; name: string; price: string }) => {
     setCart((prev) => {
@@ -100,7 +102,7 @@ const QRRoomOrderPage: React.FC = () => {
     try {
       const result = await qrApi.placeRoomOrder(roomNumber, {
         items: cart.map((c) => ({ menuItemId: c.menuItemId, quantity: c.quantity, notes: c.notes })),
-      });
+      }, branch);
       setOrderResult(result as { tabNo: string; totalAmount: string; message: string });
       setOrderSuccess(true);
       setCart([]);

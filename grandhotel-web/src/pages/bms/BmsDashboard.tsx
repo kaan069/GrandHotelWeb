@@ -4,7 +4,7 @@
  * Dashboard'daki oda grid'inin aynısını kullanır ama oda detayında
  * folio/misafir yerine klima, ışık, enerji panelleri gösterir.
  *
- * Erişim: Sadece isBmsAdmin (staffNumber=0000) kullanıcıları
+ * Erişim: Sadece isBmsAdmin (Employee.is_bms_admin) kullanıcıları
  */
 
 import React, { useState, useEffect, useCallback } from 'react';

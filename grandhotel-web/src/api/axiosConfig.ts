@@ -6,7 +6,7 @@
  *
  * Özellikler:
  *   - Otomatik JWT token ekleme (request interceptor)
- *   - 401'de otomatik token refresh (response interceptor)
+ *   - 401'de otomatik token refresh (response interceptor, refreshAccessToken)
  *   - Refresh başarısızsa logout
  */
 
@@ -40,68 +40,60 @@ api.interceptors.request.use(
 );
 
 /**
+ * Refresh token ile yeni access token alır. Başarısızsa null döner.
+ *
+ * Aynı anda birden fazla istek (veya WebSocket) token yenilemek isterse hepsi
+ * aynı isteği bekler — her biri ayrı refresh atmaz.
+ * WebSocket'ler 4401 kapanma kodunda bunu çağırıp yeniden bağlanır.
+ */
+let refreshPromise: Promise<string | null> | null = null;
+
+export function refreshAccessToken(): Promise<string | null> {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      const refreshToken = localStorage.getItem('grandhotel_refresh_token');
+      if (!refreshToken) return null;
+      try {
+        const { data } = await axios.post(`${API_BASE_URL}/staff/token/refresh/`, { refresh: refreshToken });
+        localStorage.setItem('grandhotel_token', data.access);
+        localStorage.setItem('grandhotel_refresh_token', data.refresh);
+        api.defaults.headers.common['Authorization'] = `Bearer ${data.access}`;
+        return data.access as string;
+      } catch {
+        return null;
+      }
+    })().finally(() => {
+      refreshPromise = null;
+    });
+  }
+  return refreshPromise;
+}
+
+/**
  * Response Interceptor — 401'de token refresh dener, başarısızsa logout
  */
-let isRefreshing = false;
-let pendingRequests: Array<(token: string) => void> = [];
-
 api.interceptors.response.use(
   (response: AxiosResponse) => response,
   async (error: AxiosError) => {
     const status = error.response?.status;
     const originalRequest = error.config as any;
     const errorDetail = (error.response?.data as { detail?: string } | undefined)?.detail || '';
-    // Backend süresi dolmuş token için 403 dönebiliyor (DRF default davranışı).
-    // Hem 401 hem de "token" mesajlı 403'te refresh denenir.
+    // Backend kimlik hatalarında 401 döner (authenticate_header). Eski sürümler
+    // 403 dönebildiği için token mesajlı 403 de token hatası sayılır.
     const isTokenError =
       status === 401 ||
       (status === 403 && /token|süres/i.test(errorDetail));
 
-    // Token hatası → refresh dene (login endpoint'i hariç)
-    if (isTokenError && !originalRequest._retry && !originalRequest.url?.includes('/staff/login')) {
-      const refreshToken = localStorage.getItem('grandhotel_refresh_token');
-
-      // Refresh token yoksa veya fake token ise direkt logout
-      if (!refreshToken || refreshToken.startsWith('staff-')) {
-        clearAuthAndRedirect();
-        return Promise.reject(error);
-      }
-
-      // Zaten refresh yapılıyorsa bekle
-      if (isRefreshing) {
-        return new Promise((resolve) => {
-          pendingRequests.push((newToken: string) => {
-            originalRequest.headers.Authorization = `Bearer ${newToken}`;
-            resolve(api(originalRequest));
-          });
-        });
-      }
-
+    // Token hatası → bir kez refresh dene (login endpoint'i hariç)
+    if (isTokenError && originalRequest && !originalRequest._retry && !originalRequest.url?.includes('/staff/login')) {
       originalRequest._retry = true;
-      isRefreshing = true;
-
-      try {
-        const response = await axios.post(`${API_BASE_URL}/staff/token/refresh/`, {
-          refresh: refreshToken,
-        });
-
-        const { access, refresh } = response.data;
-        localStorage.setItem('grandhotel_token', access);
-        localStorage.setItem('grandhotel_refresh_token', refresh);
-        api.defaults.headers.common['Authorization'] = `Bearer ${access}`;
-
-        // Bekleyen istekleri yeni token ile tekrarla
-        pendingRequests.forEach((cb) => cb(access));
-        pendingRequests = [];
-
-        originalRequest.headers.Authorization = `Bearer ${access}`;
-        return api(originalRequest);
-      } catch {
+      const access = await refreshAccessToken();
+      if (!access) {
         clearAuthAndRedirect();
         return Promise.reject(error);
-      } finally {
-        isRefreshing = false;
       }
+      originalRequest.headers.Authorization = `Bearer ${access}`;
+      return api(originalRequest);
     }
 
     if (status === 403 && !isTokenError) {
