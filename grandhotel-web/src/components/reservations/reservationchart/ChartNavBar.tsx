@@ -7,6 +7,7 @@ import {
 } from '@mui/icons-material';
 
 import { getReservationColor } from './helpers';
+import { RESERVATION_STATUS, RESERVATION_STATUS_LABELS } from '../../../utils/constants';
 
 interface ChartNavBarProps {
   monthLabel: string;
@@ -15,12 +16,12 @@ interface ChartNavBarProps {
   onGoToday: () => void;
 }
 
+/** Şemada gerçekten görünen durumlar — renkler getReservationColor ile çubuklarla aynı */
 const LEGENDS = [
-  { status: 'confirmed', label: 'Onaylı' },
-  { status: 'checked_in', label: 'Giriş Yapıldı' },
-  { status: 'pending', label: 'Beklemede' },
-  { status: 'checked_out', label: 'Çıkış Yapıldı' },
-] as const;
+  RESERVATION_STATUS.RESERVED,
+  RESERVATION_STATUS.CHECKED_IN,
+  RESERVATION_STATUS.CHECKED_OUT,
+].map((status) => ({ status, label: RESERVATION_STATUS_LABELS[status] }));
 
 const ChartNavBar: React.FC<ChartNavBarProps> = ({ monthLabel, onGoBack, onGoForward, onGoToday }) => {
   return (

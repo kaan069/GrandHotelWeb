@@ -4,6 +4,9 @@
  * Fatura türlerine göre (Satış, Alış, İade, Gelen) fatura listesi gösterir.
  * Tab sistemi ile fatura detayı ve yeni fatura oluşturma destekler.
  * URL'den fatura türünü okur.
+ *
+ * API: invoicesApi.list({ type }) — GET /api/invoices/?type=sales
+ * (InvoiceForm faturayı backend'e yazar; liste de backend'den okunur.)
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -26,12 +29,14 @@ import {
   TableHead,
   TableRow,
   Paper,
+  Alert,
 } from '@mui/material';
 import {
   Close as CloseIcon,
   Receipt as ReceiptIcon,
   Add as AddIcon,
   Description as DescriptionIcon,
+  PictureAsPdf as PdfIcon,
 } from '@mui/icons-material';
 import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { useLocation } from 'react-router-dom';
@@ -39,19 +44,22 @@ import { useLocation } from 'react-router-dom';
 import { PageHeader, DataTable, StatusBadge } from '../../components/common';
 import { InvoiceForm } from '../../components/invoices';
 import {
-  Invoice,
   InvoiceType,
+  InvoiceStatus,
   INVOICE_TYPE_LABELS,
   INVOICE_STATUS_LABELS,
   INVOICE_STATUS_COLORS,
-  INVOICE_ITEM_CATEGORY_LABELS,
-  InvoiceItemCategory,
 } from '../../utils/constants';
-import { loadInvoices } from '../../utils/invoiceStorage';
+import { invoicesApi, ApiInvoice } from '../../api/services';
 
-interface InvoiceRow extends Invoice {
+interface InvoiceRow extends ApiInvoice {
   [key: string]: unknown;
 }
+
+const DOCUMENT_TYPE_LABELS: Record<string, string> = {
+  e_archive: 'e-Arşiv',
+  e_invoice: 'e-Fatura',
+};
 
 /* Tab Tipleri */
 interface FormTabItem {
@@ -79,11 +87,13 @@ const getInvoiceTypeFromPath = (pathname: string): InvoiceType | undefined => {
   return map[pathname];
 };
 
-const formatCurrency = (amount: number): string => {
-  return `${amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺`;
+/** Backend Decimal alanları string döner ("1250.00") → Number'a çevrilir */
+const formatCurrency = (amount: number | string): string => {
+  return `${Number(amount || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺`;
 };
 
-const formatDate = (dateStr: string): string => {
+const formatDate = (dateStr: string | null): string => {
+  if (!dateStr) return '-';
   const d = new Date(dateStr);
   return `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}.${d.getFullYear()}`;
 };
@@ -94,11 +104,11 @@ const columns: GridColDef[] = [
     headerName: 'Fatura No',
     width: 140,
     renderCell: (params: GridRenderCellParams) => (
-      <strong style={{ color: '#1565C0' }}>{params.value}</strong>
+      <strong style={{ color: '#1565C0' }}>{params.value || `#${params.row.id}`}</strong>
     ),
   },
   {
-    field: 'date',
+    field: 'issueDate',
     headerName: 'Tarih',
     width: 110,
     renderCell: (params: GridRenderCellParams) => formatDate(params.value),
@@ -123,7 +133,7 @@ const columns: GridColDef[] = [
     ),
   },
   {
-    field: 'total',
+    field: 'totalAmount',
     headerName: 'Tutar',
     width: 130,
     align: 'right' as const,
@@ -138,9 +148,9 @@ const columns: GridColDef[] = [
     width: 110,
     renderCell: (params: GridRenderCellParams) => (
       <Chip
-        label={INVOICE_STATUS_LABELS[params.value as keyof typeof INVOICE_STATUS_LABELS] || params.value}
+        label={INVOICE_STATUS_LABELS[params.value as InvoiceStatus] || params.value}
         size="small"
-        color={INVOICE_STATUS_COLORS[params.value as keyof typeof INVOICE_STATUS_COLORS] || 'default'}
+        color={INVOICE_STATUS_COLORS[params.value as InvoiceStatus] || 'default'}
       />
     ),
   },
@@ -151,11 +161,23 @@ const InvoiceList: React.FC = () => {
   const invoiceType = getInvoiceTypeFromPath(location.pathname);
 
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [openTabs, setOpenTabs] = useState<TabItem[]>([]);
   const [activeTabIndex, setActiveTabIndex] = useState<number>(-1);
 
-  const refreshInvoices = useCallback(() => {
-    setInvoices(loadInvoices(invoiceType) as InvoiceRow[]);
+  const refreshInvoices = useCallback(async () => {
+    setLoading(true);
+    setLoadError('');
+    try {
+      const data = await invoicesApi.list(invoiceType ? { type: invoiceType } : undefined);
+      setInvoices(data as InvoiceRow[]);
+    } catch {
+      setInvoices([]);
+      setLoadError('Faturalar yüklenemedi. Sayfayı yenileyip tekrar deneyin.');
+    } finally {
+      setLoading(false);
+    }
   }, [invoiceType]);
 
   useEffect(() => {
@@ -179,7 +201,7 @@ const InvoiceList: React.FC = () => {
       const newTab: DetailTabItem = {
         type: 'invoice-detail',
         invoiceId: invoice.id,
-        label: invoice.invoiceNo,
+        label: invoice.invoiceNo || `Fatura #${invoice.id}`,
       };
       setOpenTabs((prev) => [...prev, newTab]);
       setActiveTabIndex(openTabs.length);
@@ -319,9 +341,11 @@ const InvoiceList: React.FC = () => {
               Yeni Fatura
             </Button>
           </Box>
+          {loadError && <Alert severity="error" sx={{ mb: 2 }}>{loadError}</Alert>}
           <DataTable
             rows={invoices}
             columns={columns}
+            loading={loading}
             onRowClick={handleRowClick}
             searchable
             searchPlaceholder="Fatura no, müşteri adı ile ara..."
@@ -335,7 +359,7 @@ const InvoiceList: React.FC = () => {
 /* ==================== Fatura Detay Görünümü ==================== */
 
 interface InvoiceDetailViewProps {
-  invoice: Invoice | null;
+  invoice: ApiInvoice | null;
 }
 
 const InvoiceDetailView: React.FC<InvoiceDetailViewProps> = ({ invoice }) => {
@@ -347,12 +371,18 @@ const InvoiceDetailView: React.FC<InvoiceDetailViewProps> = ({ invoice }) => {
     );
   }
 
+  const typeLabel = INVOICE_TYPE_LABELS[invoice.type as InvoiceType] || invoice.type;
+
   return (
     <Box>
       <PageHeader
-        title={`Fatura ${invoice.invoiceNo}`}
-        subtitle={`${INVOICE_TYPE_LABELS[invoice.type]} - ${formatDate(invoice.date)}`}
+        title={`Fatura ${invoice.invoiceNo || `#${invoice.id}`}`}
+        subtitle={`${typeLabel} - ${formatDate(invoice.issueDate)}`}
       />
+
+      {invoice.status === 'failed' && invoice.errorMessage && (
+        <Alert severity="error" sx={{ mb: 2 }}>{invoice.errorMessage}</Alert>
+      )}
 
       <Grid container spacing={2.5}>
         {/* Sol - Fatura Bilgileri */}
@@ -363,11 +393,13 @@ const InvoiceDetailView: React.FC<InvoiceDetailViewProps> = ({ invoice }) => {
                 <DescriptionIcon sx={{ fontSize: 20 }} />
                 Fatura Bilgileri
               </Typography>
-              <InfoRow label="Fatura No" value={invoice.invoiceNo} />
+              <InfoRow label="Fatura No" value={invoice.invoiceNo || '-'} />
               <Divider sx={{ my: 0.5 }} />
-              <InfoRow label="Tür" value={INVOICE_TYPE_LABELS[invoice.type]} />
+              <InfoRow label="Tür" value={typeLabel} />
               <Divider sx={{ my: 0.5 }} />
-              <InfoRow label="Tarih" value={formatDate(invoice.date)} />
+              <InfoRow label="Belge" value={DOCUMENT_TYPE_LABELS[invoice.documentType] || invoice.documentType} />
+              <Divider sx={{ my: 0.5 }} />
+              <InfoRow label="Tarih" value={formatDate(invoice.issueDate)} />
               <Divider sx={{ my: 0.5 }} />
               {invoice.dueDate && (
                 <>
@@ -379,9 +411,9 @@ const InvoiceDetailView: React.FC<InvoiceDetailViewProps> = ({ invoice }) => {
                 label="Durum"
                 value={
                   <Chip
-                    label={INVOICE_STATUS_LABELS[invoice.status]}
+                    label={INVOICE_STATUS_LABELS[invoice.status] || invoice.status}
                     size="small"
-                    color={INVOICE_STATUS_COLORS[invoice.status]}
+                    color={INVOICE_STATUS_COLORS[invoice.status] || 'default'}
                   />
                 }
               />
@@ -402,6 +434,12 @@ const InvoiceDetailView: React.FC<InvoiceDetailViewProps> = ({ invoice }) => {
                   <InfoRow label="Vergi No" value={invoice.taxNumber} />
                 </>
               )}
+              {invoice.taxOffice && (
+                <>
+                  <Divider sx={{ my: 0.5 }} />
+                  <InfoRow label="Vergi Dairesi" value={invoice.taxOffice} />
+                </>
+              )}
               {invoice.address && (
                 <>
                   <Divider sx={{ my: 0.5 }} />
@@ -415,16 +453,36 @@ const InvoiceDetailView: React.FC<InvoiceDetailViewProps> = ({ invoice }) => {
               </Typography>
               <InfoRow label="Ara Toplam" value={formatCurrency(invoice.subtotal)} />
               <Divider sx={{ my: 0.5 }} />
-              <InfoRow label={`KDV (%${invoice.taxRate})`} value={formatCurrency(invoice.taxAmount)} />
+              <InfoRow label="KDV" value={formatCurrency(invoice.vatAmount)} />
+              {invoice.hasAccommodationTax && (
+                <>
+                  <Divider sx={{ my: 0.5 }} />
+                  <InfoRow label="Konaklama Vergisi" value={formatCurrency(invoice.accommodationTaxAmount)} />
+                </>
+              )}
               <Divider sx={{ my: 0.5 }} />
               <InfoRow
                 label="Genel Toplam"
                 value={
                   <Typography variant="body2" fontWeight={700} color="primary">
-                    {formatCurrency(invoice.total)}
+                    {formatCurrency(invoice.totalAmount)}
                   </Typography>
                 }
               />
+
+              {invoice.pdfUrl && (
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  startIcon={<PdfIcon />}
+                  href={invoice.pdfUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  sx={{ mt: 2 }}
+                >
+                  PDF'i Aç
+                </Button>
+              )}
             </CardContent>
           </Card>
         </Grid>
@@ -441,27 +499,21 @@ const InvoiceDetailView: React.FC<InvoiceDetailViewProps> = ({ invoice }) => {
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ fontWeight: 600 }}>Kategori</TableCell>
                       <TableCell sx={{ fontWeight: 600 }}>Açıklama</TableCell>
                       <TableCell align="center" sx={{ fontWeight: 600 }}>Miktar</TableCell>
                       <TableCell align="right" sx={{ fontWeight: 600 }}>Birim Fiyat</TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 600 }}>KDV</TableCell>
                       <TableCell align="right" sx={{ fontWeight: 600 }}>Tutar</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {invoice.items.map((item) => (
                       <TableRow key={item.id}>
-                        <TableCell>
-                          <Chip
-                            label={INVOICE_ITEM_CATEGORY_LABELS[item.category as InvoiceItemCategory] || item.category}
-                            size="small"
-                            variant="outlined"
-                          />
-                        </TableCell>
                         <TableCell>{item.description}</TableCell>
-                        <TableCell align="center">{item.quantity}</TableCell>
+                        <TableCell align="center">{Number(item.quantity)}</TableCell>
                         <TableCell align="right">{formatCurrency(item.unitPrice)}</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 600 }}>{formatCurrency(item.amount)}</TableCell>
+                        <TableCell align="center">%{item.vatRate}</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 600 }}>{formatCurrency(item.total)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

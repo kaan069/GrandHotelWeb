@@ -17,7 +17,7 @@ export type RoomStatus = 'available' | 'occupied' | 'dirty' | 'maintenance' | 'b
 export type BedType = 'single' | 'double' | 'twin' | 'king';
 
 /** Rezervasyon durumu tipi */
-export type ReservationStatus = 'pending' | 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled' | 'no_show';
+export type ReservationStatus = 'reserved' | 'checked_in' | 'checked_out' | 'cancelled';
 
 /** Ödeme durumu tipi */
 export type PaymentStatus = 'unpaid' | 'partial' | 'paid';
@@ -278,31 +278,31 @@ export const BED_TYPE_LABELS: Record<string, string> = {
 
 /* ==================== REZERVASYON DURUMLARI ==================== */
 
+/**
+ * Backend Reservation.RESERVATION_STATUS_CHOICES ile birebir aynı (tek doğruluk kaynağı backend).
+ * Mobildeki RESERVATION_STATUS da aynı değer ve etiketleri kullanır.
+ * Gelmeyen (no-show) rezervasyonlar gün sonunda 'cancelled' olur;
+ * no-show sayısı/detayı gün sonu raporunda tutulur.
+ */
 export const RESERVATION_STATUS: Record<string, ReservationStatus> = {
-  PENDING: 'pending',         // Beklemede
-  CONFIRMED: 'confirmed',     // Onaylandı
+  RESERVED: 'reserved',       // Rezerve (henüz giriş yapılmadı)
   CHECKED_IN: 'checked_in',   // Check-in yapıldı
   CHECKED_OUT: 'checked_out', // Check-out yapıldı
   CANCELLED: 'cancelled',     // İptal edildi
-  NO_SHOW: 'no_show',        // Gelmedi
 };
 
 export const RESERVATION_STATUS_LABELS: Record<string, string> = {
-  [RESERVATION_STATUS.PENDING]: 'Beklemede',
-  [RESERVATION_STATUS.CONFIRMED]: 'Onaylandı',
+  [RESERVATION_STATUS.RESERVED]: 'Rezerve',
   [RESERVATION_STATUS.CHECKED_IN]: 'Giriş Yapıldı',
   [RESERVATION_STATUS.CHECKED_OUT]: 'Çıkış Yapıldı',
   [RESERVATION_STATUS.CANCELLED]: 'İptal',
-  [RESERVATION_STATUS.NO_SHOW]: 'Gelmedi',
 };
 
 export const RESERVATION_STATUS_COLORS: Record<string, ChipColor> = {
-  [RESERVATION_STATUS.PENDING]: 'warning',
-  [RESERVATION_STATUS.CONFIRMED]: 'success',
+  [RESERVATION_STATUS.RESERVED]: 'warning',
   [RESERVATION_STATUS.CHECKED_IN]: 'info',
   [RESERVATION_STATUS.CHECKED_OUT]: 'default',
   [RESERVATION_STATUS.CANCELLED]: 'error',
-  [RESERVATION_STATUS.NO_SHOW]: 'secondary',
 };
 
 /* ==================== REZERVASYON FİLTRE PRESET'LERİ ==================== */
@@ -624,8 +624,8 @@ export const MENU_ITEMS: MenuItem[] = [
 /** Fatura türü */
 export type InvoiceType = 'sales' | 'purchase' | 'return' | 'incoming';
 
-/** Fatura durumu */
-export type InvoiceStatus = 'draft' | 'issued' | 'paid' | 'cancelled';
+/** Fatura durumu — backend Invoice.STATUS_CHOICES ile aynı */
+export type InvoiceStatus = 'draft' | 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
 
 /** Fatura müşteri türü */
 export type InvoiceCustomerType = 'individual' | 'company';
@@ -633,7 +633,7 @@ export type InvoiceCustomerType = 'individual' | 'company';
 /** Fatura kalemi kategorisi */
 export type InvoiceItemCategory = 'konaklama' | 'yiyecek' | 'icecek' | 'minibar' | 'hizmet' | 'diger';
 
-/** Fatura kalemi */
+/** Fatura formundaki kalem (InvoiceForm). Kaydedilmiş fatura için api/services ApiInvoice kullanılır. */
 export interface InvoiceItem {
   id: number;
   category: InvoiceItemCategory;
@@ -641,30 +641,6 @@ export interface InvoiceItem {
   quantity: number;
   unitPrice: number;
   amount: number;
-}
-
-/** Fatura */
-export interface Invoice {
-  id: number;
-  invoiceNo: string;
-  type: InvoiceType;
-  date: string;
-  dueDate?: string;
-  customerType: InvoiceCustomerType;
-  customerName: string;
-  taxNumber?: string;
-  address?: string;
-  items: InvoiceItem[];
-  subtotal: number;
-  taxRate: number;
-  taxAmount: number;
-  total: number;
-  status: InvoiceStatus;
-  notes?: string;
-  relatedRoomId?: number;
-  relatedCompanyId?: number;
-  createdBy?: string;
-  createdAt: string;
 }
 
 export const INVOICE_TYPE_LABELS: Record<InvoiceType, string> = {
@@ -676,16 +652,20 @@ export const INVOICE_TYPE_LABELS: Record<InvoiceType, string> = {
 
 export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
   draft: 'Taslak',
-  issued: 'Kesildi',
-  paid: 'Ödendi',
+  pending: 'Bekliyor',
+  processing: 'İşleniyor',
+  completed: 'Tamamlandı',
+  failed: 'Hata',
   cancelled: 'İptal',
 };
 
 export const INVOICE_STATUS_COLORS: Record<InvoiceStatus, ChipColor> = {
   draft: 'default',
-  issued: 'info',
-  paid: 'success',
-  cancelled: 'error',
+  pending: 'warning',
+  processing: 'info',
+  completed: 'success',
+  failed: 'error',
+  cancelled: 'default',
 };
 
 export const INVOICE_ITEM_CATEGORY_LABELS: Record<InvoiceItemCategory, string> = {

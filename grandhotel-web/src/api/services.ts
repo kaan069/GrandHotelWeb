@@ -820,6 +820,30 @@ export interface NightAuditScheduleResponse {
   lastRun: NightAuditLastRun | null;
 }
 
+/** Kaydedilmiş gün sonu raporu — GET /api/kazanc/night-audit-reports/ */
+export interface NightAuditReportItem {
+  id: number;
+  date: string;
+  roomsCharged: number;
+  totalCharged: number;
+  noShowCount: number;
+  noShowCancelled: number;
+  processedBy: string;
+  processedAt: string | null;
+  /** Otomatik gün sonu (daemon) tarafından mı çalıştırıldı */
+  automatic: boolean;
+  details: {
+    roomNumber: string;
+    guestName: string;
+    amount: number;
+    nights?: number;
+    companyName: string | null;
+    note?: string;
+  }[];
+  noShowDetails: { roomNumber: string; guestName: string; reservationId: number; cancelled: boolean }[];
+  occupancySnapshot: { occupied?: number; available?: number; total?: number; rate?: number };
+}
+
 export const kazancApi = {
   /** Dashboard özet istatistikler (doluluk + ciro + check-in/out) */
   dashboardStats: () =>
@@ -866,13 +890,13 @@ export const kazancApi = {
       { time }
     ).then((r) => r.data),
 
-  /** Geçmiş gün sonu raporları */
+  /** Geçmiş gün sonu raporları (en yeni önce, en fazla 100) */
   nightAuditReports: (filters?: { dateFrom?: string; dateTo?: string }) => {
     const params = new URLSearchParams();
     if (filters?.dateFrom) params.append('dateFrom', filters.dateFrom);
     if (filters?.dateTo) params.append('dateTo', filters.dateTo);
     const qs = params.toString();
-    return api.get<any[]>(`/kazanc/night-audit-reports/${qs ? '?' + qs : ''}`).then((r) => r.data);
+    return api.get<NightAuditReportItem[]>(`/kazanc/night-audit-reports/${qs ? '?' + qs : ''}`).then((r) => r.data);
   },
 
   /** Gelişmiş kazanç raporu (çoklu filtreleme) */
