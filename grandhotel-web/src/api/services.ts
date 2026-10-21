@@ -10,6 +10,13 @@
  */
 
 import api from './axiosConfig';
+import type { components } from './generated/schema';
+
+/**
+ * Backend OpenAPI şemasından üretilen tipler (src/api/generated/schema.ts).
+ * Elle düzenlenmez — backend değişince: npm run gen:api
+ */
+type Schemas = components['schemas'];
 
 /* ==================== TİPLER ==================== */
 
@@ -297,6 +304,16 @@ export interface ApiAuditLog {
   performedBy: string;
   createdAt: string;
 }
+
+/* ==================== META (ORTAK SABİTLER) ==================== */
+
+/** GET /api/meta/choices/ — roller, durumlar, kategoriler: { anahtar: [{value, label}] } */
+export type MetaChoices = Schemas['MetaChoices'];
+
+export const metaApi = {
+  getChoices: () =>
+    api.get<MetaChoices>('/meta/choices/').then((r) => r.data),
+};
 
 /* ==================== ROOMS API ==================== */
 
@@ -920,31 +937,16 @@ export const kazancApi = {
 
 /* ==================== STAFF (PERSONEL) API ==================== */
 
-export interface ApiEmployee {
-  id: number;
-  firstName: string;
-  lastName: string;
-  fullName: string;
-  phone: string;
-  password: string;
-  staffNumber: string;
-  hireDate: string;
-  status: string;
-  roles: string[];
-  roleLabels: string[];
-  enabledModules?: string[];
-  branchCode?: string;
-  hotelId?: number;
-  hotelName?: string;
-  salary?: number | string | null;
-  annualLeaveEntitlement: number;
-  usedAnnualLeave: number;
-  remainingAnnualLeave: number;
-  isOnLeaveToday: boolean;
-  hasWeeklyLeaveThisWeek: boolean;
-  createdAt: string;
-  isBmsAdmin?: boolean;
-}
+/**
+ * Personel — backend EmployeeSerializer'dan üretilir (web ve mobil aynı tip).
+ * Otel/oturum alanları sadece login/me yanıtında gelir → opsiyonel.
+ * salary sadece yöneticiye ve kişinin kendisine döner → opsiyonel.
+ */
+export type ApiEmployee = Schemas['Employee']
+  & Partial<Pick<Schemas['EmployeeSession'], 'hotelId' | 'hotelName' | 'branchCode' | 'enabledModules' | 'isBmsAdmin'>>;
+
+/** POST /api/staff/login/ yanıtı (personel + otel + JWT çifti) */
+export type ApiLoginResponse = Schemas['EmployeeLoginResponse'];
 
 export interface ApiTaskAssignment {
   id: number;
@@ -1001,11 +1003,11 @@ export const staffApi = {
     api.post<{ success: boolean; staffNumber: string; fullName: string; newPassword: string }>(`/staff/${id}/reset_password/`).then((r) => r.data),
 
   login: (data: { branchCode: string; staffNumber: string; password: string }) =>
-    api.post<ApiEmployee>('/staff/login/', data).then((r) => r.data),
+    api.post<ApiLoginResponse>('/staff/login/', data).then((r) => r.data),
 
   /** Giriş yapmış personelin bilgisi — kimlik JWT'den belirlenir */
   me: () =>
-    api.get<ApiEmployee>('/staff/me/').then((r) => r.data),
+    api.get<Schemas['EmployeeSession']>('/staff/me/').then((r) => r.data),
 
   roles: () =>
     api.get<{ value: string; label: string }[]>('/staff/roles/').then((r) => r.data),
@@ -1999,26 +2001,8 @@ export interface InvoiceCreatePayload {
   }>;
 }
 
-export interface InvoicePrepareResponse {
-  roomNumber: string;
-  reservationId: number;
-  guests: Array<{ id: number; name: string; tcNo: string; phone: string; email: string; companyId: number | null; companyName: string | null }>;
-  customerType: 'individual' | 'company';
-  customerName: string;
-  taxNumber: string;
-  taxOffice: string;
-  address: string;
-  phone: string;
-  email: string;
-  companyId: number | null;
-  guestId: number;
-  notes: string;
-  folioItems: Array<{ description: string; category: string; amount: string; date: string }>;
-  folioTotal: string;
-  paymentsTotal?: string;   // folio'daki ödemelerin toplamı (KDV dahil) — fatura default tutarı
-  hasAccommodationTax: boolean;
-  accommodationTaxRate: number;
-}
+/** GET /api/invoices/prepare/{roomId}/ yanıtı — backend InvoicePrepareResponseSerializer'dan üretilir */
+export type InvoicePrepareResponse = Schemas['InvoicePrepareResponse'];
 
 export interface ParasutSettingsPayload {
   clientId: string;

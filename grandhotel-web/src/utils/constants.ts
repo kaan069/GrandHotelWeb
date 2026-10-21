@@ -381,8 +381,8 @@ export const FOLIO_CATEGORY_LABELS: Record<string, string> = {
   [FOLIO_CATEGORIES.SERVICE]: 'Ek Hizmet',
   [FOLIO_CATEGORIES.DISCOUNT]: 'İndirim',
   [FOLIO_CATEGORIES.PAYMENT]: 'Ödeme',
-  [FOLIO_CATEGORIES.ACCOUNT_TRANSFER_DEBIT]: 'Cariye Borçlu Aktar',
-  [FOLIO_CATEGORIES.ACCOUNT_TRANSFER_CREDIT]: 'Cariye Alacaklı Aktar',
+  [FOLIO_CATEGORIES.ACCOUNT_TRANSFER_DEBIT]: 'Cariye Borçlu Aktarım',
+  [FOLIO_CATEGORIES.ACCOUNT_TRANSFER_CREDIT]: 'Cariye Alacaklı Aktarım',
 };
 
 /* ==================== MANZARA TİPLERİ ==================== */

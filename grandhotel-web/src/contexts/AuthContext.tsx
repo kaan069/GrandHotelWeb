@@ -12,6 +12,7 @@ import React, { createContext, useState, useEffect, useCallback, ReactNode } fro
 import api from '../api/axiosConfig';
 import { staffApi } from '../api/services';
 import type { Role } from '../utils/constants';
+import { hydrateChoiceLabels } from '../utils/choices';
 
 export interface User {
   id: number;
@@ -60,6 +61,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (token && savedUser) {
         setUser(JSON.parse(savedUser));
         api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        // Etiketleri backend'den güncelle (hata olursa yerel etiketler kalır)
+        hydrateChoiceLabels().catch(() => {});
       }
     } catch {
       localStorage.removeItem(TOKEN_KEY);
@@ -106,6 +109,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     localStorage.setItem(USER_KEY, JSON.stringify(userData));
     localStorage.setItem(HOTEL_ID_KEY, String(userData.hotelId));
     api.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+    hydrateChoiceLabels().catch(() => {});
 
     setUser(userData);
     return userData;

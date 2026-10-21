@@ -57,6 +57,7 @@ import {
 } from '../../utils/constants';
 import { companiesApi, invoicesApi, type ApiInvoice, type InvoiceCreatePayload } from '../../api/services';
 import { pollInvoiceStatus } from '../../utils/pollInvoiceStatus';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 export interface InvoiceSaveResult {
   status: 'completed' | 'failed' | 'timeout';
@@ -98,17 +99,6 @@ const NO_SPINNER_SX = {
   '& input[type=number]::-webkit-inner-spin-button': { WebkitAppearance: 'none', margin: 0 },
 };
 
-function extractError(err: unknown, fallback: string): string {
-  const e = err as { response?: { data?: Record<string, unknown> }; message?: string };
-  const data = e?.response?.data;
-  if (data && typeof data === 'object') {
-    const error = (data as { error?: unknown }).error;
-    if (typeof error === 'string') return error;
-    const detail = (data as { detail?: unknown }).detail;
-    if (typeof detail === 'string') return detail;
-  }
-  return e?.message || fallback;
-}
 
 const CATEGORY_SHORTCUTS: { key: InvoiceItemCategory; label: string; color: string }[] = [
   { key: 'konaklama', label: 'Konaklama', color: '#1976d2' },
@@ -284,7 +274,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
       draft = await invoicesApi.create(payload);
     } catch (err) {
       setSubmissionStage('idle');
-      setSubmissionError(extractError(err, 'Fatura oluşturulamadı'));
+      setSubmissionError(getApiErrorMessage(err, 'Fatura oluşturulamadı'));
       return;
     }
 
@@ -294,7 +284,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
       sent = await invoicesApi.send(draft.id);
     } catch (err) {
       setSubmissionStage('idle');
-      setSubmissionError(extractError(err, 'Paraşüt\'e gönderilemedi. Ayarlarınızı kontrol edin.'));
+      setSubmissionError(getApiErrorMessage(err, 'Paraşüt\'e gönderilemedi. Ayarlarınızı kontrol edin.'));
       return;
     }
 
