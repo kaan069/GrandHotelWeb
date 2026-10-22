@@ -51,6 +51,8 @@ import {
   INVOICE_STATUS_COLORS,
 } from '../../utils/constants';
 import { invoicesApi, ApiInvoice } from '../../api/services';
+import useNotification from '../../hooks/useNotification';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 interface InvoiceRow extends ApiInvoice {
   [key: string]: unknown;
@@ -324,6 +326,7 @@ const InvoiceList: React.FC = () => {
         /* Fatura Detay */
         <InvoiceDetailView
           invoice={invoices.find((inv) => inv.id === (activeTab as DetailTabItem).invoiceId) || null}
+          onUpdated={(updated) => setInvoices((prev) => prev.map((inv) => (inv.id === updated.id ? { ...inv, ...updated } : inv)))}
         />
       ) : (
         /* Liste Görünümü */
@@ -360,9 +363,33 @@ const InvoiceList: React.FC = () => {
 
 interface InvoiceDetailViewProps {
   invoice: ApiInvoice | null;
+  onUpdated: (invoice: ApiInvoice) => void;
 }
 
-const InvoiceDetailView: React.FC<InvoiceDetailViewProps> = ({ invoice }) => {
+/**
+ * Detay işlemleri (mobil InvoiceListScreen ile aynı):
+ *   Taslak / Hatalı → Paraşüt'e tekrar gönder, iptal et
+ *   İşleniyor → durumu sorgula
+ *   Tamamlandı → resmî belge; iptal/iade Paraşüt'ten yapılır (backend de reddeder)
+ */
+const InvoiceDetailView: React.FC<InvoiceDetailViewProps> = ({ invoice, onUpdated }) => {
+  const { showSuccess, showError } = useNotification();
+  const [busy, setBusy] = useState(false);
+
+  const runAction = async (action: () => Promise<ApiInvoice>, success: (inv: ApiInvoice) => string) => {
+    setBusy(true);
+    try {
+      const updated = await action();
+      onUpdated(updated);
+      if (updated.status === 'failed') showError(updated.errorMessage || 'Fatura gönderilemedi');
+      else showSuccess(success(updated));
+    } catch (err) {
+      showError(getApiErrorMessage(err, 'İşlem yapılamadı'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (!invoice) {
     return (
       <Box sx={{ textAlign: 'center', py: 6 }}>
@@ -383,6 +410,47 @@ const InvoiceDetailView: React.FC<InvoiceDetailViewProps> = ({ invoice }) => {
       {invoice.status === 'failed' && invoice.errorMessage && (
         <Alert severity="error" sx={{ mb: 2 }}>{invoice.errorMessage}</Alert>
       )}
+
+      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
+        {(invoice.status === 'draft' || invoice.status === 'failed') && (
+          <>
+            <Button
+              variant="contained"
+              disabled={busy}
+              onClick={() => runAction(() => invoicesApi.send(invoice.id), () => 'Fatura gönderildi')}
+            >
+              Paraşüt'e Tekrar Gönder
+            </Button>
+            <Button
+              color="error"
+              disabled={busy}
+              onClick={() => {
+                if (!window.confirm('Fatura iptal edilsin mi? Bu işlem geri alınamaz.')) return;
+                runAction(() => invoicesApi.cancel(invoice.id), () => 'Fatura iptal edildi');
+              }}
+            >
+              Faturayı İptal Et
+            </Button>
+          </>
+        )}
+        {invoice.status === 'processing' && (
+          <Button
+            variant="outlined"
+            disabled={busy}
+            onClick={() => runAction(
+              () => invoicesApi.checkStatus(invoice.id),
+              (u) => `Fatura durumu: ${INVOICE_STATUS_LABELS[u.status as InvoiceStatus] || u.status}`,
+            )}
+          >
+            Durumu Sorgula
+          </Button>
+        )}
+        {invoice.status === 'completed' && (
+          <Typography variant="caption" color="text.secondary">
+            Resmîleşmiş fatura iptal/iade işlemleri Paraşüt üzerinden yapılır.
+          </Typography>
+        )}
+      </Box>
 
       <Grid container spacing={2.5}>
         {/* Sol - Fatura Bilgileri */}

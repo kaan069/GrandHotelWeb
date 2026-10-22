@@ -27,12 +27,17 @@ interface AuditLogSectionProps {
   roomId: number;
 }
 
+/** Backend AuditLog.ACTION_CHOICES ile aynı anahtarlar (kayıtları backend yazar) */
 const ACTION_LABELS: Record<string, string> = {
   guest_removed: 'Misafir Çıkarıldı',
   folio_deleted: 'Folio Silindi',
   checkout_reversed: 'Checkout İptal',
   checkin_reversed: 'Checkin İptal',
   guest_checkout: 'Misafir Checkout',
+  checkout: 'Checkout',
+  force_checkout: 'Zorla Çıkış',
+  room_moved: 'Oda Taşındı',
+  guest_removed_from_company: 'Firmadan Çıkarıldı',
 };
 
 const ACTION_COLORS: Record<string, 'warning' | 'error' | 'info' | 'default'> = {
@@ -41,6 +46,10 @@ const ACTION_COLORS: Record<string, 'warning' | 'error' | 'info' | 'default'> = 
   checkout_reversed: 'info',
   checkin_reversed: 'info',
   guest_checkout: 'default',
+  checkout: 'default',
+  force_checkout: 'error',
+  room_moved: 'info',
+  guest_removed_from_company: 'warning',
 };
 
 const AuditLogSection: React.FC<AuditLogSectionProps> = ({ roomId }) => {
@@ -70,7 +79,7 @@ const AuditLogSection: React.FC<AuditLogSectionProps> = ({ roomId }) => {
         >
           <Typography variant="subtitle1" fontWeight={600} sx={{ flex: 1 }}>
             <HistoryIcon sx={{ fontSize: 18, mr: 0.5, verticalAlign: 'text-bottom' }} />
-            Silinen İşlemler
+            İşlem Geçmişi
           </Typography>
           <IconButton size="small">
             {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}

@@ -25,7 +25,7 @@ import {
 } from '@mui/material';
 import { roomsApi, reportsApi } from '../../api/services';
 import type { ApiRoom } from '../../api/services';
-import { FOLIO_CATEGORY_LABELS } from '../../utils/constants';
+import { FOLIO_CATEGORY_LABELS, ROOM_STATUS_LABELS } from '../../utils/constants';
 
 interface RoomReportStay {
   guestName: string;
@@ -43,13 +43,15 @@ interface RoomReportReservation {
   paidAmount: string | number;
 }
 
+/** Backend reports/room yanıtı — totalRevenue metin döner ("1250.00") */
 interface RoomReportSummary {
   totalReservations: number;
-  totalRevenue: number;
-  isCurrentlyOccupied: boolean;
+  totalRevenue: string;
+  activeReservation: boolean;
 }
 
 interface RoomReportData {
+  room: { id: number; roomNumber: string; status: string };
   summary: RoomReportSummary;
   reservations: RoomReportReservation[];
 }
@@ -123,7 +125,7 @@ const RoomReport: React.FC = () => {
               <Card><CardContent sx={{ textAlign: 'center' }}>
                 <Typography variant="caption" color="text.secondary">Toplam Gelir</Typography>
                 <Typography variant="h5" fontWeight={700} color="success.main">
-                  {(report.summary?.totalRevenue || 0).toLocaleString('tr-TR')} ₺
+                  {Number(report.summary?.totalRevenue || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺
                 </Typography>
               </CardContent></Card>
             </Grid>
@@ -131,7 +133,7 @@ const RoomReport: React.FC = () => {
               <Card><CardContent sx={{ textAlign: 'center' }}>
                 <Typography variant="caption" color="text.secondary">Durum</Typography>
                 <Typography variant="h6" fontWeight={700}>
-                  {report.summary?.isCurrentlyOccupied ? 'Dolu' : 'Boş'}
+                  {ROOM_STATUS_LABELS[report.room?.status] || report.room?.status || '-'}
                 </Typography>
               </CardContent></Card>
             </Grid>

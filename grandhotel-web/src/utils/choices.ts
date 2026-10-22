@@ -27,6 +27,10 @@ import {
   FOLIO_CATEGORY_LABELS,
   INVOICE_TYPE_LABELS,
   INVOICE_STATUS_LABELS,
+  FAULT_STATUS_LABELS,
+  FAULT_CATEGORY_LABELS,
+  LEAVE_TYPE_LABELS,
+  LEAVE_STATUS_LABELS,
 } from './constants';
 
 type ChoiceKey = keyof MetaChoices;
@@ -42,6 +46,10 @@ const LABEL_MAPS: [ChoiceKey, Record<string, string>][] = [
   ['folioCategories', FOLIO_CATEGORY_LABELS],
   ['invoiceTypes', INVOICE_TYPE_LABELS as Record<string, string>],
   ['invoiceStatus', INVOICE_STATUS_LABELS as Record<string, string>],
+  ['faultStatus', FAULT_STATUS_LABELS],
+  ['faultCategories', FAULT_CATEGORY_LABELS],
+  ['leaveTypes', LEAVE_TYPE_LABELS],
+  ['leaveStatus', LEAVE_STATUS_LABELS],
 ];
 
 /** [{value, label}] seçici listeleri — sadece mevcut seçeneklerin etiketi güncellenir */

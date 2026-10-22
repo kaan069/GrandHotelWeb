@@ -545,6 +545,10 @@ export interface ExpensePayload {
 export interface CategoryTotal { category: string; total: string; }
 
 export interface IncomeExpenseSummary {
+  /** İndirimler düşülmeden önceki tahakkuk */
+  grossIncome: string;
+  discounts: string;
+  /** Net gelir = grossIncome − discounts (Dashboard / Ciro raporlarıyla aynı) */
   income: string;
   expense: string;
   net: string;
@@ -1047,21 +1051,8 @@ export const tasksApi = {
 
 /* ==================== LEAVES (İZİN) API ==================== */
 
-export interface ApiLeave {
-  id: number;
-  employeeId: number;
-  employeeName: string;
-  leaveType: string;
-  startDate: string;
-  endDate: string;
-  durationDays: number;
-  status: string;
-  deductFromAnnual: boolean;
-  note: string;
-  approvedById: number | null;
-  approvedByName: string | null;
-  createdAt: string;
-}
+/** İzin kaydı — backend LeaveSerializer'dan üretilir (mobil ile aynı tip) */
+export type ApiLeave = Schemas['Leave'];
 
 export const leavesApi = {
   getAll: (filters?: { employeeId?: number; leaveType?: string; status?: string; dateFrom?: string; dateTo?: string }) => {
@@ -1081,8 +1072,21 @@ export const leavesApi = {
   }) =>
     api.post<ApiLeave>('/leaves/', data).then((r) => r.data),
 
+  /** Onaylı izni (yönetici) ya da bekleyen talebi (sahibi/yönetici) iptal eder */
   cancel: (id: number) =>
     api.post<ApiLeave>(`/leaves/${id}/cancel/`).then((r) => r.data),
+
+  /** Personelin kendi izin talebi — 'pending' oluşur, kişi token'dan */
+  request: (data: { leaveType: string; startDate: string; endDate: string; note?: string; deductFromAnnual?: boolean }) =>
+    api.post<ApiLeave>('/leaves/request/', data).then((r) => r.data),
+
+  /** Bekleyen talebi onayla (patron/müdür) — bakiye ve çakışma yeniden kontrol edilir */
+  approve: (id: number) =>
+    api.post<ApiLeave>(`/leaves/${id}/approve/`).then((r) => r.data),
+
+  /** Bekleyen talebi reddet (patron/müdür) */
+  reject: (id: number) =>
+    api.post<ApiLeave>(`/leaves/${id}/reject/`).then((r) => r.data),
 
   getForEmployee: (employeeId: number) =>
     api.get<ApiLeave[]>(`/staff/${employeeId}/leaves/`).then((r) => r.data),
@@ -1161,6 +1165,41 @@ export const minibarApi = {
   /** Tüketim + folio charge */
   consume: (roomId: number, data: { productId: number; quantity: number; staffName?: string }) =>
     api.post<{ folioItem: ApiFolioItem }>(`/minibar/rooms/${roomId}/consume/`, data).then((r) => r.data),
+};
+
+/* ==================== ARIZA (FAULT) API ==================== */
+
+/** Arıza kaydı — backend FaultSerializer'dan üretilir (mobil ile aynı tip) */
+export type ApiFault = Schemas['Fault'];
+
+/** Mobil: faultsApi (services/api.ts) ile aynı uç noktalar */
+export const faultsApi = {
+  /** status: virgülle birden fazla durum, ör. "open,in_progress" */
+  getAll: (filters?: { status?: string }) =>
+    api.get<ApiFault[]>('/faults/', { params: filters?.status ? { status: filters.status } : undefined }).then((r) => r.data),
+
+  getById: (id: number) =>
+    api.get<ApiFault>(`/faults/${id}/`).then((r) => r.data),
+
+  /** Arıza bildir (multipart) — bildiren backend'de token'dan belirlenir */
+  create: (data: { roomNumber: string; category: string; description: string; photos?: File[] }) => {
+    const form = new FormData();
+    form.append('room_number', data.roomNumber);
+    form.append('category', data.category);
+    form.append('description', data.description);
+    (data.photos || []).forEach((file) => form.append('photos', file));
+    return api.post<ApiFault>('/faults/', form, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data);
+  },
+
+  /** open → in_progress → resolved (teknik ekip/yönetici) — çözen backend'de token'dan */
+  updateStatus: (id: number, status: string) =>
+    api.patch<ApiFault>(`/faults/${id}/status/`, { status }).then((r) => r.data),
+
+  uploadResolutionPhotos: (id: number, photos: File[]) => {
+    const form = new FormData();
+    photos.forEach((file) => form.append('photos', file));
+    return api.post<ApiFault>(`/faults/${id}/resolution-photos/`, form, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data);
+  },
 };
 
 /* ==================== AUDIT LOG API ==================== */
@@ -1856,6 +1895,9 @@ export interface MyCommissionsData {
   items: CommissionItem[];
 }
 
+/** Komisyon raporu — toplamlar ve personel özeti tüm kayıtlar üzerinden (backend CommissionReportSerializer) */
+export type CommissionReport = Schemas['CommissionReport'];
+
 export const commissionApi = {
   getSettings: () =>
     api.get<CommissionSettingsData>('/commission/settings/').then((r) => r.data),
@@ -1869,7 +1911,7 @@ export const commissionApi = {
     if (filters?.dateFrom) params.append('dateFrom', filters.dateFrom);
     if (filters?.dateTo) params.append('dateTo', filters.dateTo);
     const qs = params.toString();
-    return api.get<CommissionItem[]>(`/commission/list/${qs ? '?' + qs : ''}`).then((r) => r.data);
+    return api.get<CommissionReport>(`/commission/list/${qs ? '?' + qs : ''}`).then((r) => r.data);
   },
 
   getMy: (staffNumber: string, filters?: { dateFrom?: string; dateTo?: string }) => {

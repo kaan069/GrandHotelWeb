@@ -45,9 +45,14 @@ import { menuApi, hotelApi } from '../../api/services';
 import type { ApiMenuCategory, ApiMenuItem } from '../../api/services';
 import { formatCurrency } from '../../utils/formatters';
 import useAuth from '../../hooks/useAuth';
+import usePermission from '../../hooks/usePermission';
+import { ROLES } from '../../utils/constants';
 import MenuQRDialog from './MenuQRDialog';
 
 const MenuManagement: React.FC = () => {
+  /* Menü tanımı (fiyat dahil) yönetici / restoran müdürü — backend CanManageRestaurant ile aynı */
+  const { canAccess } = usePermission();
+  const canManage = canAccess([ROLES.PATRON, ROLES.MANAGER, ROLES.RESTAURANT_MANAGER]);
   const { user } = useAuth();
   const [categories, setCategories] = useState<ApiMenuCategory[]>([]);
   const [items, setItems] = useState<ApiMenuItem[]>([]);
@@ -310,9 +315,11 @@ const MenuManagement: React.FC = () => {
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                 <Typography variant="subtitle1" fontWeight={600}>Kategoriler</Typography>
-                <IconButton size="small" color="primary" onClick={() => { setCatEditId(null); setCatName(''); setCatDialogOpen(true); }}>
-                  <AddIcon />
-                </IconButton>
+                {canManage && (
+                  <IconButton size="small" color="primary" onClick={() => { setCatEditId(null); setCatName(''); setCatDialogOpen(true); }}>
+                    <AddIcon />
+                  </IconButton>
+                )}
               </Box>
               <List dense disablePadding>
                 {categories.map((cat) => (
@@ -326,12 +333,16 @@ const MenuManagement: React.FC = () => {
                       primary={cat.name}
                       secondary={`${cat.itemCount || 0} ürün`}
                     />
-                    <IconButton size="small" onClick={(e) => { e.stopPropagation(); setCatEditId(cat.id); setCatName(cat.name); setCatDialogOpen(true); }}>
-                      <EditIcon sx={{ fontSize: 16 }} />
-                    </IconButton>
-                    <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); handleCategoryDelete(cat.id); }}>
-                      <DeleteIcon sx={{ fontSize: 16 }} />
-                    </IconButton>
+                    {canManage && (
+                      <>
+                        <IconButton size="small" onClick={(e) => { e.stopPropagation(); setCatEditId(cat.id); setCatName(cat.name); setCatDialogOpen(true); }}>
+                          <EditIcon sx={{ fontSize: 16 }} />
+                        </IconButton>
+                        <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); handleCategoryDelete(cat.id); }}>
+                          <DeleteIcon sx={{ fontSize: 16 }} />
+                        </IconButton>
+                      </>
+                    )}
                   </ListItemButton>
                 ))}
                 {categories.length === 0 && (
@@ -353,7 +364,7 @@ const MenuManagement: React.FC = () => {
                   <MenuIcon sx={{ fontSize: 18, mr: 0.5, verticalAlign: 'text-bottom' }} />
                   {categories.find((c) => c.id === selectedCatId)?.name || 'Ürünler'}
                 </Typography>
-                {selectedCatId && (
+                {selectedCatId && canManage && (
                   <Button
                     size="small"
                     variant="contained"
@@ -410,14 +421,16 @@ const MenuManagement: React.FC = () => {
                             <Typography variant="h6" fontWeight={700} color="primary">
                               {formatCurrency(parseFloat(item.price))}
                             </Typography>
-                            <Box>
-                              <IconButton size="small" onClick={() => openItemEdit(item)}>
-                                <EditIcon sx={{ fontSize: 16 }} />
-                              </IconButton>
-                              <IconButton size="small" color="error" onClick={() => handleItemDelete(item.id)}>
-                                <DeleteIcon sx={{ fontSize: 16 }} />
-                              </IconButton>
-                            </Box>
+                            {canManage && (
+                              <Box>
+                                <IconButton size="small" onClick={() => openItemEdit(item)}>
+                                  <EditIcon sx={{ fontSize: 16 }} />
+                                </IconButton>
+                                <IconButton size="small" color="error" onClick={() => handleItemDelete(item.id)}>
+                                  <DeleteIcon sx={{ fontSize: 16 }} />
+                                </IconButton>
+                              </Box>
+                            )}
                           </Box>
                         </CardContent>
                       </Card>

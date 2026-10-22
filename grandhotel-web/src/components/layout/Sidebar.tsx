@@ -59,6 +59,7 @@ import {
   Storefront as StorefrontIcon,
   Extension as ExtensionIcon,
   SettingsRemote as SettingsRemoteIcon,
+  Build as BuildIcon,
 } from '@mui/icons-material';
 
 import { MENU_ITEMS, SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH, APP_NAME, MenuItem, MenuChildItem } from '../../utils/constants';
@@ -95,6 +96,7 @@ const iconMap: Record<string, React.ElementType> = {
   Storefront: StorefrontIcon,
   Extension: ExtensionIcon,
   SettingsRemote: SettingsRemoteIcon,
+  Build: BuildIcon,
 };
 
 const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {

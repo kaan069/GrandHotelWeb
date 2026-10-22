@@ -19,11 +19,13 @@ import {
   Person as PersonIcon,
   Logout as LogoutIcon,
   Settings as SettingsIcon,
+  EventAvailable as LeaveIcon,
 } from '@mui/icons-material';
 
 import { ROLE_LABELS } from '../../utils/constants';
 import useAuth from '../../hooks/useAuth';
 import { useHotel } from '../../contexts/HotelContext';
+import LeaveRequestDialog from '../employees/LeaveRequestDialog';
 
 const ProfileMenu: React.FC = () => {
   const theme = useTheme();
@@ -32,6 +34,7 @@ const ProfileMenu: React.FC = () => {
   const { hotel } = useHotel();
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const open = Boolean(anchorEl);
 
   const handleClick = (event: React.MouseEvent<HTMLElement>) => setAnchorEl(event.currentTarget);
@@ -102,12 +105,17 @@ const ProfileMenu: React.FC = () => {
           <ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon>
           <ListItemText>Ayarlar</ListItemText>
         </MenuItem>
+        <MenuItem onClick={() => { handleClose(); setLeaveDialogOpen(true); }}>
+          <ListItemIcon><LeaveIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>İzin Talebi</ListItemText>
+        </MenuItem>
         <Divider />
         <MenuItem onClick={handleLogout}>
           <ListItemIcon><LogoutIcon fontSize="small" color="error" /></ListItemIcon>
           <ListItemText primaryTypographyProps={{ color: 'error.main' }}>Çıkış Yap</ListItemText>
         </MenuItem>
       </Menu>
+      <LeaveRequestDialog open={leaveDialogOpen} onClose={() => setLeaveDialogOpen(false)} />
     </>
   );
 };

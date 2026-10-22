@@ -52,6 +52,9 @@ import type { ApiTable, ApiServiceArea, ApiMenuItem, ApiMenuCategory } from '../
 import { formatCurrency } from '../../utils/formatters';
 import useRestaurantWebSocket from '../../hooks/useRestaurantWebSocket';
 import useAuth from '../../hooks/useAuth';
+import usePermission from '../../hooks/usePermission';
+import { getApiErrorMessage } from '../../utils/apiError';
+import { ROLES } from '../../utils/constants';
 
 const STATUS_COLORS: Record<string, string> = {
   empty: '#22c55e', occupied: '#ef4444', reserved: '#3b82f6', bill_requested: '#f59e0b',
@@ -59,7 +62,10 @@ const STATUS_COLORS: Record<string, string> = {
 
 const TableManagement: React.FC = () => {
   const { user } = useAuth();
-  const canPay = ['cashier', 'patron', 'manager', 'restaurant_manager'].includes(user?.role || '');
+  const { canAccess } = usePermission();
+  const canPay = canAccess([ROLES.CASHIER, ROLES.PATRON, ROLES.MANAGER, ROLES.RESTAURANT_MANAGER]);
+  /* Alan / masa tanımı — backend CanManageRestaurant ile aynı */
+  const canManageTables = canAccess([ROLES.PATRON, ROLES.MANAGER, ROLES.RESTAURANT_MANAGER]);
 
   const [tables, setTables] = useState<ApiTable[]>([]);
   const [serviceAreas, setServiceAreas] = useState<ApiServiceArea[]>([]);
@@ -153,7 +159,7 @@ const TableManagement: React.FC = () => {
       await tablesApi.addItem(selectedTable.id, { menuItemId: menuItem.id, quantity: 1, openedById: user?.id });
       await loadDetail(selectedTable.id);
       fetchTables();
-    } catch (err) { console.error(err); }
+    } catch (err) { setSnackbar({ open: true, message: getApiErrorMessage(err, 'Ürün eklenemedi'), severity: 'error' }); }
   };
 
   /** Adet güncelle */
@@ -164,7 +170,7 @@ const TableManagement: React.FC = () => {
       await tabsApi.updateItem(tableDetail.currentTab.id, itemId, qty);
       await loadDetail(selectedTable!.id);
       fetchTables();
-    } catch (err) { console.error(err); }
+    } catch (err) { setSnackbar({ open: true, message: getApiErrorMessage(err, 'Adet güncellenemedi'), severity: 'error' }); }
   };
 
   /** Kalem sil */
@@ -174,7 +180,7 @@ const TableManagement: React.FC = () => {
       await tabsApi.removeItem(tableDetail.currentTab.id, itemId);
       await loadDetail(selectedTable!.id);
       fetchTables();
-    } catch (err) { console.error(err); }
+    } catch (err) { setSnackbar({ open: true, message: getApiErrorMessage(err, 'Kalem silinemedi'), severity: 'error' }); }
   };
 
   /* Ödeme dialog */
@@ -229,7 +235,7 @@ const TableManagement: React.FC = () => {
       await tablesApi.create({ tableNumber: newTableNumber, serviceAreaId: newTableAreaId as number, capacity: newTableCapacity });
       setCreateTableOpen(false); setNewTableNumber(''); setNewTableCapacity(4); setNewTableAreaId('');
       fetchTables();
-    } catch (err) { console.error(err); }
+    } catch (err) { setSnackbar({ open: true, message: getApiErrorMessage(err, 'Masa eklenemedi'), severity: 'error' }); }
   };
 
   const handleCreateArea = async () => {
@@ -238,7 +244,7 @@ const TableManagement: React.FC = () => {
       await serviceAreasApi.create({ name: newAreaName, areaType: newAreaType });
       setCreateAreaOpen(false); setNewAreaName(''); setNewAreaType('restaurant');
       setServiceAreas(await serviceAreasApi.getAll());
-    } catch (err) { console.error(err); }
+    } catch (err) { setSnackbar({ open: true, message: getApiErrorMessage(err, 'Hizmet alanı eklenemedi'), severity: 'error' }); }
   };
 
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>;
@@ -250,10 +256,12 @@ const TableManagement: React.FC = () => {
           title="Masa Yönetimi"
           subtitle={`${tables.filter(t => t.status === 'empty').length} boş · ${tables.filter(t => t.status === 'occupied').length} dolu`}
         />
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button size="small" variant="outlined" onClick={() => setCreateAreaOpen(true)}>Hizmet Alanı Ekle</Button>
-          <Button size="small" variant="contained" startIcon={<AddIcon />} onClick={() => setCreateTableOpen(true)}>Masa Ekle</Button>
-        </Box>
+        {canManageTables && (
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button size="small" variant="outlined" onClick={() => setCreateAreaOpen(true)}>Hizmet Alanı Ekle</Button>
+            <Button size="small" variant="contained" startIcon={<AddIcon />} onClick={() => setCreateTableOpen(true)}>Masa Ekle</Button>
+          </Box>
+        )}
       </Box>
 
       {/* Alan filtresi */}

@@ -39,8 +39,14 @@ export interface PermissionValues {
 const usePermission = (): PermissionValues => {
   const { user } = useAuth();
 
-  /** Kullanıcının mevcut rolü */
+  /** Kullanıcının mevcut (birincil) rolü */
   const currentRole: Role | null = user?.role || null;
+
+  /**
+   * Kullanıcının TÜM rolleri — Sidebar ve backend (apps/staff/permissions.py) de
+   * tüm rollere bakar; sadece birincil role bakmak ek rolü olan personeli kısıtlıyordu.
+   */
+  const userRoles: string[] = user?.roles?.length ? user.roles : (currentRole ? [currentRole] : []);
 
   /**
    * Kullanıcının belirtilen role sahip olup olmadığını kontrol eder.
@@ -48,7 +54,7 @@ const usePermission = (): PermissionValues => {
    * @returns
    */
   const hasRole = (role: Role): boolean => {
-    return currentRole === role;
+    return userRoles.includes(role);
   };
 
   /**
@@ -57,8 +63,7 @@ const usePermission = (): PermissionValues => {
    * @returns
    */
   const canAccess = (roles: Role[]): boolean => {
-    if (!currentRole) return false;
-    return roles.includes(currentRole);
+    return roles.some((r) => userRoles.includes(r));
   };
 
   /**
@@ -95,13 +100,13 @@ const usePermission = (): PermissionValues => {
    * Rezervasyon oluşturma/düzenleme yetkisi var mı?
    * Patron, müdür ve resepsiyon yapabilir.
    */
-  const canManageReservations = canAccess([ROLES.PATRON, ROLES.MANAGER, ROLES.RECEPTION]);
+  const canManageReservations = canAccess([ROLES.PATRON, ROLES.MANAGER, ROLES.RECEPTION, ROLES.RECEPTION_MANAGER]);
 
   /**
    * Gün sonu (night audit) işlemi çalıştırabilir mi?
    * Patron, müdür ve resepsiyon yapabilir.
    */
-  const canRunNightAudit = canAccess([ROLES.PATRON, ROLES.MANAGER, ROLES.RECEPTION]);
+  const canRunNightAudit = canAccess([ROLES.PATRON, ROLES.MANAGER, ROLES.RECEPTION, ROLES.RECEPTION_MANAGER]);
 
   return {
     currentRole,

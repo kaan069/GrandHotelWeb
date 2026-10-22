@@ -305,6 +305,67 @@ export const RESERVATION_STATUS_COLORS: Record<string, ChipColor> = {
   [RESERVATION_STATUS.CANCELLED]: 'error',
 };
 
+/* ==================== İZİN ==================== */
+
+/** Backend Leave.TYPE_CHOICES */
+export const LEAVE_TYPE_LABELS: Record<string, string> = {
+  weekly: 'Haftalık İzin',
+  annual: 'Yıllık İzin',
+  daily: 'Günlük İzin',
+  unpaid: 'Ücretsiz İzin',
+};
+
+/** Backend Leave.STATUS_CHOICES — talep 'pending' oluşur, yönetici onaylar/reddeder */
+export const LEAVE_STATUS_LABELS: Record<string, string> = {
+  pending: 'Onay Bekliyor',
+  approved: 'Onaylandı',
+  rejected: 'Reddedildi',
+  cancelled: 'İptal',
+};
+
+export const LEAVE_STATUS_COLORS: Record<string, ChipColor> = {
+  pending: 'warning',
+  approved: 'success',
+  rejected: 'error',
+  cancelled: 'default',
+};
+
+/* ==================== ARIZA ==================== */
+
+/** Backend Fault.STATUS_CHOICES — durum geçişi: open → in_progress → resolved */
+export const FAULT_STATUS = {
+  OPEN: 'open',
+  IN_PROGRESS: 'in_progress',
+  RESOLVED: 'resolved',
+} as const;
+
+export const FAULT_STATUS_LABELS: Record<string, string> = {
+  open: 'Açık',
+  in_progress: 'Devam Ediyor',
+  resolved: 'Çözüldü',
+};
+
+export const FAULT_STATUS_COLORS: Record<string, ChipColor> = {
+  open: 'error',
+  in_progress: 'warning',
+  resolved: 'success',
+};
+
+/** Backend Fault.CATEGORY_CHOICES */
+export const FAULT_CATEGORY_LABELS: Record<string, string> = {
+  electric: 'Elektrik',
+  plumbing: 'Tesisat',
+  furniture: 'Mobilya',
+  aircon: 'Klima',
+  tv: 'TV',
+  door_lock: 'Kapı Kilidi',
+  bathroom: 'Banyo',
+  other: 'Diğer',
+};
+
+/** Arıza üstlenip çözebilen roller — backend FAULT_HANDLER_ROLES ile aynı */
+export const FAULT_HANDLER_ROLES: string[] = ['patron', 'manager', 'technician'];
+
 /* ==================== REZERVASYON FİLTRE PRESET'LERİ ==================== */
 
 export const RESERVATION_FILTERS: Record<string, string> = {
@@ -431,7 +492,7 @@ export const MENU_ITEMS: MenuItem[] = [
     label: 'Dashboard',
     path: '/dashboard',
     icon: 'Dashboard',
-    roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.RECEPTION],
+    roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.RECEPTION, ROLES.RECEPTION_MANAGER],
     module: 'base',
   },
   {
@@ -439,7 +500,7 @@ export const MENU_ITEMS: MenuItem[] = [
     label: 'Oda Yönetimi',
     path: '/rooms',
     icon: 'Hotel',
-    roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.RECEPTION],
+    roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.RECEPTION, ROLES.RECEPTION_MANAGER],
     module: 'base',
     children: [
       { id: 'room-list', label: 'Oda Listesi', path: '/rooms' },
@@ -451,7 +512,7 @@ export const MENU_ITEMS: MenuItem[] = [
     label: 'Rezervasyonlar',
     path: '/reservations',
     icon: 'BookOnline',
-    roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.RECEPTION],
+    roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.RECEPTION, ROLES.RECEPTION_MANAGER],
     module: 'base',
     children: [
       { id: 'reservation-list', label: 'Rezervasyon Listesi', path: '/reservations' },
@@ -463,7 +524,7 @@ export const MENU_ITEMS: MenuItem[] = [
     label: 'Müşteriler',
     path: '/guests',
     icon: 'People',
-    roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.RECEPTION],
+    roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.RECEPTION, ROLES.RECEPTION_MANAGER],
     module: 'base',
     children: [
       { id: 'guest-list', label: 'Müşteri Listesi', path: '/guests' },
@@ -477,7 +538,7 @@ export const MENU_ITEMS: MenuItem[] = [
     label: 'Faturalar',
     path: '/invoices',
     icon: 'Receipt',
-    roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.RECEPTION],
+    roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.RECEPTION, ROLES.RECEPTION_MANAGER],
     module: 'invoices',
     children: [
       { id: 'invoice-sales', label: 'Satış Faturaları', path: '/invoices/sales' },
@@ -502,7 +563,8 @@ export const MENU_ITEMS: MenuItem[] = [
     label: 'Eleman Yönetimi',
     path: '/users',
     icon: 'AdminPanelSettings',
-    roles: [ROLES.PATRON],
+    // Backend personel yönetimi ve mobil Personel ekranı ile aynı: patron + genel müdür
+    roles: [ROLES.PATRON, ROLES.MANAGER],
     module: 'staff',
   },
   {
@@ -510,7 +572,7 @@ export const MENU_ITEMS: MenuItem[] = [
     label: 'Raporlar',
     path: '/reports',
     icon: 'Assessment',
-    roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.RECEPTION],
+    roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.RECEPTION, ROLES.RECEPTION_MANAGER],
     module: 'base',
     children: [
       { id: 'daily-report', label: 'Günlük Özet', path: '/reports/daily' },
@@ -541,11 +603,20 @@ export const MENU_ITEMS: MenuItem[] = [
     ],
   },
   {
+    id: 'faults',
+    label: 'Arızalar',
+    path: '/faults',
+    icon: 'Build',
+    // Ön büro arıza bildirir, teknik ekip üstlenip çözer (mobil Arıza Listesi ile aynı)
+    roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.RECEPTION, ROLES.RECEPTION_MANAGER, ROLES.TECHNICIAN, ROLES.HOUSEKEEPING_MANAGER],
+    module: 'staff',
+  },
+  {
     id: 'kbs',
     label: 'KBS',
     path: '/kbs',
     icon: 'Badge',
-    roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.RECEPTION],
+    roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.RECEPTION, ROLES.RECEPTION_MANAGER],
     module: 'kbs',
     children: [
       { id: 'kbs-records', label: 'KBS Kayıtları', path: '/kbs' },
@@ -573,7 +644,7 @@ export const MENU_ITEMS: MenuItem[] = [
     label: 'Restoran / Kafe',
     path: '/tables',
     icon: 'Storefront',
-    roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.CHEF, ROLES.WAITER, ROLES.RESTAURANT_MANAGER, ROLES.CASHIER, ROLES.BARISTA, ROLES.BARMAN, ROLES.RECEPTION],
+    roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.CHEF, ROLES.WAITER, ROLES.RESTAURANT_MANAGER, ROLES.CASHIER, ROLES.BARISTA, ROLES.BARMAN, ROLES.RECEPTION, ROLES.RECEPTION_MANAGER],
     module: 'restaurant',
     children: [
       { id: 'tables', label: 'Masa Yönetimi', path: '/tables' },
@@ -581,6 +652,8 @@ export const MENU_ITEMS: MenuItem[] = [
       { id: 'adisyonlar', label: 'Adisyonlar', path: '/adisyonlar' },
       { id: 'kitchen', label: 'Mutfak Ekranı', path: '/kitchen' },
       { id: 'kasa', label: 'Kasa', path: '/kasa' },
+      // Backend CanViewCommissions: patron, müdür, restoran müdürü (+ muhasebe, Muhasebe menüsünde)
+      { id: 'commissions', label: 'Komisyonlar', path: '/commissions', roles: [ROLES.PATRON, ROLES.MANAGER, ROLES.RESTAURANT_MANAGER] },
     ],
   },
   {
@@ -588,7 +661,7 @@ export const MENU_ITEMS: MenuItem[] = [
     label: 'Mesai Devir',
     path: '/shift-handover',
     icon: 'SwapHoriz',
-    roles: [ROLES.RECEPTION],
+    roles: [ROLES.RECEPTION, ROLES.RECEPTION_MANAGER],
     module: 'staff',
   },
   {
@@ -607,6 +680,7 @@ export const MENU_ITEMS: MenuItem[] = [
       { id: 'acc-income-expense', label: 'Gelir-Gider', path: '/muhasebe/gelir-gider' },
       { id: 'acc-invoices', label: 'Faturalar', path: '/invoices/sales' },
       { id: 'acc-reports', label: 'Raporlar', path: '/reports/general' },
+      { id: 'acc-commissions', label: 'Komisyonlar', path: '/commissions', roles: [ROLES.ACCOUNTING_MANAGER, ROLES.ACCOUNTANT] },
     ],
   },
   {

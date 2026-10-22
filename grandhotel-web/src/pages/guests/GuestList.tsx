@@ -33,6 +33,7 @@ import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 
 import { PageHeader, DataTable, StayDetailContent } from '../../components/common';
 import { Guest, Company, StayHistory } from '../../utils/constants';
+import { toStayHistory, countNights } from '../../utils/stayHistory';
 import { guestsApi, companiesApi } from '../../api/services';
 import { formatDate, formatCurrency, formatPhone, maskIdentity } from '../../utils/formatters';
 import usePageTabs from '../../hooks/usePageTabs';
@@ -249,7 +250,7 @@ const GuestDetailContent: React.FC<GuestDetailContentProps> = ({ guest, companie
       setLoadingHistory(true);
       try {
         const data = await guestsApi.stayHistory(guest.id);
-        setStayHistory(data as unknown as StayHistory[]);
+        setStayHistory(toStayHistory(data));
       } catch (err) {
         console.error('Konaklama geçmişi yüklenirken hata:', err);
       } finally {
@@ -264,10 +265,7 @@ const GuestDetailContent: React.FC<GuestDetailContentProps> = ({ guest, companie
   const totalSpent = stayHistory.reduce((sum, s) => sum + s.totalAmount, 0);
   const totalPaid = stayHistory.reduce((sum, s) => sum + (s.paidAmount || 0), 0);
   const totalDebt = totalSpent - totalPaid;
-  const totalNights = stayHistory.reduce((sum, s) => {
-    const diffTime = new Date(s.checkOut).getTime() - new Date(s.checkIn).getTime();
-    return sum + Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  }, 0);
+  const totalNights = countNights(stayHistory);
 
   return (
     <Box>

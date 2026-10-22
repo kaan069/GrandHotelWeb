@@ -240,14 +240,18 @@ const RoomHeaderToolbar: React.FC<RoomHeaderToolbarProps> = ({
 
           <Divider />
 
-          {/* Rezervasyon İptal */}
-          <MenuItem
-            onClick={() => handleMenuAction(onCancel)}
-            disabled={!hasGuests && !hasReservation}
-          >
-            <ListItemIcon><CancelIcon fontSize="small" color="error" /></ListItemIcon>
-            <ListItemText>Rezervasyon İptal</ListItemText>
-          </MenuItem>
+          {/* Rezervasyon İptal — dolu odada önce Check-in İptal yapılır */}
+          <Tooltip title={isOccupied ? 'Önce "Check-in İptal" yapın' : ''} placement="left">
+            <span>
+              <MenuItem
+                onClick={() => handleMenuAction(onCancel)}
+                disabled={isOccupied || (!hasGuests && !hasReservation)}
+              >
+                <ListItemIcon><CancelIcon fontSize="small" color="error" /></ListItemIcon>
+                <ListItemText>Rezervasyon İptal</ListItemText>
+              </MenuItem>
+            </span>
+          </Tooltip>
         </Menu>
       </Box>
     </Box>

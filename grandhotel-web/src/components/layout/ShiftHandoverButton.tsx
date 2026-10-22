@@ -22,10 +22,16 @@ import {
   Person as PersonIcon,
 } from '@mui/icons-material';
 
-import { ROLES, ShiftHandover } from '../../utils/constants';
+import { ROLES, ShiftHandover, type Role } from '../../utils/constants';
 import useAuth from '../../hooks/useAuth';
+import usePermission from '../../hooks/usePermission';
+import useNotification from '../../hooks/useNotification';
+import { getApiErrorMessage } from '../../utils/apiError';
 import { createShift, getActiveShift } from '../../utils/shiftStorage';
 import { staffApi } from '../../api/services';
+
+/** Mesai devri ön büro vardiyasıdır — backend FRONT_OFFICE_ROLES */
+const FRONT_OFFICE_ROLES: Role[] = [ROLES.PATRON, ROLES.MANAGER, ROLES.RECEPTION, ROLES.RECEPTION_MANAGER];
 
 const ShiftHandoverButton: React.FC = () => {
   const navigate = useNavigate();
@@ -36,9 +42,9 @@ const ShiftHandoverButton: React.FC = () => {
   const [staffList, setStaffList] = useState<{ id: number; name: string; role: string }[]>([]);
   const [activeShift, setActiveShift] = useState<ShiftHandover | null>(null);
 
-  const canHandover = user?.role === ROLES.RECEPTION
-    || user?.role === ROLES.PATRON
-    || user?.role === ROLES.MANAGER;
+  const { canAccess } = usePermission();
+  const { showSuccess, showError } = useNotification();
+  const canHandover = canAccess(FRONT_OFFICE_ROLES);
 
   const loadedRef = useRef(false);
   useEffect(() => {
@@ -54,15 +60,13 @@ const ShiftHandoverButton: React.FC = () => {
     setDialogOpen(true);
     try {
       const data = await staffApi.getAll({ status: 'active' });
-      const userRole = user?.role || '';
       setStaffList(
         data
           .filter((emp) => {
             if (emp.id === user?.id) return false;
-            // Karşı tarafın rolleri içinde benim rolüm varsa göster
-            // Örn: ben resepsiyoncu isem, karşıdaki barista+resepsiyon olsa bile gösterilir
+            // Ön büro vardiyası: devralan ön büro rolüne sahip olmalı (backend IsFrontOffice ile aynı grup)
             const empRoles: string[] = emp.roles || [];
-            return empRoles.includes(userRole);
+            return empRoles.some((r) => (FRONT_OFFICE_ROLES as string[]).includes(r));
           })
           .map((emp) => ({
             id: emp.id,
@@ -83,7 +87,10 @@ const ShiftHandoverButton: React.FC = () => {
         setActiveShift(active);
         setDialogOpen(false);
         setSelectedEmployee(null);
-      } catch { /* hata */ }
+        showSuccess(`Mesai ${selectedEmployee.name} adlı personele devredildi`);
+      } catch (err) {
+        showError(getApiErrorMessage(err, 'Mesai devredilemedi'));
+      }
     }
   };
 

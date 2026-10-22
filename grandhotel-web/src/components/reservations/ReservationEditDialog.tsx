@@ -74,6 +74,9 @@ const ReservationEditDialog: React.FC<ReservationEditDialogProps> = ({
     setLoading(false);
   };
 
+  /* Giriş yapılmışsa oda "Oda Taşı" ile değişir, giriş tarihi sabittir (backend de reddeder) */
+  const isCheckedIn = reservation?.status === 'checked_in';
+
   const handleSave = async () => {
     if (!reservation) return;
 
@@ -154,7 +157,8 @@ const ReservationEditDialog: React.FC<ReservationEditDialogProps> = ({
               value={form.roomId}
               onChange={(e) => { setForm((p) => ({ ...p, roomId: e.target.value })); setErrors((p) => ({ ...p, roomId: '' })); }}
               error={!!errors.roomId}
-              helperText={errors.roomId}
+              helperText={errors.roomId || (isCheckedIn ? 'Konaklayan misafir için "Oda Taşı" kullanın' : undefined)}
+              disabled={isCheckedIn}
             >
               {rooms.map((r) => (
                 <MenuItem key={r.id} value={String(r.id)}>
@@ -189,7 +193,8 @@ const ReservationEditDialog: React.FC<ReservationEditDialogProps> = ({
               value={form.checkIn}
               onChange={(e) => { setForm((p) => ({ ...p, checkIn: e.target.value })); setErrors((p) => ({ ...p, checkIn: '' })); }}
               error={!!errors.checkIn}
-              helperText={errors.checkIn}
+              helperText={errors.checkIn || (isCheckedIn ? 'Giriş yapıldı — değiştirilemez' : undefined)}
+              disabled={isCheckedIn}
               slotProps={{ inputLabel: { shrink: true } }}
             />
           </Grid>

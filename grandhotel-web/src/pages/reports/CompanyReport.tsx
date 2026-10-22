@@ -42,12 +42,14 @@ interface CompanyReportReservation {
   paidAmount: string | number;
 }
 
+/** Backend reports/company yanıtı — tutarlar metin döner ("1250.00") */
 interface CompanyReportSummary {
   totalReservations: number;
-  guestCount: number;
-  totalAmount: number;
-  paidAmount: number;
-  balance: number;
+  activeReservations: number;
+  totalGuests: number;
+  totalAmount: string;
+  paidAmount: string;
+  balance: string;
 }
 
 interface CompanyReportData {
@@ -86,7 +88,14 @@ const CompanyReport: React.FC = () => {
       .finally(() => setLoading(false));
   }, [selectedCompany, dateFrom, dateTo]);
 
-  const summary = report?.summary ?? { totalReservations: 0, guestCount: 0, totalAmount: 0, paidAmount: 0, balance: 0 };
+  const raw = report?.summary;
+  const summary = {
+    totalReservations: raw?.totalReservations ?? 0,
+    guestCount: raw?.totalGuests ?? 0,
+    totalAmount: Number(raw?.totalAmount ?? 0),
+    paidAmount: Number(raw?.paidAmount ?? 0),
+    balance: Number(raw?.balance ?? 0),
+  };
 
   return (
     <Box sx={{ p: 3, maxWidth: 1200, mx: 'auto' }}>

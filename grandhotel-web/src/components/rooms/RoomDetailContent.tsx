@@ -24,6 +24,7 @@ import usePermission from '../../hooks/usePermission';
 import useAuth from '../../hooks/useAuth';
 import type { ApiRoomMinibarItem } from '../../api/services';
 import { ConfirmDialog } from '../common';
+import { getApiErrorMessage } from '../../utils/apiError';
 import GuestSearchDialog from './GuestSearchDialog';
 import FolioAddDialog from './FolioAddDialog';
 import type { FolioAddData } from './FolioAddDialog';
@@ -489,19 +490,11 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
 
   const handleFolioDelete = async (folioId: number) => {
     try {
-      const deletedFolio = folios.find((f) => f.id === folioId);
+      // İşlem geçmişi kaydını backend yazar (folio silme → 'folio_deleted')
       await foliosApi.delete(folioId);
       setFolios((prev) => prev.filter((f) => f.id !== folioId));
-      if (deletedFolio) {
-        await auditApi.create({
-          roomId: room.id,
-          action: 'folio_deleted',
-          description: `${deletedFolio.description || deletedFolio.category} (${Number(deletedFolio.amount).toLocaleString('tr-TR')} ₺) folio kalemi silindi`,
-          performedBy: currentUserName,
-        });
-      }
     } catch (err) {
-      console.error('Folio silinirken hata:', err);
+      setSnackbar({ open: true, message: getApiErrorMessage(err, 'Folio silinemedi'), severity: 'error' });
     }
   };
 
@@ -677,23 +670,12 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
     try {
       if (room.reservationId) {
         // Ön rezerve — backend oda + rezervasyon durumunu birlikte geri alır
+        // İşlem geçmişi kaydını backend yazar ('checkin_reversed')
         await reservationsApi.revertCheckin(room.reservationId);
-        await auditApi.create({
-          roomId: room.id,
-          action: 'checkin_reversed',
-          description: `Oda ${room.roomNumber} check-in iptal edildi — rezervasyon tekrar aktif`,
-          performedBy: currentUserName,
-        });
       } else {
-        // Kapı müşterisi — checkout + available yap
+        // Kapı müşterisi — checkout + available yap (backend 'checkout' kaydı yazar)
         await roomsApi.checkOut(room.id);
         await roomsApi.updateStatus(room.id, ROOM_STATUS.AVAILABLE);
-        await auditApi.create({
-          roomId: room.id,
-          action: 'checkin_reversed',
-          description: `Oda ${room.roomNumber} check-in iptal edildi`,
-          performedBy: currentUserName,
-        });
       }
     } catch (err: unknown) {
       console.error('Check-in iptal hatası:', err);
@@ -705,13 +687,8 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
   /** Check-out iptal — odayı tekrar occupied yap */
   const handleRevertCheckout = async () => {
     try {
+      // İşlem geçmişi kaydını backend yazar ('checkout_reversed')
       await roomsApi.revertCheckout(room.id);
-      await auditApi.create({
-        roomId: room.id,
-        action: 'checkout_reversed',
-        description: `Oda ${room.roomNumber} check-out iptal edildi`,
-        performedBy: currentUserName,
-      });
     } catch (err: unknown) {
       console.error('Check-out iptal hatası:', err);
       const axiosErr = err as { response?: { data?: { error?: string } }; message?: string };
@@ -726,11 +703,9 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
   const handleCancelConfirm = async () => {
     setCancelLoading(true);
     try {
+      // Dolu odada menü kapalı: önce "Check-in İptal" ile rezervasyon 'Rezerve'ye döner
       if (room.reservationId) {
         await reservationsApi.cancel(room.reservationId);
-      }
-      if (room.status === ROOM_STATUS.OCCUPIED) {
-        await roomsApi.checkOut(room.id);
       }
       await roomsApi.updateStatus(room.id, ROOM_STATUS.AVAILABLE);
       setCancelConfirmOpen(false);
@@ -789,13 +764,8 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
       } else if (action === 'checkout') {
         const guestName = (room.guests || []).find((g) => g.guestId === guestId)?.guestName || '';
         if (!window.confirm(`${guestName} için check-out yapılsın mı?`)) return;
+        // İşlem geçmişi kaydını backend yazar ('guest_checkout')
         await roomsApi.checkOut(room.id, { guestId });
-        await auditApi.create({
-          roomId: room.id,
-          action: 'guest_checkout',
-          description: `${guestName} check-out yapıldı`,
-          performedBy: currentUserName,
-        });
         const now = new Date().toISOString();
         const updatedGuests = (room.guests || []).map((g) =>
           g.guestId === guestId ? { ...g, isActive: false, checkOut: now } : g
@@ -808,33 +778,28 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
       } else if (action === 'remove') {
         const guestName = (room.guests || []).find((g) => g.guestId === guestId)?.guestName || '';
         if (!window.confirm(`${guestName} misafirini odadan çıkarmak istediğinize emin misiniz?`)) return;
+        // İşlem geçmişi kaydını backend yazar ('guest_removed').
+        // Son misafir çıkarılamaz (backend 400 döner) → check-out / check-in iptal kullanılır.
         await roomsApi.removeGuest(room.id, guestId);
-        await auditApi.create({
-          roomId: room.id,
-          action: 'guest_removed',
-          description: `${guestName} misafiri odadan çıkarıldı`,
-          performedBy: currentUserName,
-        });
         const updatedGuests = (room.guests || []).filter((g) => g.guestId !== guestId);
         onRoomUpdate(room.id, {
           guests: updatedGuests,
           guestName: updatedGuests.map((g) => g.guestName).join(', ') || '',
-          // Son misafir çıkarıldıysa oda 'dirty' olur (backend aynı şekilde set eder).
-          ...(updatedGuests.length === 0 ? { status: ROOM_STATUS.DIRTY, reservationId: null, reservationCompanyId: null } : {}),
         });
       } else if (action === 'block') {
+        // Kara liste sadece misafir kartını işaretler (sonraki girişlerde uyarı);
+        // odadaki mevcut konaklama değişmez.
         const updatedGuest = await guestsApi.toggleBlock(guestId);
-        if (updatedGuest && updatedGuest.isBlocked) {
-          const updatedGuests = (room.guests || []).filter((g) => g.guestId !== guestId);
-          onRoomUpdate(room.id, {
-            guests: updatedGuests,
-            guestName: updatedGuests.map((g) => g.guestName).join(', ') || '',
-            ...(updatedGuests.length === 0 ? { status: ROOM_STATUS.AVAILABLE } : {}),
-          });
-        }
+        setSnackbar({
+          open: true,
+          message: updatedGuest.isBlocked
+            ? 'Misafir kara listeye alındı. Mevcut konaklaması devam ediyor.'
+            : 'Misafir kara listeden çıkarıldı.',
+          severity: updatedGuest.isBlocked ? 'warning' : 'success',
+        });
       }
     } catch (err) {
-      console.error('Misafir işlemi sırasında hata:', err);
+      setSnackbar({ open: true, message: getApiErrorMessage(err, 'Misafir işlemi yapılamadı'), severity: 'error' });
     }
   };
 
@@ -910,6 +875,7 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
         roomId={room.id}
         isOccupied={isOccupied}
         isAdmin={isAdmin}
+        kbsEnabled={!!user?.enabledModules?.includes('kbs')}
         checkInDate={checkInDate}
         onCheckInDateChange={setCheckInDate}
         checkOutDate={checkOutDate}

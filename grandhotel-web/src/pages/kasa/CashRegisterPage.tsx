@@ -103,15 +103,24 @@ const CashRegisterPage: React.FC = () => {
     setOpenRegisterDialog({ register, mode: 'open' });
   };
 
-  const handleCloseRegisterClick = (register: ApiCashRegister) => {
-    setBalanceInput(register.todayTotals?.collected || register.todayTotals?.total || '0');
+  /* Sayılan nakit alanı beklenen nakitle önerilir (açılış + nakit satış − gider).
+   * "Tahsil edilen" toplam kart satışlarını da içerdiğinden kapanışta sahte fark üretiyordu. */
+  const handleCloseRegisterClick = async (register: ApiCashRegister) => {
+    setBalanceInput('');
     setOpenRegisterDialog({ register, mode: 'close' });
+    try {
+      const summary = await kasaApi.getSummary(register.id);
+      setBalanceInput(String(Number(summary.expectedCash)));
+    } catch {
+      /* özet alınamazsa kullanıcı tutarı elle girer */
+    }
   };
 
   const submitRegisterAction = async () => {
     if (!openRegisterDialog) return;
     const { register, mode } = openRegisterDialog;
-    const amount = parseFloat(balanceInput || '0');
+    // Boş alan 0 sayılmaz — kapanışta sayılmamış kasa "0 TL" olarak kaydedilmesin
+    const amount = balanceInput.trim() === '' ? NaN : Number(balanceInput.replace(',', '.'));
     if (Number.isNaN(amount) || amount < 0) {
       setSnackbar({ open: true, message: 'Geçerli bir tutar girin', severity: 'error' });
       return;

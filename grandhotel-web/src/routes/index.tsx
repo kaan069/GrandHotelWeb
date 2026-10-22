@@ -44,6 +44,8 @@ const StockManagement = React.lazy(() => import('../pages/minibar/StockManagemen
 const MenuManagement = React.lazy(() => import('../pages/menu/MenuManagement'));
 const AdisyonList = React.lazy(() => import('../pages/adisyon/AdisyonList'));
 const KbsRecords = React.lazy(() => import('../pages/kbs/KbsRecords'));
+const FaultList = React.lazy(() => import('../pages/faults/FaultList'));
+const CommissionReport = React.lazy(() => import('../pages/reports/CommissionReport'));
 const KbsSettings = React.lazy(() => import('../pages/kbs/KbsSettings'));
 const CameraView = React.lazy(() => import('../pages/cameras/CameraView'));
 const ParasutIntegration = React.lazy(() => import('../pages/integrations/ParasutIntegration'));
@@ -405,6 +407,8 @@ const router = createBrowserRouter([
         element: <MainLayout />,
         children: [
           { path: '/kbs', element: <React.Suspense fallback={null}><KbsRecords /></React.Suspense> },
+          { path: '/faults', element: <React.Suspense fallback={null}><FaultList /></React.Suspense> },
+          { path: '/commissions', element: <React.Suspense fallback={null}><CommissionReport /></React.Suspense> },
           { path: '/kbs/settings', element: <React.Suspense fallback={null}><KbsSettings /></React.Suspense> },
         ],
       },

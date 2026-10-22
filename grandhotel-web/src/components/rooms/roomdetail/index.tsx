@@ -42,6 +42,8 @@ interface RoomDetailSectionsProps {
   roomId: number;
   isOccupied: boolean;
   isAdmin?: boolean;
+  /** Otelde KBS modülü açık mı (kapalıysa /api/kbs/ 403 döner) */
+  kbsEnabled?: boolean;
   /* StayInfoPanel */
   checkInDate: string;
   onCheckInDateChange: (value: string) => void;
@@ -85,6 +87,7 @@ const RoomDetailSections: React.FC<RoomDetailSectionsProps> = ({
   roomId,
   isOccupied,
   isAdmin = false,
+  kbsEnabled = false,
   checkInDate,
   onCheckInDateChange,
   checkOutDate,
@@ -178,7 +181,7 @@ const RoomDetailSections: React.FC<RoomDetailSectionsProps> = ({
 
         <MinibarSection items={minibarItems} />
 
-        <KbsSection roomId={roomId} isOccupied={isOccupied} />
+        {kbsEnabled && <KbsSection roomId={roomId} isOccupied={isOccupied} />}
 
         {isAdmin && <AuditLogSection roomId={roomId} />}
       </Grid>

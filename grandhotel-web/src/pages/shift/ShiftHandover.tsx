@@ -44,6 +44,8 @@ import {
 import { PageHeader, StatCard } from '../../components/common';
 import { ShiftHandover as ShiftHandoverType } from '../../utils/constants';
 import { loadShifts, closeShift, getActiveShift } from '../../utils/shiftStorage';
+import useNotification from '../../hooks/useNotification';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 const formatDate = (dateStr: string): string => {
   const d = new Date(dateStr);
@@ -60,6 +62,7 @@ const formatCurrency = (amount: number): string => {
 };
 
 const ShiftHandover: React.FC = () => {
+  const { showSuccess, showError } = useNotification();
   const [shifts, setShifts] = useState<ShiftHandoverType[]>([]);
   const [activeShift, setActiveShift] = useState<ShiftHandoverType | null>(null);
   const [selectedShift, setSelectedShift] = useState<ShiftHandoverType | null>(null);
@@ -101,7 +104,10 @@ const ShiftHandover: React.FC = () => {
       setCloseDialogOpen(false);
       setCardSalesInput('');
       setCashSalesInput('');
+      showSuccess('Mesai kapatıldı');
       await refreshData();
+    } catch (err) {
+      showError(getApiErrorMessage(err, 'Mesai kapatılamadı'));
     } finally {
       setClosing(false);
     }

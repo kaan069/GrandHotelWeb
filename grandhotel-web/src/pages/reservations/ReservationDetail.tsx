@@ -42,6 +42,7 @@ import type { ApiReservationDetail, ApiRoom, ApiCompany } from '../../api/servic
 import { formatDateTime, formatCurrency } from '../../utils/formatters';
 import { FOLIO_CATEGORY_LABELS } from '../../utils/constants';
 import ReservationEditDialog from '../../components/reservations/ReservationEditDialog';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 /* ==================== STATUS HELPERS ==================== */
 
@@ -101,8 +102,8 @@ const ReservationDetail: React.FC = () => {
       await reservationsApi.checkIn(reservation.id);
       setSnackbar({ open: true, message: 'Check-in yapıldı.', severity: 'success' });
       loadReservation();
-    } catch {
-      setSnackbar({ open: true, message: 'Check-in yapılamadı.', severity: 'error' });
+    } catch (err) {
+      setSnackbar({ open: true, message: getApiErrorMessage(err, 'Check-in yapılamadı.'), severity: 'error' });
     } finally {
       setActionLoading(false);
       setConfirmDialog({ open: false, title: '', action: () => {} });
@@ -116,8 +117,8 @@ const ReservationDetail: React.FC = () => {
       await reservationsApi.cancel(reservation.id);
       setSnackbar({ open: true, message: 'Rezervasyon iptal edildi.', severity: 'success' });
       loadReservation();
-    } catch {
-      setSnackbar({ open: true, message: 'İptal işlemi başarısız.', severity: 'error' });
+    } catch (err) {
+      setSnackbar({ open: true, message: getApiErrorMessage(err, 'İptal işlemi başarısız.'), severity: 'error' });
     } finally {
       setActionLoading(false);
       setConfirmDialog({ open: false, title: '', action: () => {} });
@@ -131,8 +132,8 @@ const ReservationDetail: React.FC = () => {
       await reservationsApi.revertCheckin(reservation.id);
       setSnackbar({ open: true, message: 'Check-in geri alındı.', severity: 'success' });
       loadReservation();
-    } catch {
-      setSnackbar({ open: true, message: 'Geri alma başarısız.', severity: 'error' });
+    } catch (err) {
+      setSnackbar({ open: true, message: getApiErrorMessage(err, 'Geri alma başarısız.'), severity: 'error' });
     } finally {
       setActionLoading(false);
       setConfirmDialog({ open: false, title: '', action: () => {} });

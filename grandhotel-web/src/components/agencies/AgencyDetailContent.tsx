@@ -62,8 +62,10 @@ const AgencyDetailContent: React.FC<AgencyDetailContentProps> = ({ agency, onRes
     refreshData();
   }, [refreshData]);
 
-  const totalRevenue = reservations.reduce((sum, r) => sum + Number(r.totalAmount), 0);
-  const totalPaid = reservations.reduce((sum, r) => sum + Number(r.paidAmount), 0);
+  /* Ciro / borç sadece gerçekleşmiş konaklamalardan (rezerve = planlanan tutar, henüz borç değil) */
+  const billable = reservations.filter((r) => r.status === 'checked_in' || r.status === 'checked_out');
+  const totalRevenue = billable.reduce((sum, r) => sum + Number(r.totalAmount), 0);
+  const totalPaid = billable.reduce((sum, r) => sum + Number(r.paidAmount), 0);
   const totalDebt = totalRevenue - totalPaid;
   const commissionRate = Number(agency.commissionRate || 0);
   const commissionAmount = (totalRevenue * commissionRate) / 100;

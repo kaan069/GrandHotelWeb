@@ -81,7 +81,7 @@ const IncomeExpense: React.FC = () => {
       </Stack>
 
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid size={{ xs: 12, md: 4 }}><Card><CardContent><Typography variant="body2" color="text.secondary">Gelir</Typography><Typography variant="h5" fontWeight={800} color="success.main">{fmt(summary?.income || '0')}</Typography></CardContent></Card></Grid>
+        <Grid size={{ xs: 12, md: 4 }}><Card><CardContent><Typography variant="body2" color="text.secondary">Gelir</Typography><Typography variant="h5" fontWeight={800} color="success.main">{fmt(summary?.income || '0')}</Typography>{Number(summary?.discounts || 0) > 0 && <Typography variant="caption" color="text.secondary">Brüt {fmt(summary?.grossIncome || '0')} − İndirim {fmt(summary?.discounts || '0')}</Typography>}</CardContent></Card></Grid>
         <Grid size={{ xs: 12, md: 4 }}><Card><CardContent><Typography variant="body2" color="text.secondary">Gider</Typography><Typography variant="h5" fontWeight={800} color="error.main">{fmt(summary?.expense || '0')}</Typography></CardContent></Card></Grid>
         <Grid size={{ xs: 12, md: 4 }}><Card><CardContent><Typography variant="body2" color="text.secondary">Net</Typography><Typography variant="h5" fontWeight={800}>{fmt(summary?.net || '0')}</Typography></CardContent></Card></Grid>
       </Grid>

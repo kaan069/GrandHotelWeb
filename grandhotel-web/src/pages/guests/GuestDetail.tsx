@@ -37,6 +37,7 @@ import { PageHeader } from '../../components/common';
 import { guestsApi, reportsApi } from '../../api/services';
 import { formatDate, formatCurrency, formatPhone } from '../../utils/formatters';
 import type { Guest, StayHistory } from '../../utils/constants';
+import { toStayHistory, countNights } from '../../utils/stayHistory';
 
 interface GuestReportSummary {
   totalAmount: number;
@@ -85,7 +86,7 @@ const GuestDetail: React.FC = () => {
           return;
         }
         setGuest(found);
-        setStayHistory(stays as unknown as StayHistory[]);
+        setStayHistory(toStayHistory(stays));
         setReport(reportData);
       })
       .catch((err) => {
@@ -99,11 +100,7 @@ const GuestDetail: React.FC = () => {
   const totalSpent = stayHistory.reduce((sum, s) => sum + s.totalAmount, 0);
   const totalPaid = stayHistory.reduce((sum, s) => sum + (s.paidAmount || 0), 0);
   const totalDebt = totalSpent - totalPaid;
-  const totalNights = stayHistory.reduce((sum, s) => {
-    if (!s.checkOut) return sum;
-    const diffTime = new Date(s.checkOut).getTime() - new Date(s.checkIn).getTime();
-    return sum + Math.max(Math.ceil(diffTime / (1000 * 60 * 60 * 24)), 0);
-  }, 0);
+  const totalNights = countNights(stayHistory);
 
   /* Loading */
   if (loading) {

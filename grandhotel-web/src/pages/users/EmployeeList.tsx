@@ -26,6 +26,8 @@ import { getYearsOfService } from '../../utils/leaveCalculator';
 import { staffApi, leavesApi } from '../../api/services';
 import type { ApiEmployee } from '../../api/services';
 import useAuth from '../../hooks/useAuth';
+import PendingLeaveRequests from '../../components/employees/PendingLeaveRequests';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 const getColumns = (onDelete: (id: number) => void, onLeave: (emp: ApiEmployee) => void, onResetPassword: (emp: ApiEmployee) => void) => [
   {
@@ -202,9 +204,7 @@ const EmployeeList: React.FC = () => {
       await staffApi.create({ ...formData, staffNumber: String(maxNum + 1) });
       fetchEmployees();
     } catch (err: unknown) {
-      console.error('Eleman eklenemedi:', err);
-      const axiosErr = err as { response?: { data?: { staffNumber?: string[]; error?: string } } };
-      setSnackbar({ open: true, message: axiosErr?.response?.data?.staffNumber?.[0] || axiosErr?.response?.data?.error || 'Eleman eklenemedi', severity: 'error' });
+      setSnackbar({ open: true, message: getApiErrorMessage(err, 'Eleman eklenemedi'), severity: 'error' });
     }
   };
 
@@ -214,8 +214,7 @@ const EmployeeList: React.FC = () => {
       await staffApi.delete(id);
       setEmployees((prev) => prev.filter((e) => e.id !== id));
     } catch (err) {
-      console.error('Eleman silinemedi:', err);
-      setSnackbar({ open: true, message: 'Eleman silinemedi', severity: 'error' });
+      setSnackbar({ open: true, message: getApiErrorMessage(err, 'Eleman silinemedi'), severity: 'error' });
     }
   };
 
@@ -238,8 +237,8 @@ const EmployeeList: React.FC = () => {
       const result = await staffApi.resetPassword(emp.id);
       setResetResult({ fullName: result.fullName, staffNumber: result.staffNumber, newPassword: result.newPassword });
       fetchEmployees();
-    } catch {
-      setSnackbar({ open: true, message: 'Şifre sıfırlanamadı', severity: 'error' });
+    } catch (err) {
+      setSnackbar({ open: true, message: getApiErrorMessage(err, 'Şifre sıfırlanamadı'), severity: 'error' });
     }
   };
 
@@ -289,6 +288,9 @@ const EmployeeList: React.FC = () => {
           </>
         }
       />
+
+      {/* Onay bekleyen izin talepleri (yoksa görünmez) */}
+      <PendingLeaveRequests onChanged={fetchEmployees} />
 
       <Box sx={{ mt: 2 }}>
         <DataTable

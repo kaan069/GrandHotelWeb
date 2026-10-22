@@ -37,9 +37,12 @@ import {
   Save as SaveIcon,
   Close as CloseIcon,
   Cancel as CancelIcon,
+  CheckCircle as ApproveIcon,
+  Block as RejectIcon,
   AccessTime as AccessTimeIcon,
 } from '@mui/icons-material';
-import { ROLE_LABELS } from '../../utils/constants';
+import { ROLE_LABELS, LEAVE_TYPE_LABELS, LEAVE_STATUS_LABELS, LEAVE_STATUS_COLORS } from '../../utils/constants';
+import { getApiErrorMessage } from '../../utils/apiError';
 import { getYearsOfService } from '../../utils/leaveCalculator';
 import { leavesApi, staffApi, attendanceApi } from '../../api/services';
 import { formatCurrency } from '../../utils/formatters';
@@ -51,25 +54,6 @@ interface EmployeeDetailDialogProps {
   employee: ApiEmployee | null;
   onSaved?: () => void;
 }
-
-const LEAVE_TYPE_LABELS: Record<string, string> = {
-  weekly: 'Haftalık',
-  annual: 'Yıllık',
-  daily: 'Günlük',
-  unpaid: 'Ücretsiz',
-};
-
-const LEAVE_STATUS_LABELS: Record<string, string> = {
-  approved: 'Onaylandı',
-  pending: 'Beklemede',
-  cancelled: 'İptal',
-};
-
-const LEAVE_STATUS_COLORS: Record<string, 'success' | 'warning' | 'error' | 'default'> = {
-  approved: 'success',
-  pending: 'warning',
-  cancelled: 'error',
-};
 
 const ATTENDANCE_STATUS_LABELS: Record<string, string> = {
   present: 'Geldi',
@@ -125,18 +109,25 @@ const EmployeeDetailDialog: React.FC<EmployeeDetailDialogProps> = ({ open, onClo
     setEditingSalary(true);
   };
 
-  const handleCancelLeave = async (leaveId: number) => {
-    if (!window.confirm('Bu izni iptal etmek istiyor musunuz?')) return;
+  /** İzin işlemi (iptal / onay / red) sonrası listeyi ve çalışan bakiyesini yenile */
+  const runLeaveAction = async (action: () => Promise<unknown>, confirmText: string, fallbackError: string) => {
+    if (!window.confirm(confirmText)) return;
     try {
-      await leavesApi.cancel(leaveId);
+      await action();
       const updatedLeaves = await leavesApi.getForEmployee(employee!.id);
       setLeaves(updatedLeaves);
       onSaved?.();
     } catch (err) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      window.alert(axiosErr?.response?.data?.error || 'İzin iptal edilemedi');
+      window.alert(getApiErrorMessage(err, fallbackError));
     }
   };
+
+  const handleCancelLeave = (leaveId: number) =>
+    runLeaveAction(() => leavesApi.cancel(leaveId), 'Bu izni iptal etmek istiyor musunuz?', 'İzin iptal edilemedi');
+  const handleApproveLeave = (leaveId: number) =>
+    runLeaveAction(() => leavesApi.approve(leaveId), 'İzin talebi onaylansın mı?', 'İzin onaylanamadı');
+  const handleRejectLeave = (leaveId: number) =>
+    runLeaveAction(() => leavesApi.reject(leaveId), 'İzin talebi reddedilsin mi?', 'İzin reddedilemedi');
 
   const handleSaveSalary = async () => {
     if (!employee) return;
@@ -320,7 +311,7 @@ const EmployeeDetailDialog: React.FC<EmployeeDetailDialogProps> = ({ open, onClo
                   <TableCell align="center" sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Gün</TableCell>
                   <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Durum</TableCell>
                   <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Not</TableCell>
-                  <TableCell align="center" sx={{ fontWeight: 600, fontSize: '0.75rem', width: 50 }}></TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 600, fontSize: '0.75rem', width: 80 }}></TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -349,6 +340,16 @@ const EmployeeDetailDialog: React.FC<EmployeeDetailDialogProps> = ({ open, onClo
                       {leave.note || '-'}
                     </TableCell>
                     <TableCell align="center" sx={{ p: 0.5 }}>
+                      {leave.status === 'pending' && (
+                        <>
+                          <IconButton size="small" color="success" title="Onayla" onClick={() => handleApproveLeave(leave.id)}>
+                            <ApproveIcon sx={{ fontSize: 16 }} />
+                          </IconButton>
+                          <IconButton size="small" color="error" title="Reddet" onClick={() => handleRejectLeave(leave.id)}>
+                            <RejectIcon sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        </>
+                      )}
                       {leave.status === 'approved' && (
                         <IconButton
                           size="small"
