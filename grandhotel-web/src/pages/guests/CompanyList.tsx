@@ -28,6 +28,8 @@ import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { PageHeader, DataTable, StayDetailContent } from '../../components/common';
 import { Company, StayHistory } from '../../utils/constants';
 import { companiesApi } from '../../api/services';
+import type { CariDebtorRow } from '../../api/services';
+import { buildCariDebtorColumns } from '../../components/debtors/cariDebtorColumns';
 import { formatPhone, formatCurrency } from '../../utils/formatters';
 import usePageTabs from '../../hooks/usePageTabs';
 
@@ -39,19 +41,7 @@ interface CompanyRow extends Company {
   [key: string]: unknown;
 }
 
-interface DebtorRow {
-  id: number;
-  name: string;
-  taxNumber: string | null;
-  phone: string | null;
-  email: string | null;
-  totalAmount: string;
-  paidAmount: string;
-  balance: string;
-  reservationCount: number;
-  activeReservations: number;
-  [key: string]: unknown;
-}
+type DebtorRow = CariDebtorRow & { [key: string]: unknown };
 
 interface CompanyTabItem {
   type: 'company';
@@ -97,42 +87,7 @@ const companyColumns: GridColDef[] = [
 ];
 
 /* ── Borçlu Firmalar kolonları ── */
-const debtorColumns: GridColDef[] = [
-  { field: 'id', headerName: 'ID', width: 60, align: 'center', headerAlign: 'center' },
-  {
-    field: 'name', headerName: 'Firma Adı', width: 200, flex: 1,
-    renderCell: (p: GridRenderCellParams) => <strong style={{ color: '#1565C0' }}>{p.value}</strong>,
-  },
-  {
-    field: 'taxNumber', headerName: 'Vergi No', width: 130,
-    renderCell: (p: GridRenderCellParams) => p.value || '-',
-  },
-  {
-    field: 'totalAmount', headerName: 'Toplam', width: 130, align: 'right', headerAlign: 'right',
-    renderCell: (p: GridRenderCellParams) => formatCurrency(Number(p.value)),
-  },
-  {
-    field: 'paidAmount', headerName: 'Ödenen', width: 130, align: 'right', headerAlign: 'right',
-    renderCell: (p: GridRenderCellParams) => (
-      <span style={{ color: '#22C55E' }}>{formatCurrency(Number(p.value))}</span>
-    ),
-  },
-  {
-    field: 'balance', headerName: 'Bakiye', width: 130, align: 'right', headerAlign: 'right',
-    renderCell: (p: GridRenderCellParams) => (
-      <strong style={{ color: '#EF4444' }}>{formatCurrency(Number(p.value))}</strong>
-    ),
-  },
-  {
-    field: 'reservationCount', headerName: 'Rez.', width: 70, align: 'center', headerAlign: 'center',
-  },
-  {
-    field: 'activeReservations', headerName: 'Aktif', width: 70, align: 'center', headerAlign: 'center',
-    renderCell: (p: GridRenderCellParams) => p.value > 0 ? (
-      <Chip label={p.value} size="small" color="error" />
-    ) : '0',
-  },
-];
+const debtorColumns: GridColDef[] = buildCariDebtorColumns('Firma Adı', false);
 
 const CompanyList: React.FC = () => {
   /* ── Sayfa görünümü: 0 = Tüm Firmalar, 1 = Borçlu Firmalar ── */

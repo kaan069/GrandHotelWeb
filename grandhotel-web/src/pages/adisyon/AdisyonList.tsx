@@ -5,7 +5,7 @@
  * Satıra tıklayınca detay dialog açılır.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Button,
@@ -36,7 +36,8 @@ import {
 } from '@mui/icons-material';
 import { Dayjs } from 'dayjs';
 
-import { PageHeader } from '../../components/common';
+import { PageHeader, ServerTablePagination } from '../../components/common';
+import useServerTable from '../../hooks/useServerTable';
 import { FilterPanel, DateRangePicker } from '../../components/forms';
 import { tabsApi, menuApi, roomsApi } from '../../api/services';
 import type { ApiTab, ApiTabItem, ApiMenuItem, ApiRoom } from '../../api/services';
@@ -66,8 +67,6 @@ const STATUS_COLORS: Record<string, 'success' | 'warning' | 'error' | 'info' | '
 };
 
 const AdisyonList: React.FC = () => {
-  const [tabs, setTabs] = useState<ApiTab[]>([]);
-  const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('');
   const [serviceFilter, setServiceFilter] = useState('');
   const [dateStart, setDateStart] = useState<Dayjs | null>(null);
@@ -90,24 +89,18 @@ const AdisyonList: React.FC = () => {
   const [addItemOpen, setAddItemOpen] = useState(false);
   const [addItemForm, setAddItemForm] = useState({ menuItemId: '', description: '', quantity: '1', unitPrice: '' });
 
-  const fetchTabs = useCallback(async () => {
-    setLoading(true);
-    try {
-      const filters: { status?: string; servicePoint?: string; dateFrom?: string; dateTo?: string } = {};
-      if (statusFilter) filters.status = statusFilter;
-      if (serviceFilter) filters.servicePoint = serviceFilter;
-      if (dateStart) filters.dateFrom = dateStart.format('YYYY-MM-DD');
-      if (dateEnd) filters.dateTo = dateEnd.format('YYYY-MM-DD');
-      const data = await tabsApi.getAll(filters);
-      setTabs(data);
-    } catch (err) {
-      console.error('Adisyonlar yüklenemedi:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [statusFilter, serviceFilter, dateStart, dateEnd]);
-
-  useEffect(() => { fetchTabs(); }, [fetchTabs]);
+  /* Adisyonlar sayfa sayfa (en yeni önce); filtre değişince ilk sayfa */
+  const dateFrom = dateStart ? dateStart.format('YYYY-MM-DD') : undefined;
+  const dateTo = dateEnd ? dateEnd.format('YYYY-MM-DD') : undefined;
+  const table = useServerTable(
+    (p) => tabsApi.getPage({
+      ...p, status: statusFilter || undefined, servicePoint: serviceFilter || undefined, dateFrom, dateTo,
+    }),
+    [statusFilter, serviceFilter, dateFrom, dateTo],
+  );
+  const tabs = table.rows;
+  const fetchTabs = table.refresh;
+  const loading = table.loading && tabs.length === 0;
 
   /* Detay aç */
   const handleRowClick = async (tab: ApiTab) => {
@@ -253,7 +246,7 @@ const AdisyonList: React.FC = () => {
     <div>
       <PageHeader
         title="Adisyonlar"
-        subtitle={`${tabs.length} adisyon`}
+        subtitle={`${table.rowCount} adisyon`}
         actions={
           <Button variant="contained" startIcon={<AddIcon />} onClick={openCreateDialog}>
             Yeni Adisyon
@@ -336,6 +329,7 @@ const AdisyonList: React.FC = () => {
               )}
             </TableBody>
           </Table>
+          <ServerTablePagination server={table.server} />
         </TableContainer>
       )}
 

@@ -1,7 +1,7 @@
 /**
  * Rezervasyon Listesi Sayfası
  *
- * Tüm rezervasyonları tablo ile listeler.
+ * Tüm rezervasyonları tablo ile listeler (sunucu taraflı sayfalama + arama: hooks/useServerTable).
  * Durum, tarih, misafir bilgileri ve ödeme durumu gösterilir.
  * Satıra tıklanınca ilgili odanın detayı tab olarak açılır.
  */
@@ -11,7 +11,6 @@ import {
   Button,
   Box,
   Chip,
-  CircularProgress,
   Typography,
   Snackbar,
   Alert,
@@ -31,6 +30,7 @@ import { FilterPanel, DateRangePicker } from '../../components/forms';
 import RoomDetailContent from '../../components/rooms/RoomDetailContent';
 import usePermission from '../../hooks/usePermission';
 import usePageTabs from '../../hooks/usePageTabs';
+import useServerTable from '../../hooks/useServerTable';
 import { formatDate, formatCurrency } from '../../utils/formatters';
 import {
   RESERVATION_FILTER_LABELS,
@@ -213,10 +213,7 @@ const ReservationList: React.FC = () => {
   const { canManageReservations } = usePermission();
 
   /* API verileri */
-  const [reservations, setReservations] = useState<ApiReservation[]>([]);
   const [rooms, setRooms] = useState<ApiRoom[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   /* Dialog state'leri */
   const [newResDialogOpen, setNewResDialogOpen] = useState(false);
@@ -256,40 +253,15 @@ const ReservationList: React.FC = () => {
       .catch((err) => console.error('Firmalar yüklenemedi:', err));
   }, []);
 
-  /* Rezervasyonları yükle (filtre değişince tekrar) */
-  const fetchReservations = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const apiFilters: {
-        filter?: string;
-        dateFrom?: string;
-        dateTo?: string;
-      } = {};
-
-      if (filters.filter) {
-        apiFilters.filter = filters.filter;
-      }
-      if (filters.dateStart) {
-        apiFilters.dateFrom = filters.dateStart.format('YYYY-MM-DD');
-      }
-      if (filters.dateEnd) {
-        apiFilters.dateTo = filters.dateEnd.format('YYYY-MM-DD');
-      }
-
-      const data = await reservationsApi.getAll(apiFilters);
-      setReservations(data);
-    } catch (err) {
-      console.error('Rezervasyonlar yüklenemedi:', err);
-      setError('Rezervasyonlar yüklenirken bir hata oluştu.');
-    } finally {
-      setLoading(false);
-    }
-  }, [filters.filter, filters.dateStart, filters.dateEnd]);
-
-  useEffect(() => {
-    fetchReservations();
-  }, [fetchReservations]);
+  /* Rezervasyonlar — sayfa sayfa (filtre / arama değişince ilk sayfa) */
+  const dateFrom = filters.dateStart ? filters.dateStart.format('YYYY-MM-DD') : undefined;
+  const dateTo = filters.dateEnd ? filters.dateEnd.format('YYYY-MM-DD') : undefined;
+  const table = useServerTable(
+    (p) => reservationsApi.getPage({ ...p, filter: filters.filter || undefined, dateFrom, dateTo }),
+    [filters.filter, dateFrom, dateTo],
+  );
+  const reservations = table.rows;
+  const fetchReservations = table.refresh;
 
   /** Filtre değişikliğini işle */
   const handleFilterChange = (key: string, value: string) => {
@@ -505,7 +477,7 @@ const ReservationList: React.FC = () => {
     <div>
       <PageHeader
         title="Rezervasyonlar"
-        subtitle={`${tableRows.length} rezervasyon`}
+        subtitle={`${table.rowCount} rezervasyon`}
         actions={
           canManageReservations && (
             <Box sx={{ display: 'flex', gap: 1 }}>
@@ -550,26 +522,20 @@ const ReservationList: React.FC = () => {
             />
           </Box>
 
-          {/* Yükleniyor */}
-          {loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
-              <CircularProgress />
-              <Typography sx={{ ml: 2 }} color="text.secondary">
-                Rezervasyonlar yükleniyor...
-              </Typography>
-            </Box>
-          ) : error ? (
+          {table.error ? (
             <Box sx={{ textAlign: 'center', py: 8 }}>
-              <Typography color="error">{error}</Typography>
+              <Typography color="error">Rezervasyonlar yüklenirken bir hata oluştu.</Typography>
               <Button onClick={fetchReservations} sx={{ mt: 2 }}>
                 Tekrar Dene
               </Button>
             </Box>
           ) : (
-            /* Rezervasyon tablosu */
+            /* Rezervasyon tablosu — yüklenirken de bağlı kalır (arama kutusu odağı kaybolmasın) */
             <DataTable
               rows={tableRows}
               columns={allColumns}
+              loading={table.loading}
+              server={table.server}
               onRowClick={handleRowClick}
               searchable
               searchPlaceholder="Misafir adı veya oda numarası ara..."

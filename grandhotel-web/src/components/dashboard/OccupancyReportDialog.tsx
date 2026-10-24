@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Typography,
   Box,
@@ -28,8 +28,9 @@ import {
 } from '@mui/icons-material';
 import dayjs from 'dayjs';
 
-import { ROOM_STATUS, BED_TYPE_LABELS, RoomGuest } from '../../utils/constants';
-import { foliosApi, companiesApi, guestsApi, reservationsApi } from '../../api/services';
+import { BED_TYPE_LABELS, RoomGuest } from '../../utils/constants';
+import { reservationsApi } from '../../api/services';
+import type { ApiReservation } from '../../api/services';
 import { formatCurrency } from '../../utils/formatters';
 
 interface OccupancyRoom {
@@ -65,141 +66,62 @@ interface RoomReportRow {
 type ReportMode = 'current' | 'dateRange' | 'today';
 
 const OccupancyReportDialog: React.FC<OccupancyReportDialogProps> = ({ open, onClose, rooms, canViewFinancials }) => {
-  const occupiedRooms = rooms.filter((r) => r.status === ROOM_STATUS.OCCUPIED);
-  const [reportRows, setReportRows] = useState<RoomReportRow[]>([]);
+  const [reservations, setReservations] = useState<ApiReservation[]>([]);
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<ReportMode>('current');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
-  const fetchCurrentReport = useCallback(async () => {
-    if (occupiedRooms.length === 0) {
-      setReportRows([]);
-      return;
-    }
-
+  /* Tutarlar rezervasyon kaydından (backend refresh_totals): toplam = ücretler − indirim,
+     ödenen = ödemeler + cariye aktarılan − cariye alacak yazılan → bakiye = folio bakiyesi */
+  const fetchReservations = useCallback(async (filters: Parameters<typeof reservationsApi.getAll>[0]) => {
     setLoading(true);
     try {
-      const [companiesData, allGuestsData] = await Promise.all([
-        companiesApi.getAll(),
-        guestsApi.getAll(),
-      ]);
-
-      const rows: RoomReportRow[] = await Promise.all(
-        occupiedRooms.map(async (room) => {
-          const folios = await foliosApi.getForRoom(room.id);
-          const guestNames = room.guests && room.guests.length > 0
-            ? room.guests.map((g) => g.guestName).join(', ')
-            : room.guestName || '-';
-
-          let companyName = '-';
-          if (room.guests && room.guests.length > 0) {
-            for (const rg of room.guests) {
-              const guest = allGuestsData.find((g) => g.id === rg.guestId);
-              if (guest?.companyId) {
-                const comp = companiesData.find((c) => c.id === guest.companyId);
-                if (comp) { companyName = comp.name; break; }
-              }
-            }
-          }
-
-          const totalCharge = folios
-            .filter((f) => f.category !== 'payment' && f.category !== 'discount')
-            .reduce((sum, f) => sum + Number(f.amount), 0);
-          const totalDiscount = folios
-            .filter((f) => f.category === 'discount')
-            .reduce((sum, f) => sum + Number(f.amount), 0);
-          const totalPayment = folios
-            .filter((f) => f.category === 'payment')
-            .reduce((sum, f) => sum + Number(f.amount), 0);
-          const balance = totalCharge - totalDiscount - totalPayment;
-
-          return {
-            roomNumber: room.roomNumber,
-            bedType: BED_TYPE_LABELS[room.bedType] || room.bedType,
-            guests: guestNames,
-            company: companyName,
-            nightlyRate: room.price,
-            totalCharge: totalCharge - totalDiscount,
-            totalPayment,
-            balance,
-          };
-        })
-      );
-
-      setReportRows(rows);
+      setReservations(await reservationsApi.getAll(filters));
     } catch (err) {
       console.error('Rapor verileri yüklenirken hata:', err);
-      setReportRows([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [rooms]);
-
-  const fetchDateRangeReport = useCallback(async (from: string, to: string) => {
-    setLoading(true);
-    try {
-      const reservations = await reservationsApi.getAll({
-        dateFrom: from,
-        dateTo: to,
-        status: 'checked_in,checked_out',
-      });
-
-      if (reservations.length === 0) {
-        setReportRows([]);
-        return;
-      }
-
-      const details = await Promise.all(
-        reservations.map((r) => reservationsApi.getById(r.id))
-      );
-
-      const rows: RoomReportRow[] = details.map((detail) => {
-        const guestNames = detail.stays.map((s) => s.guestName).join(', ') || '-';
-
-        const totalCharge = detail.folioItems
-          .filter((f) => f.category !== 'payment' && f.category !== 'discount')
-          .reduce((sum, f) => sum + Number(f.amount), 0);
-        const totalDiscount = detail.folioItems
-          .filter((f) => f.category === 'discount')
-          .reduce((sum, f) => sum + Number(f.amount), 0);
-        const totalPayment = detail.folioItems
-          .filter((f) => f.category === 'payment')
-          .reduce((sum, f) => sum + Number(f.amount), 0);
-        const balance = totalCharge - totalDiscount - totalPayment;
-
-        return {
-          roomNumber: detail.roomNumber,
-          bedType: BED_TYPE_LABELS[detail.roomNumber] || '-',
-          guests: guestNames,
-          company: detail.companyName || '-',
-          nightlyRate: 0,
-          totalCharge: totalCharge - totalDiscount,
-          totalPayment,
-          balance,
-          checkInDate: detail.checkIn,
-        };
-      });
-
-      setReportRows(rows);
-    } catch (err) {
-      console.error('Rapor verileri yüklenirken hata:', err);
-      setReportRows([]);
+      setReservations([]);
     } finally {
       setLoading(false);
     }
   }, []);
 
+  const reportRows: RoomReportRow[] = useMemo(() => {
+    const roomById = new Map(rooms.map((r) => [r.id, r]));
+    return reservations
+      .map((r) => {
+        const room = roomById.get(r.roomId);
+        const total = parseFloat(r.totalAmount) || 0;
+        const paid = parseFloat(r.paidAmount) || 0;
+        return {
+          roomNumber: r.roomNumber,
+          bedType: room ? (BED_TYPE_LABELS[room.bedType] || room.bedType) : '-',
+          guests: r.guestNames || r.placeholderGuestName || '-',
+          company: r.companyName || r.agencyName || '-',
+          // Geçmiş konaklamada odanın bugünkü fiyatı yanıltıcı olur → sadece anlık raporda
+          nightlyRate: mode === 'current' ? room?.price || 0 : 0,
+          totalCharge: total,
+          totalPayment: paid,
+          balance: total - paid,
+          checkInDate: r.checkIn,
+        };
+      })
+      .sort((a, b) => a.roomNumber.localeCompare(b.roomNumber, 'tr', { numeric: true }));
+  }, [reservations, rooms, mode]);
+
+  /* Anlık rapor: dialog açılınca / moda dönünce konaklayanlar yüklenir */
   useEffect(() => {
     if (!open) {
-      setReportRows([]);
+      setReservations([]);
       return;
     }
-
     if (mode === 'current') {
-      fetchCurrentReport();
+      fetchReservations({ status: 'checked_in' });
     }
-  }, [open, mode, rooms, fetchCurrentReport]);
+  }, [open, mode, fetchReservations]);
+
+  const fetchDateRangeReport = (from: string, to: string) =>
+    fetchReservations({ dateFrom: from, dateTo: to, status: 'checked_in,checked_out' });
 
   const handleSearch = () => {
     if (!dateFrom || !dateTo) return;
@@ -246,10 +168,10 @@ const OccupancyReportDialog: React.FC<OccupancyReportDialogProps> = ({ open, onC
       const to = dayjs(dateTo).format('DD.MM.YYYY');
       return `${from} - ${to} arası giriş yapan odalar: ${reportRows.length}`;
     }
-    return `Dolu Oda: ${occupiedRooms.length} / ${rooms.length}`;
+    return `Dolu Oda: ${reportRows.length} / ${rooms.length}`;
   };
 
-  const hasNoData = mode === 'current' ? occupiedRooms.length === 0 : reportRows.length === 0;
+  const hasNoData = reportRows.length === 0;
   const noDataMessage = mode === 'current'
     ? 'Şu anda dolu oda bulunmuyor.'
     : mode === 'today'

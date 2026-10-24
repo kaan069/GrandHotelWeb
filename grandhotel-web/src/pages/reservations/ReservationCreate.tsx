@@ -43,7 +43,6 @@ const ReservationCreate: React.FC = () => {
   const { user } = useAuth();
 
   // Data
-  const [guests, setGuests] = useState<ApiGuest[]>([]);
   const [rooms, setRooms] = useState<ApiRoom[]>([]);
   const [companies, setCompanies] = useState<ApiCompany[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
@@ -137,7 +136,7 @@ const ReservationCreate: React.FC = () => {
     if (!validate() || !selectedGuest || !selectedRoom) return;
     setSaving(true);
     try {
-      const result = await reservationsApi.create({
+      await reservationsApi.create({
         roomId: selectedRoom.id,
         guestId: selectedGuest.id,
         checkIn,

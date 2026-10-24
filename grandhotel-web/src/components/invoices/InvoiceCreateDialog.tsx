@@ -101,8 +101,16 @@ const InvoiceCreateDialog: React.FC<InvoiceCreateDialogProps> = ({
   const effectiveGuestId = prepareData?.guestId;
   const effectiveReservationId = prepareData?.reservationId;
   const effectiveNotes = prepareData?.notes || defaultDescription;
-  // Folio'ya girilmiş ödemelerin toplamı — fatura otomatik bu tutara hazırlanır
-  const effectivePaymentsTotal = parseFloat(prepareData?.paymentsTotal || '0') || 0;
+  /* Faturalanacak varsayılan tutar (KDV dahil, kullanıcı değiştirebilir):
+     - Firma / acente: konaklamanın net cirosu (ücretler − indirim); borç cariye aktarıldığı için
+       folioda ödeme olmayabilir
+     - Şahıs: folioya girilen ödemeler (kısmı cariye gittiyse sadece misafirin ödediği);
+       ödeme yoksa net ciro */
+  const paymentsTotal = parseFloat(prepareData?.paymentsTotal || '0') || 0;
+  const netFolioTotal = parseFloat(prepareData?.folioTotal || '0') || 0;
+  const effectiveGrossTotal = effectiveCustomerType === 'individual' && paymentsTotal > 0
+    ? paymentsTotal
+    : netFolioTotal;
 
   return (
     <>
@@ -145,7 +153,7 @@ const InvoiceCreateDialog: React.FC<InvoiceCreateDialogProps> = ({
                 defaultGuestId={effectiveGuestId}
                 defaultReservationId={effectiveReservationId}
                 defaultDescription={effectiveNotes}
-                defaultPaymentsTotal={effectivePaymentsTotal}
+                defaultGrossTotal={effectiveGrossTotal}
                 createdBy={user ? `${user.firstName} ${user.lastName}`.trim() : undefined}
                 onSave={handleSave}
                 onCancel={onClose}

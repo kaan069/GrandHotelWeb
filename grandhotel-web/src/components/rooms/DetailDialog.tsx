@@ -13,16 +13,13 @@ import {
   Button,
   Typography,
   Box,
-  Chip,
   Divider,
 } from '@mui/material';
 import { Info as InfoIcon } from '@mui/icons-material';
 
 import {
-  ROOM_STATUS_LABELS,
   BED_TYPE_LABELS,
   VIEW_TYPE_LABELS,
-  ROOM_STATUS_COLORS,
 } from '../../utils/constants';
 import { StatusBadge } from '../common';
 

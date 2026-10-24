@@ -22,7 +22,8 @@ import {
 } from '@mui/icons-material';
 
 import { InvoiceCreateDialog } from '../invoices';
-import AccountTransactionTable from '../debtors/AccountTransactionTable';
+import AccountTransactionTable, { type CariSummary } from '../debtors/AccountTransactionTable';
+import DebtCards from '../debtors/DebtCards';
 import type { Agency } from '../../utils/constants';
 import { agenciesApi } from '../../api/services';
 import { formatDate, formatCurrency, formatPhone } from '../../utils/formatters';
@@ -65,8 +66,10 @@ const AgencyDetailContent: React.FC<AgencyDetailContentProps> = ({ agency, onRes
   /* Ciro / borç sadece gerçekleşmiş konaklamalardan (rezerve = planlanan tutar, henüz borç değil) */
   const billable = reservations.filter((r) => r.status === 'checked_in' || r.status === 'checked_out');
   const totalRevenue = billable.reduce((sum, r) => sum + Number(r.totalAmount), 0);
-  const totalPaid = billable.reduce((sum, r) => sum + Number(r.paidAmount), 0);
-  const totalDebt = totalRevenue - totalPaid;
+  const [cari, setCari] = useState<CariSummary | null>(null);
+  /* Borç kutucukları ve ekstre: biri değişince diğeri yeniden yüklenir */
+  const [debtsReload, setDebtsReload] = useState(0);
+  const [statementReload, setStatementReload] = useState(0);
   const commissionRate = Number(agency.commissionRate || 0);
   const commissionAmount = (totalRevenue * commissionRate) / 100;
 
@@ -119,17 +122,15 @@ const AgencyDetailContent: React.FC<AgencyDetailContentProps> = ({ agency, onRes
               <Divider sx={{ my: 0.5 }} />
               <InfoRow label="Toplam Ciro" value={formatCurrency(totalRevenue)} />
               <Divider sx={{ my: 0.5 }} />
-              <InfoRow label="Toplam Ödenen" value={formatCurrency(totalPaid)} />
-              <Divider sx={{ my: 0.5 }} />
               <InfoRow
-                label="Toplam Borç"
+                label="Cari Bakiye"
                 value={
                   <Typography
                     variant="body2"
                     fontWeight={700}
-                    color={totalDebt > 0 ? 'error.main' : 'success.main'}
+                    color={(cari?.balance ?? 0) > 0 ? 'error.main' : 'success.main'}
                   >
-                    {formatCurrency(totalDebt)}
+                    {cari ? formatCurrency(cari.balance) : '…'}
                   </Typography>
                 }
               />
@@ -160,6 +161,17 @@ const AgencyDetailContent: React.FC<AgencyDetailContentProps> = ({ agency, onRes
 
         {/* Sağ - Rezervasyonlar */}
         <Grid size={{ xs: 12, md: 8 }}>
+          {/* Açık Borçlar — konaklama başına kutucuk, seçip tahsilat */}
+          <Card sx={{ mb: 2 }}>
+            <CardContent>
+              <DebtCards
+                target={{ agency: agency.id }}
+                reloadToken={debtsReload}
+                onChanged={() => { setStatementReload((t) => t + 1); refreshData(); }}
+              />
+            </CardContent>
+          </Card>
+
           <Card>
             <CardContent>
               <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -230,8 +242,10 @@ const AgencyDetailContent: React.FC<AgencyDetailContentProps> = ({ agency, onRes
             <CardContent>
               <AccountTransactionTable
                 filter={{ agency: agency.id }}
-                title="Cari Hesap Hareketleri"
-                onChanged={refreshData}
+                title="Cari Hesap Ekstresi"
+                reloadToken={statementReload}
+                onChanged={() => { setDebtsReload((t) => t + 1); refreshData(); }}
+                onSummary={setCari}
               />
             </CardContent>
           </Card>

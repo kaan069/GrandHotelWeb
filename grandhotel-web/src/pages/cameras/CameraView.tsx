@@ -17,7 +17,6 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box,
   Card,
-  CardContent,
   Typography,
   IconButton,
   Chip,
@@ -35,7 +34,6 @@ import {
   Videocam as VideocamIcon,
   VideocamOff as VideocamOffIcon,
   Fullscreen as FullscreenIcon,
-  FullscreenExit as FullscreenExitIcon,
   GridView as Grid2x2Icon,
   Grid4x4 as Grid4x4Icon,
   CropSquare as Grid1x1Icon,
@@ -45,7 +43,6 @@ import {
   Settings as SettingsIcon,
 } from '@mui/icons-material';
 
-import { PageHeader } from '../../components/common';
 import { cameraApi } from '../../api/services';
 import type { ApiCamera } from '../../api/services';
 

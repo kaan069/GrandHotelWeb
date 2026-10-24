@@ -100,9 +100,23 @@ export interface FolioItem {
   description: string;
   amount: number;
   date: string;
+  /** Ödeme kalemlerinde: cash | card | transfer | other */
+  paymentMethod?: string;
   createdBy?: string;
   createdAt?: string;
 }
+
+/** Folio ödemesi ve cari tahsilat yöntemleri — backend FolioItem.PAYMENT_METHOD_CHOICES */
+export const FOLIO_PAYMENT_METHODS: { value: string; label: string }[] = [
+  { value: 'cash', label: 'Nakit' },
+  { value: 'card', label: 'Kredi Kartı' },
+  { value: 'transfer', label: 'Havale/EFT' },
+  { value: 'other', label: 'Diğer' },
+];
+
+export const FOLIO_PAYMENT_METHOD_LABELS: Record<string, string> = Object.fromEntries(
+  FOLIO_PAYMENT_METHODS.map((m) => [m.value, m.label]),
+);
 
 /** Konaklama geçmişi — backend Reservation response'una uyumlu */
 export interface StayHistory {
@@ -116,6 +130,8 @@ export interface StayHistory {
   companyName?: string;
   totalAmount: number;
   paidAmount: number;
+  /** reserved | checked_in | checked_out — ciro / borç sadece gerçekleşmiş konaklamalardan */
+  status?: string;
 }
 
 /** Açık oda sekmesi */
@@ -762,15 +778,29 @@ export interface ShiftHandover {
   toUser: string;
   startTime: string;
   endTime?: string;
-  cardSales: number;
-  cashSales: number;
-  totalSales: number;
+  /** Kart / nakit / diğer tahsilat: mesaideki folio ödemeleri + cari tahsilatlarından hesaplanır (elle girilmez) */
+  cardSales: number | string;
+  cashSales: number | string;
+  otherSales?: number | string;
+  totalSales: number | string;
   roomsSold: number;
   roomsOccupied?: number;
   roomsAvailable?: number;
   notes?: string;
   status: 'active' | 'closed';
   createdAt?: string;
+  /** Sadece aktif mesaide: şu ana kadarki özet (kapanışta kaydedilecek değerler) */
+  live?: ShiftLiveSummary;
+}
+
+export interface ShiftLiveSummary {
+  totalSales: string;
+  cashSales: string;
+  cardSales: string;
+  otherSales: string;
+  roomsSold: number;
+  roomsOccupied: number;
+  roomsAvailable: number;
 }
 
 /* Gün sonu tipleri api/services.ts içinde — veri backend'de tutulur */

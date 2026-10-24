@@ -1,5 +1,4 @@
 import React from 'react';
-import { Grid } from '@mui/material';
 import RoomPanel from './RoomPanel';
 import CheckInOutLists from './CheckInOutLists';
 import StatisticsSection from './StatisticsSection';

@@ -14,3 +14,4 @@ export { default as EmptyState } from './EmptyState';
 export { default as LoadingSpinner } from './LoadingSpinner';
 export { default as RoomCard } from './RoomCard';
 export { default as StayDetailContent } from './StayDetailContent';
+export { default as ServerTablePagination } from './ServerTablePagination';

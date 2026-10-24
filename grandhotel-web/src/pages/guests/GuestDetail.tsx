@@ -50,13 +50,6 @@ interface GuestReportData {
   summary: GuestReportSummary;
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  reserved: 'Rezerve',
-  checked_in: 'Konakliyor',
-  checked_out: 'Cikis Yapildi',
-  cancelled: 'Iptal',
-};
-
 const GuestDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();

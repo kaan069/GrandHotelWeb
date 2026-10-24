@@ -11,6 +11,7 @@
 
 import api from './axiosConfig';
 import type { components } from './generated/schema';
+import type { ShiftHandover } from '../utils/constants';
 
 /**
  * Backend OpenAPI şemasından üretilen tipler (src/api/generated/schema.ts).
@@ -153,12 +154,114 @@ export interface ApiAccountTransaction {
   sourceFolioItemId: number | null;
   settledByFolioId: number | null;
   settledAt: string | null;
+  /** Borçta tahsil edilen, alacakta borçlara dağıtılan kısım */
+  settledAmount: string;
+  /** amount − settledAmount (borçta kalan borç, alacakta kullanılmamış avans) */
+  remaining: string;
+  /** Tahsilat kayıtlarında: cash | card | transfer | other */
+  paymentMethod: string;
   createdAt: string;
   createdBy: string;
   guestName: string;
   roomNumber: string;
   reservationCheckIn: string | null;
   reservationCheckOut: string | null;
+}
+
+/** Firma / acente borçlular satırı — cari bakiyesi > 0 olanlar (cari defter) */
+export interface CariDebtorRow {
+  id: number;
+  name: string;
+  taxNumber: string | null;
+  phone: string | null;
+  email: string | null;
+  commissionRate?: string;
+  /** Cari bakiye (Σ borç − Σ alacak) */
+  balance: string;
+  openDebit: string;
+  unallocatedCredit: string;
+  openCount: number;
+  /** Konaklayan (check-in'li) rezervasyonların açık folio bakiyesi — henüz cariye aktarılmadı */
+  inHouseBalance: string;
+  activeReservations: number;
+}
+
+/** Sayfalı liste yanıtı (backend config/pagination.py — ?page= ile) */
+export interface Paginated<T> {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+}
+
+/** Sayfalı liste sorgusu (page 1'den başlar) — hooks/useServerTable */
+export interface PageQuery {
+  page: number;
+  pageSize: number;
+  search?: string;
+}
+
+export interface CollectPayload {
+  companyId?: number;
+  agencyId?: number;
+  guestId?: number;
+  amount: number;
+  paymentMethod: string;
+  description?: string;
+  /** Borç kutucuklarından seçilenler: önce bunlar kapanır, tutar bunların kalanını aşamaz */
+  debitIds?: number[];
+}
+
+export type CariTargetType = 'company' | 'agency' | 'guest';
+
+/** Borçlular listesi satırı — kişi / firma / acente başına tek satır (backend ledger.debtor_rows) */
+export interface CariDebtorPartyRow {
+  targetType: CariTargetType;
+  id: number;
+  name: string;
+  phone: string;
+  taxNumber: string;
+  balance: string;
+  openDebit: string;
+  unallocatedCredit: string;
+  /** Açık borç kutucuğu (konaklama) sayısı */
+  openCount: number;
+  oldestOpenAt: string | null;
+}
+
+export interface CariDebtorsResponse {
+  summary: { count: number; totalBalance: string; totalOpenDebit: string; openCount: number };
+  items: CariDebtorPartyRow[];
+}
+
+/** Borç kutucuğu — bir konaklamanın açık borcu (backend ledger.open_debts) */
+export interface CariDebtCard {
+  key: string;
+  reservationId: number | null;
+  roomNumber: string;
+  guestNames: string;
+  checkIn: string | null;
+  checkOut: string | null;
+  nights: number;
+  amount: string;
+  settled: string;
+  remaining: string;
+  debitIds: number[];
+  descriptions: string[];
+  firstDebitAt: string;
+  /** Bu borca yapılmış tahsilatlar (kısmi ödemeler) */
+  payments: { date: string; amount: string; paymentMethod: string; description: string; isTransfer: boolean }[];
+  folio: {
+    items: { id: number; date: string | null; category: string; description: string; amount: string; paymentMethod: string }[];
+    /** Kategori → toplam (room_charge, minibar, discount, payment, account_transfer_debit …) */
+    byCategory: Record<string, string>;
+  } | null;
+}
+
+export interface CariOpenDebtsResponse {
+  party: { targetType: CariTargetType; id: number; name: string; phone: string; taxNumber: string };
+  summary: { balance: string; openDebit: string; unallocatedCredit: string; count: number };
+  debts: CariDebtCard[];
 }
 
 export interface AccountTransactionDebtorListResponse {
@@ -218,6 +321,9 @@ export interface ApiFolioItem {
   description: string;
   amount: number | string;
   date: string;
+  paymentMethod?: string;
+  /** manual | checkout | night_audit | minibar | restaurant */
+  origin?: string;
   createdBy?: string | null;
   createdAt?: string;
 }
@@ -361,8 +467,11 @@ export const roomsApi = {
     api.post<ApiRoom>(`/rooms/${roomId}/remove_guest/`, { guestId }).then((r) => r.data),
 
   /** Checkout iptal — odayı tekrar occupied yap */
+  /** Check-out geri al — kbsResendRequired: KBS'ye çıkış bildirilmişti, giriş tekrar gönderilmeli */
   revertCheckout: (roomId: number) =>
-    api.post<ApiRoom>(`/rooms/${roomId}/revert_checkout/`).then((r) => r.data),
+    api.post<ApiRoom & { kbsResendRequired: boolean; removedItems: string[] }>(
+      `/rooms/${roomId}/revert_checkout/`,
+    ).then((r) => r.data),
 
   create: (data: { roomNumber: string; bedType: string; floor: number; capacity: number; view: string; price: number; beds?: { type: string }[] }) =>
     api.post<ApiRoom>('/rooms/', {
@@ -388,6 +497,10 @@ export const roomsApi = {
 export const guestsApi = {
   getAll: () =>
     api.get<ApiGuest[]>('/guests/').then((r) => r.data),
+
+  /** Sayfalı misafir listesi — search: ad / soyad / TC / pasaport / telefon (her kelime) */
+  getPage: (query: PageQuery & { isBlocked?: boolean }) =>
+    api.get<Paginated<ApiGuest>>('/guests/', { params: query }).then((r) => r.data),
 
   search: (q: string) =>
     api.get<ApiGuest[]>(`/guests/search/?q=${encodeURIComponent(q)}`).then((r) => r.data),
@@ -428,16 +541,9 @@ export const companiesApi = {
     api.get<ApiGuest[]>(`/companies/${id}/guests/`).then((r) => r.data),
 
   /** Borçlu firmalar listesi (bakiye > 0) */
+  /** Cari bakiyesi > 0 olan firmalar (cari defter) */
   getDebtors: () =>
-    api.get<any[]>('/companies/debtors/').then((r) => r.data),
-
-  /** Firma borç detayı (rezervasyonlar + folio kalemleri) */
-  getDebtDetail: (id: number) =>
-    api.get<any>(`/companies/${id}/debt_detail/`).then((r) => r.data),
-
-  /** Firmaya ödeme ekle (borç kapat) */
-  addPayment: (companyId: number, data: { reservationId: number; amount: number; description?: string; staffName?: string }) =>
-    api.post<any>(`/companies/${companyId}/add_payment/`, data).then((r) => r.data),
+    api.get<CariDebtorRow[]>('/companies/debtors/').then((r) => r.data),
 };
 
 /* ==================== AGENCIES API ==================== */
@@ -463,16 +569,9 @@ export const agenciesApi = {
     api.get<any[]>(`/agencies/${id}/reservations/`).then((r) => r.data),
 
   /** Borçlu acenteler listesi (bakiye > 0) */
+  /** Cari bakiyesi > 0 olan acenteler (cari defter) */
   getDebtors: () =>
-    api.get<any[]>('/agencies/debtors/').then((r) => r.data),
-
-  /** Acente borç detayı (rezervasyonlar + folio kalemleri + komisyon özeti) */
-  getDebtDetail: (id: number) =>
-    api.get<any>(`/agencies/${id}/debt_detail/`).then((r) => r.data),
-
-  /** Acenteye ödeme ekle (borç kapat) */
-  addPayment: (agencyId: number, data: { reservationId: number; amount: number; description?: string; staffName?: string }) =>
-    api.post<any>(`/agencies/${agencyId}/add_payment/`, data).then((r) => r.data),
+    api.get<CariDebtorRow[]>('/agencies/debtors/').then((r) => r.data),
 };
 
 /* ==================== ACCOUNT TRANSACTIONS API ==================== */
@@ -503,15 +602,35 @@ export const accountTransactionsApi = {
     return api.get<ApiAccountTransaction[]>(`/account-transactions/${qs ? '?' + qs : ''}`).then((r) => r.data);
   },
 
-  /** DataGrid için: tüm açık cari hareketler + özet */
-  getDebtorList: () =>
-    api.get<AccountTransactionDebtorListResponse>('/account-transactions/debtor_list/').then((r) => r.data),
+  /** Açık cari hareketler + özet (kalan tutarlar). page verilirse sayfalı. */
+  getDebtorList: (page?: { page: number; pageSize: number }) =>
+    api.get<AccountTransactionDebtorListResponse & Partial<Paginated<ApiAccountTransaction>>>(
+      '/account-transactions/debtor_list/', { params: page },
+    ).then((r) => r.data),
 
-  /** Cari hareketi kapat — source reservation'a payment folio eklenir */
-  settle: (id: number, data: { amount?: number; description?: string; staffName?: string }) =>
-    api.post<{ success: boolean; transactionId: number; status: string; folioItemId: number | null }>(
+  /** Borçlu listesi (kişi başı tek satır) — targetType: guest | company_or_agency */
+  getDebtors: (targetType?: 'guest' | 'company_or_agency') =>
+    api.get<CariDebtorsResponse>('/account-transactions/debtors/', { params: { targetType } }).then((r) => r.data),
+
+  /** Bir borçlunun açık borç kutucukları (konaklama başına) */
+  getOpenDebts: (filter: { company?: number; agency?: number; guest?: number }) =>
+    api.get<CariOpenDebtsResponse>('/account-transactions/open_debts/', { params: filter }).then((r) => r.data),
+
+  /** Cariye tahsilat (alacak): debitIds varsa önce onlar, yoksa en eski açık borçlar; fazlası avans kalır */
+  collect: (data: CollectPayload) =>
+    api.post<{ success: boolean; transaction: ApiAccountTransaction; balance: string }>(
+      '/account-transactions/collect/', data,
+    ).then((r) => r.data),
+
+  /** Belirli borca tahsilat (kısmi olabilir). Rezervasyon foliosuna yazılmaz. */
+  settle: (id: number, data: { amount?: number; paymentMethod: string; description?: string }) =>
+    api.post<{ success: boolean; transactionId: number; status: string; remaining: string; balance: string }>(
       `/account-transactions/${id}/settle/`, data,
     ).then((r) => r.data),
+
+  /** Tahsilatı iptal et (muhasebe / yönetim) — kapattığı borçlar tekrar açılır */
+  cancelPayment: (id: number) =>
+    api.post<{ success: boolean; balance: string }>(`/account-transactions/${id}/cancel_payment/`).then((r) => r.data),
 };
 
 /* ==================== MUHASEBE (ACCOUNTING) API ==================== */
@@ -612,6 +731,9 @@ export const accountingApi = {
     const qs = params.toString();
     return api.get<ApiExpense[]>(`/accounting/expenses/${qs ? '?' + qs : ''}`).then((r) => r.data);
   },
+  /** Sayfalı gider listesi */
+  listExpensesPage: (query: PageQuery & { category?: string; dateFrom?: string; dateTo?: string }) =>
+    api.get<Paginated<ApiExpense>>('/accounting/expenses/', { params: query }).then((r) => r.data),
   createExpense: (payload: ExpensePayload) =>
     api.post<ApiExpense>('/accounting/expenses/', payload).then((r) => r.data),
   updateExpense: (id: number, payload: Partial<ExpensePayload>) =>
@@ -657,6 +779,10 @@ export const reservationsApi = {
     return api.get<ApiReservation[]>(`/reservations/${qs ? '?' + qs : ''}`).then((r) => r.data);
   },
 
+  /** Sayfalı rezervasyon listesi — search: misafir adı / oda no */
+  getPage: (query: PageQuery & { filter?: string; dateFrom?: string; dateTo?: string }) =>
+    api.get<Paginated<ApiReservation>>('/reservations/', { params: query }).then((r) => r.data),
+
   /** Rezervasyon detayı (misafirler + folio) */
   getById: (id: number) =>
     api.get<ApiReservationDetail>(`/reservations/${id}/`).then((r) => r.data),
@@ -693,7 +819,6 @@ export const reservationsApi = {
     companyId?: number | null;
     agencyId?: number | null;
     agencyReservationCode?: string;
-    totalAmount?: number;
   }) =>
     api.put<ApiReservation>(`/reservations/${id}/`, data).then((r) => r.data),
 
@@ -715,7 +840,8 @@ export const foliosApi = {
   getForRoom: (roomId: number) =>
     api.get<ApiFolioItem[]>(`/folios/?roomId=${roomId}`).then((r) => r.data),
 
-  create: (data: { reservationId: number; guestId?: number | null; category: string; description: string; amount: number; date: string; createdBy?: string }) =>
+  /** category='payment' ise paymentMethod zorunlu (cash | card | transfer | other) */
+  create: (data: { reservationId: number; guestId?: number | null; category: string; description: string; amount: number; date: string; paymentMethod?: string; createdBy?: string }) =>
     api.post<ApiFolioItem>('/folios/', data).then((r) => r.data),
 
   delete: (id: number) =>
@@ -1178,6 +1304,10 @@ export const faultsApi = {
   getAll: (filters?: { status?: string }) =>
     api.get<ApiFault[]>('/faults/', { params: filters?.status ? { status: filters.status } : undefined }).then((r) => r.data),
 
+  /** Sayfalı arıza listesi — search: oda no / açıklama / bildiren */
+  getPage: (query: PageQuery & { status?: string }) =>
+    api.get<Paginated<ApiFault>>('/faults/', { params: query }).then((r) => r.data),
+
   getById: (id: number) =>
     api.get<ApiFault>(`/faults/${id}/`).then((r) => r.data),
 
@@ -1529,6 +1659,10 @@ export const tabsApi = {
     return api.get<ApiTab[]>(`/tabs/${qs ? '?' + qs : ''}`).then((r) => r.data);
   },
 
+  /** Sayfalı adisyon listesi */
+  getPage: (query: PageQuery & { status?: string; servicePoint?: string; dateFrom?: string; dateTo?: string }) =>
+    api.get<Paginated<ApiTab>>('/tabs/', { params: query }).then((r) => r.data),
+
   /** Adisyon detayı (kalemlerle) */
   getById: (id: number) =>
     api.get<ApiTab>(`/tabs/${id}/`).then((r) => r.data),
@@ -1585,6 +1719,10 @@ export const shiftApi = {
   getAll: (params?: { status?: string; date?: string }) =>
     api.get('/shifts/', { params }).then((r) => r.data),
 
+  /** Sayfalı mesai geçmişi (en yeni önce) */
+  getPage: (query: PageQuery & { status?: string }) =>
+    api.get<Paginated<ShiftHandover>>('/shifts/', { params: query }).then((r) => r.data),
+
   /** Aktif mesaiyi getir */
   getActive: () =>
     api.get('/shifts/active/').then((r) => r.data),
@@ -1593,8 +1731,8 @@ export const shiftApi = {
   create: (data: { fromEmployeeId: number; toEmployeeId: number; notes?: string }) =>
     api.post('/shifts/', data).then((r) => r.data),
 
-  /** Mesai kapat */
-  close: (id: number, data: { cardSales?: number; cashSales?: number; notes?: string }) =>
+  /** Mesai kapat — tutarlar backend'de mesai süresindeki ödemelerden hesaplanır */
+  close: (id: number, data: { notes?: string }) =>
     api.post(`/shifts/${id}/close/`, data).then((r) => r.data),
 
   /** Mesai detayı */
@@ -2074,6 +2212,10 @@ export const invoicesApi = {
 
   list: (filters?: { type?: string; status?: string; dateFrom?: string; dateTo?: string }) =>
     api.get<ApiInvoice[]>('/invoices/', { params: filters }).then((r) => r.data),
+
+  /** Sayfalı fatura listesi — search: fatura no / müşteri / VKN-TCKN */
+  listPage: (query: PageQuery & { type?: string; status?: string; dateFrom?: string; dateTo?: string }) =>
+    api.get<Paginated<ApiInvoice>>('/invoices/', { params: query }).then((r) => r.data),
 
   cancel: (id: number) =>
     api.post<ApiInvoice>(`/invoices/${id}/cancel/`).then((r) => r.data),

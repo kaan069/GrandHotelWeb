@@ -25,7 +25,6 @@ import {
 } from '@mui/material';
 import { companiesApi, reportsApi } from '../../api/services';
 import type { ApiCompany } from '../../api/services';
-import { FOLIO_CATEGORY_LABELS } from '../../utils/constants';
 
 interface CompanyReportStay {
   guestName: string;

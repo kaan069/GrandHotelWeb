@@ -32,6 +32,8 @@
  *   - searchable (boolean): Arama kutusu göster
  *   - searchPlaceholder (string): Arama kutusu placeholder
  *   - toolbar (ReactNode): Tablo üstüne eklenecek ek bileşenler
+ *   - server (ServerTableControl): Sunucu taraflı sayfalama + arama (hooks/useServerTable).
+ *       Verilirse rows sadece mevcut sayfadır; arama kutusu backend'e gider (?search=)
  *   - sx (object): Ek stil
  *   - ...rest: Diğer MUI DataGrid prop'ları
  */
@@ -41,6 +43,7 @@ import { Box, TextField, InputAdornment, Typography, SxProps, Theme } from '@mui
 import { DataGrid, GridColDef, GridRowParams, DataGridProps } from '@mui/x-data-grid';
 import { Search as SearchIcon, Inbox as InboxIcon } from '@mui/icons-material';
 import { DEFAULT_PAGE_SIZE } from '../../utils/constants';
+import type { ServerTableControl } from '../../hooks/useServerTable';
 
 /**
  * Boş tablo durumunda gösterilen bileşen.
@@ -80,6 +83,7 @@ interface DataTableProps extends Omit<DataGridProps, 'rows' | 'columns' | 'onRow
   searchable?: boolean;
   searchPlaceholder?: string;
   toolbar?: React.ReactNode;
+  server?: ServerTableControl;
   sx?: SxProps<Theme>;
 }
 
@@ -93,6 +97,7 @@ const DataTable: React.FC<DataTableProps> = ({
   searchable = false,
   searchPlaceholder = 'Ara...',
   toolbar,
+  server,
   sx = {},
   ...rest
 }) => {
@@ -110,7 +115,7 @@ const DataTable: React.FC<DataTableProps> = ({
    * Tüm kolon değerlerinde arama yapar (case-insensitive).
    */
   const filteredRows = useMemo(() => {
-    if (!searchText.trim()) return rows;
+    if (server || !searchText.trim()) return rows;
 
     const search = searchText.toLowerCase().trim();
     return rows.filter((row) =>
@@ -121,7 +126,7 @@ const DataTable: React.FC<DataTableProps> = ({
           String(value).toLowerCase().includes(search)
       )
     );
-  }, [rows, searchText]);
+  }, [rows, searchText, server]);
 
   /**
    * Satır tıklama olayını işler.
@@ -152,8 +157,9 @@ const DataTable: React.FC<DataTableProps> = ({
             <TextField
               size="small"
               placeholder={searchPlaceholder}
-              value={searchText}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchText(e.target.value)}
+              value={server ? server.search : searchText}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                (server ? server.onSearchChange : setSearchText)(e.target.value)}
               sx={{ minWidth: 280, maxWidth: 400 }}
               InputProps={{
                 startAdornment: (
@@ -179,8 +185,17 @@ const DataTable: React.FC<DataTableProps> = ({
         rows={filteredRows}
         columns={columns}
         loading={loading}
-        paginationModel={paginationModel}
-        onPaginationModelChange={setPaginationModel}
+        {...(server
+          ? {
+            paginationMode: 'server' as const,
+            rowCount: server.rowCount,
+            // Sıralama / kolon filtresi sadece mevcut sayfaya uygulanırdı → sunucu modunda kapalı
+            disableColumnSorting: true,
+            disableColumnFilter: true,
+            paginationModel: server.paginationModel,
+            onPaginationModelChange: server.onPaginationModelChange,
+          }
+          : { paginationModel, onPaginationModelChange: setPaginationModel })}
         pageSizeOptions={[10, 25, 50, 100]}
         checkboxSelection={checkboxSelection}
         disableRowSelectionOnClick

@@ -5,11 +5,12 @@
  * Tab sistemi ile fatura detayı ve yeni fatura oluşturma destekler.
  * URL'den fatura türünü okur.
  *
- * API: invoicesApi.list({ type }) — GET /api/invoices/?type=sales
+ * API: invoicesApi.listPage({ type, page, pageSize, search }) — GET /api/invoices/?type=sales&page=1
+ * (sunucu taraflı sayfalama + arama: hooks/useServerTable)
  * (InvoiceForm faturayı backend'e yazar; liste de backend'den okunur.)
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -41,7 +42,7 @@ import {
 import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { useLocation } from 'react-router-dom';
 
-import { PageHeader, DataTable, StatusBadge } from '../../components/common';
+import { PageHeader, DataTable } from '../../components/common';
 import { InvoiceForm } from '../../components/invoices';
 import {
   InvoiceType,
@@ -52,6 +53,7 @@ import {
 } from '../../utils/constants';
 import { invoicesApi, ApiInvoice } from '../../api/services';
 import useNotification from '../../hooks/useNotification';
+import useServerTable from '../../hooks/useServerTable';
 import { getApiErrorMessage } from '../../utils/apiError';
 
 interface InvoiceRow extends ApiInvoice {
@@ -74,6 +76,8 @@ interface DetailTabItem {
   type: 'invoice-detail';
   invoiceId: number;
   label: string;
+  /** Sekme açıldığındaki kayıt (liste sayfası değişse de detay gösterilir) */
+  invoice: ApiInvoice;
 }
 
 type TabItem = FormTabItem | DetailTabItem;
@@ -162,32 +166,21 @@ const InvoiceList: React.FC = () => {
   const location = useLocation();
   const invoiceType = getInvoiceTypeFromPath(location.pathname);
 
-  const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState('');
   const [openTabs, setOpenTabs] = useState<TabItem[]>([]);
   const [activeTabIndex, setActiveTabIndex] = useState<number>(-1);
 
-  const refreshInvoices = useCallback(async () => {
-    setLoading(true);
-    setLoadError('');
-    try {
-      const data = await invoicesApi.list(invoiceType ? { type: invoiceType } : undefined);
-      setInvoices(data as InvoiceRow[]);
-    } catch {
-      setInvoices([]);
-      setLoadError('Faturalar yüklenemedi. Sayfayı yenileyip tekrar deneyin.');
-    } finally {
-      setLoading(false);
-    }
-  }, [invoiceType]);
+  const table = useServerTable(
+    (p) => invoicesApi.listPage({ ...p, type: invoiceType }),
+    [invoiceType],
+  );
+  const invoices = table.rows as InvoiceRow[];
+  const refreshInvoices = table.refresh;
 
   useEffect(() => {
-    refreshInvoices();
-    // Reset tabs when invoice type changes
+    // Fatura türü değişince açık sekmeler kapanır
     setOpenTabs([]);
     setActiveTabIndex(-1);
-  }, [refreshInvoices]);
+  }, [invoiceType]);
 
   /** Satıra tıklayınca detay tab aç */
   const handleRowClick = (row: { id: string | number; [key: string]: unknown }) => {
@@ -204,6 +197,7 @@ const InvoiceList: React.FC = () => {
         type: 'invoice-detail',
         invoiceId: invoice.id,
         label: invoice.invoiceNo || `Fatura #${invoice.id}`,
+        invoice,
       };
       setOpenTabs((prev) => [...prev, newTab]);
       setActiveTabIndex(openTabs.length);
@@ -325,15 +319,20 @@ const InvoiceList: React.FC = () => {
       ) : activeTab?.type === 'invoice-detail' ? (
         /* Fatura Detay */
         <InvoiceDetailView
-          invoice={invoices.find((inv) => inv.id === (activeTab as DetailTabItem).invoiceId) || null}
-          onUpdated={(updated) => setInvoices((prev) => prev.map((inv) => (inv.id === updated.id ? { ...inv, ...updated } : inv)))}
+          invoice={activeTab.invoice}
+          onUpdated={(updated) => {
+            setOpenTabs((prev) => prev.map((t) => (
+              t.type === 'invoice-detail' && t.invoiceId === updated.id ? { ...t, invoice: { ...t.invoice, ...updated } } : t
+            )));
+            refreshInvoices();
+          }}
         />
       ) : (
         /* Liste Görünümü */
         <>
           <PageHeader
             title={pageTitle}
-            subtitle={`Toplam ${invoices.length} fatura`}
+            subtitle={`Toplam ${table.rowCount} fatura`}
           />
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
             <Button
@@ -344,14 +343,17 @@ const InvoiceList: React.FC = () => {
               Yeni Fatura
             </Button>
           </Box>
-          {loadError && <Alert severity="error" sx={{ mb: 2 }}>{loadError}</Alert>}
+          {!!table.error && (
+            <Alert severity="error" sx={{ mb: 2 }}>Faturalar yüklenemedi. Sayfayı yenileyip tekrar deneyin.</Alert>
+          )}
           <DataTable
             rows={invoices}
             columns={columns}
-            loading={loading}
+            loading={table.loading}
+            server={table.server}
             onRowClick={handleRowClick}
             searchable
-            searchPlaceholder="Fatura no, müşteri adı ile ara..."
+            searchPlaceholder="Fatura no, müşteri adı veya VKN/TCKN ile ara..."
           />
         </>
       )}

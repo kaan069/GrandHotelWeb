@@ -46,7 +46,6 @@ const NewGuestDialog: React.FC<NewGuestDialogProps> = ({ open, onClose, onSave, 
   const [form, setForm] = useState({ tcNo: '', firstName: '', lastName: '', phone: '', email: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [tcStatus, setTcStatus] = useState<'idle' | 'checking' | 'found' | 'blocked' | 'new'>('idle');
-  const [foundGuestId, setFoundGuestId] = useState<number | null>(null);
   const [scanOpen, setScanOpen] = useState(false);
 
   const resetForm = useCallback(() => {
@@ -60,7 +59,6 @@ const NewGuestDialog: React.FC<NewGuestDialogProps> = ({ open, onClose, onSave, 
     });
     setErrors({});
     setTcStatus('idle');
-    setFoundGuestId(null);
   }, [defaultName, defaultPhone]);
 
   // Modal açılırken placeholder bilgileriyle prefill et
@@ -104,7 +102,6 @@ const NewGuestDialog: React.FC<NewGuestDialogProps> = ({ open, onClose, onSave, 
             phone: result.guest!.phone || '',
             email: result.guest!.email || '',
           }));
-          setFoundGuestId(result.guest!.id);
         } else {
           setTcStatus('found');
           setForm(prev => ({
@@ -114,11 +111,9 @@ const NewGuestDialog: React.FC<NewGuestDialogProps> = ({ open, onClose, onSave, 
             phone: result.guest!.phone || '',
             email: result.guest!.email || '',
           }));
-          setFoundGuestId(result.guest!.id);
         }
       } else {
         setTcStatus('new');
-        setFoundGuestId(null);
       }
     } catch {
       setTcStatus('idle');
@@ -189,7 +184,7 @@ const NewGuestDialog: React.FC<NewGuestDialogProps> = ({ open, onClose, onSave, 
                 const v = e.target.value.replace(/\D/g, '').slice(0, 11);
                 setForm((p) => ({ ...p, tcNo: v }));
                 setErrors((p) => ({ ...p, tcNo: '' }));
-                if (v.length < 11) { setTcStatus('idle'); setFoundGuestId(null); }
+                if (v.length < 11) setTcStatus('idle');
               }}
               onBlur={() => handleTcBlur()}
               error={!!errors.tcNo}

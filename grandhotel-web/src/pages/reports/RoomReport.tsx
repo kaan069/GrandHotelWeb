@@ -25,7 +25,7 @@ import {
 } from '@mui/material';
 import { roomsApi, reportsApi } from '../../api/services';
 import type { ApiRoom } from '../../api/services';
-import { FOLIO_CATEGORY_LABELS, ROOM_STATUS_LABELS } from '../../utils/constants';
+import { ROOM_STATUS_LABELS } from '../../utils/constants';
 
 interface RoomReportStay {
   guestName: string;

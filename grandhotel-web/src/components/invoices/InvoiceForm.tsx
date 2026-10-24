@@ -78,8 +78,8 @@ interface InvoiceFormProps {
   defaultGuestId?: number;
   defaultReservationId?: number;
   defaultDescription?: string;
-  /** Folio'daki ödemelerin toplamı (KDV dahil) — varsa otomatik 1 kalem hazırlanır */
-  defaultPaymentsTotal?: number;
+  /** Faturalanacak KDV dahil tutar — varsa otomatik 1 'Konaklama Hizmeti' kalemi hazırlanır */
+  defaultGrossTotal?: number;
   createdBy?: string;
   onSave?: (result: InvoiceSaveResult) => void;
   onCancel?: () => void;
@@ -120,7 +120,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   defaultGuestId,
   defaultReservationId,
   defaultDescription = '',
-  defaultPaymentsTotal = 0,
+  defaultGrossTotal = 0,
   createdBy,
   onSave,
   onCancel,
@@ -178,11 +178,11 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   const accommodationTaxAmount = hasAccommodationTax ? subtotal * 0.02 : 0;
   const total = subtotal + taxAmount + accommodationTaxAmount;
 
-  /* Folio'daki ödemelerin toplamı varsa, otomatik 1 'Konaklama Hizmeti' kalemi hazırla.
-     KDV dahil tutar = paymentsTotal → unitPrice = paymentsTotal / (1 + taxRate/100). */
+  /* Faturalanacak tutar varsa otomatik 1 'Konaklama Hizmeti' kalemi hazırla.
+     KDV dahil tutar = defaultGrossTotal → unitPrice = defaultGrossTotal / (1 + taxRate/100). */
   useEffect(() => {
-    if (defaultPaymentsTotal > 0 && items.length === 0) {
-      const unitPrice = +(defaultPaymentsTotal / (1 + taxRate / 100)).toFixed(2);
+    if (defaultGrossTotal > 0 && items.length === 0) {
+      const unitPrice = +(defaultGrossTotal / (1 + taxRate / 100)).toFixed(2);
       setItems([{
         id: 1,
         category: 'konaklama',
@@ -193,7 +193,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
       }]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [defaultPaymentsTotal]);
+  }, [defaultGrossTotal]);
 
   const addItem = useCallback((category: InvoiceItemCategory) => {
     const newItem: InvoiceItem = {

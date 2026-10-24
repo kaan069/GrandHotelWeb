@@ -28,7 +28,7 @@ import {
   Undo as UndoIcon,
 } from '@mui/icons-material';
 
-import { BED_TYPE_LABELS, ROOM_STATUS } from '../../../utils/constants';
+import { BED_TYPE_LABELS } from '../../../utils/constants';
 import { StatusBadge } from '../../common';
 
 interface RoomHeaderToolbarProps {
@@ -94,8 +94,6 @@ const RoomHeaderToolbar: React.FC<RoomHeaderToolbarProps> = ({
     action();
   };
 
-  const isAvailable = status === ROOM_STATUS.AVAILABLE;
-  const isDirty = status === ROOM_STATUS.DIRTY;
 
   return (
     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>

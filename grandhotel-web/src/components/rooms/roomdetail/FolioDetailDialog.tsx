@@ -29,7 +29,7 @@ import {
   ExpandLess as CollapseIcon,
 } from '@mui/icons-material';
 
-import { FolioItem, FOLIO_CATEGORY_LABELS } from '../../../utils/constants';
+import { FolioItem, FOLIO_CATEGORY_LABELS, FOLIO_PAYMENT_METHOD_LABELS } from '../../../utils/constants';
 import { formatDateTime } from '../../../utils/formatters';
 import { tabsApi } from '../../../api/services';
 import type { ApiTab } from '../../../api/services';
@@ -160,7 +160,12 @@ const FolioDetailDialog: React.FC<FolioDetailDialogProps> = ({
                           )}
                         </Box>
                       </TableCell>
-                      <TableCell>{folio.description || '-'}</TableCell>
+                      <TableCell>
+                        {folio.description || '-'}
+                        {folio.paymentMethod && (
+                          <Chip label={FOLIO_PAYMENT_METHOD_LABELS[folio.paymentMethod] || folio.paymentMethod} size="small" sx={{ ml: 1, height: 20, fontSize: '0.7rem' }} />
+                        )}
+                      </TableCell>
                       <TableCell sx={{ whiteSpace: 'nowrap' }}>
                         {folio.createdAt ? formatDateTime(folio.createdAt) : (folio.date || '-')}
                       </TableCell>

@@ -1,7 +1,7 @@
 /**
  * Müşteri Listesi Sayfası
  *
- * Tüm müşterileri DataGrid ile listeler.
+ * Tüm müşterileri DataGrid ile listeler (sunucu taraflı sayfalama + arama: hooks/useServerTable).
  * Müşteriye tıklanınca tab açılır, müşteri detayı ve konaklama geçmişi gösterilir.
  * Tab'lar Header (AppBar) içinde gösterilir.
  */
@@ -37,6 +37,7 @@ import { toStayHistory, countNights } from '../../utils/stayHistory';
 import { guestsApi, companiesApi } from '../../api/services';
 import { formatDate, formatCurrency, formatPhone, maskIdentity } from '../../utils/formatters';
 import usePageTabs from '../../hooks/usePageTabs';
+import useServerTable from '../../hooks/useServerTable';
 
 interface GuestRow extends Guest {
   [key: string]: unknown;
@@ -46,6 +47,8 @@ interface GuestTabItem {
   type: 'guest';
   guestId: number;
   guestName: string;
+  /** Sekme açıldığındaki kayıt (liste sayfası değişse de detay gösterilir) */
+  guest: GuestRow;
 }
 
 interface StayTabItem {
@@ -57,29 +60,18 @@ interface StayTabItem {
 type TabItem = GuestTabItem | StayTabItem;
 
 const GuestList: React.FC = () => {
-  const [guests, setGuests] = useState<GuestRow[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [loading, setLoading] = useState(true);
   const [openTabs, setOpenTabs] = useState<TabItem[]>([]);
   const [activeTabIndex, setActiveTabIndex] = useState<number>(-1);
 
+  /* Müşteriler sayfa sayfa; arama backend'de (ad / soyad / TC / pasaport / telefon) */
+  const table = useServerTable((p) => guestsApi.getPage(p), []);
+  const guests = table.rows as unknown as GuestRow[];
+
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const [guestsData, companiesData] = await Promise.all([
-          guestsApi.getAll(),
-          companiesApi.getAll(),
-        ]);
-        setGuests(guestsData as GuestRow[]);
-        setCompanies(companiesData as Company[]);
-      } catch (err) {
-        console.error('Müşteri verileri yüklenirken hata:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
+    companiesApi.getAll()
+      .then((data) => setCompanies(data as Company[]))
+      .catch((err) => console.error('Firmalar yüklenemedi:', err));
   }, []);
 
   const columns: GridColDef[] = [
@@ -148,7 +140,7 @@ const GuestList: React.FC = () => {
     if (existingIndex !== -1) {
       setActiveTabIndex(existingIndex);
     } else {
-      const newTab: GuestTabItem = { type: 'guest', guestId: guest.id, guestName: `${guest.firstName} ${guest.lastName}` };
+      const newTab: GuestTabItem = { type: 'guest', guestId: guest.id, guestName: `${guest.firstName} ${guest.lastName}`, guest };
       setOpenTabs((prev) => [...prev, newTab]);
       setActiveTabIndex(openTabs.length);
     }
@@ -183,9 +175,7 @@ const GuestList: React.FC = () => {
 
   /** Aktif tab */
   const activeTab = activeTabIndex >= 0 && activeTabIndex < openTabs.length ? openTabs[activeTabIndex] : null;
-  const activeGuest = activeTab?.type === 'guest'
-    ? guests.find((g) => g.id === activeTab.guestId)
-    : null;
+  const activeGuest = activeTab?.type === 'guest' ? activeTab.guest : null;
 
   /** Header tab'ları (AppBar'a iletilir) */
   const headerTabs = openTabs.map((tab) => ({
@@ -208,15 +198,11 @@ const GuestList: React.FC = () => {
     <div>
       <PageHeader
         title="Müşteri Listesi"
-        subtitle={`Toplam ${guests.length} müşteri`}
+        subtitle={`Toplam ${table.rowCount} müşteri`}
       />
 
       {/* Aktif Tab İçeriği veya Liste */}
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress />
-        </Box>
-      ) : activeTab?.type === 'stay' ? (
+      {activeTab?.type === 'stay' ? (
         <StayDetailContent stay={activeTab.stay} />
       ) : activeTabIndex >= 0 && activeGuest ? (
         <GuestDetailContent guest={activeGuest} companies={companies} onStayClick={handleStayClick} />
@@ -224,9 +210,11 @@ const GuestList: React.FC = () => {
         <DataTable
           rows={guests}
           columns={columns}
+          loading={table.loading}
+          server={table.server}
           onRowClick={handleRowClick}
           searchable
-          searchPlaceholder="Ad, soyad veya TC ile ara..."
+          searchPlaceholder="Ad, soyad, TC veya telefon ile ara..."
         />
       )}
     </div>

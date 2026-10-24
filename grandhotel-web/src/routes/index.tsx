@@ -76,16 +76,6 @@ const BookingHome = React.lazy(() => import('../pages/booking/BookingHome'));
 const BookingHotelDetail = React.lazy(() => import('../pages/booking/BookingHotelDetail'));
 
 /**
- * Geçici placeholder sayfa.
- */
-const ComingSoon: React.FC = () => (
-  <div style={{ textAlign: 'center', padding: '80px 20px' }}>
-    <h2 style={{ color: '#64748B', fontWeight: 500 }}>Bu sayfa yakında eklenecek</h2>
-    <p style={{ color: '#94A3B8' }}>Geliştirme devam ediyor...</p>
-  </div>
-);
-
-/**
  * 404 sayfası.
  */
 const NotFound: React.FC = () => (

@@ -26,7 +26,6 @@ import {
   Typography,
   CircularProgress,
   IconButton,
-  Badge,
 } from '@mui/material';
 import {
   PlayArrow as StartIcon,
@@ -65,17 +64,6 @@ const getStatusColor = (status: string) => {
     case 'served': return '#94a3b8';
     case 'cancelled': return '#64748b';
     default: return '#94a3b8';
-  }
-};
-
-const getStatusLabel = (status: string) => {
-  switch (status) {
-    case 'pending': return 'Bekliyor';
-    case 'preparing': return 'Hazırlanıyor';
-    case 'ready': return 'Hazır';
-    case 'served': return 'Servis Edildi';
-    case 'cancelled': return 'İptal';
-    default: return status;
   }
 };
 

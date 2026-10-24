@@ -11,7 +11,7 @@
  * API: faultsApi (GET/POST /api/faults/, PATCH /status/, POST /resolution-photos/)
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Autocomplete,
   Box,
@@ -47,6 +47,7 @@ import {
 } from '../../utils/constants';
 import useAuth from '../../hooks/useAuth';
 import useNotification from '../../hooks/useNotification';
+import useServerTable from '../../hooks/useServerTable';
 import { getApiErrorMessage } from '../../utils/apiError';
 
 type FaultRow = ApiFault & { [key: string]: unknown };
@@ -115,8 +116,6 @@ const FaultList: React.FC = () => {
   const { showSuccess, showError } = useNotification();
   const canHandle = (user?.roles || []).some((r) => FAULT_HANDLER_ROLES.includes(r));
 
-  const [faults, setFaults] = useState<FaultRow[]>([]);
-  const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState(STATUS_FILTERS[0].value);
   const [selected, setSelected] = useState<ApiFault | null>(null);
   const [saving, setSaving] = useState(false);
@@ -128,19 +127,16 @@ const FaultList: React.FC = () => {
   const [form, setForm] = useState({ roomNumber: '', category: '', description: '' });
   const [formPhotos, setFormPhotos] = useState<File[]>([]);
 
-  const fetchFaults = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await faultsApi.getAll(statusFilter ? { status: statusFilter } : undefined);
-      setFaults(data as FaultRow[]);
-    } catch (err) {
-      showError(getApiErrorMessage(err, 'Arızalar yüklenemedi'));
-    } finally {
-      setLoading(false);
-    }
-  }, [statusFilter, showError]);
-
-  useEffect(() => { fetchFaults(); }, [fetchFaults]);
+  /* Arızalar sayfa sayfa (sunucu taraflı arama: oda / açıklama / bildiren) */
+  const table = useServerTable(
+    (p) => faultsApi.getPage({ ...p, status: statusFilter || undefined }),
+    [statusFilter],
+  );
+  const faults = table.rows as FaultRow[];
+  const fetchFaults = table.refresh;
+  useEffect(() => {
+    if (table.error) showError(getApiErrorMessage(table.error, 'Arızalar yüklenemedi'));
+  }, [table.error, showError]);
 
   const openCreate = () => {
     setForm({ roomNumber: '', category: '', description: '' });
@@ -203,16 +199,11 @@ const FaultList: React.FC = () => {
     }
   };
 
-  const activeCount = useMemo(
-    () => faults.filter((f) => f.status !== FAULT_STATUS.RESOLVED).length,
-    [faults],
-  );
-
   return (
     <div>
       <PageHeader
         title="Arızalar"
-        subtitle={statusFilter ? `${faults.length} kayıt` : `${faults.length} kayıt · ${activeCount} aktif`}
+        subtitle={`${table.rowCount} kayıt`}
       />
 
       <Box sx={{ mb: 2, display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -234,7 +225,8 @@ const FaultList: React.FC = () => {
       <DataTable
         rows={faults}
         columns={columns}
-        loading={loading}
+        loading={table.loading}
+        server={table.server}
         onRowClick={openDetail}
         searchable
         searchPlaceholder="Oda, açıklama veya bildiren ara..."

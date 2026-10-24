@@ -31,7 +31,7 @@ import type { FolioAddData } from './FolioAddDialog';
 import DetailDialog from './DetailDialog';
 import { InvoiceCreateDialog } from '../invoices';
 import CheckOutDialog, { type EarlyDepartureMode } from './CheckOutDialog';
-import { PAYMENT_LIKE_CATEGORIES, DEDUCTION_CATEGORIES } from '../../utils/folio';
+import { calcFolioTotals } from '../../utils/folio';
 
 /* Alt bileşenler */
 import RoomDetailSections, {
@@ -244,6 +244,7 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
           amount: Number(f.amount),
           date: f.date,
           guestId: f.guestId ?? undefined,
+          paymentMethod: f.paymentMethod || undefined,
           createdBy: f.createdBy ?? undefined,
           createdAt: f.createdAt ?? undefined,
         })));
@@ -461,6 +462,7 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
           description: data.description,
           amount: data.amount,
           date: getLocalDateStr(),
+          paymentMethod: data.paymentMethod,
         });
       }
 
@@ -472,6 +474,7 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
         amount: Number(apiFolio.amount),
         date: apiFolio.date,
         guestId: apiFolio.guestId ?? undefined,
+        paymentMethod: apiFolio.paymentMethod || undefined,
         createdBy: apiFolio.createdBy ?? undefined,
       };
       setFolios((prev) => [...prev, folio]);
@@ -484,7 +487,7 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
         } catch { /* minibar güncelleme hatası görmezden gel */ }
       }
     } catch (err) {
-      console.error('Folio eklenirken hata:', err);
+      setSnackbar({ open: true, message: getApiErrorMessage(err, 'Folio eklenemedi'), severity: 'error' });
     }
   };
 
@@ -515,6 +518,12 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
     if (room.reservationId) {
       // Mevcut rezervasyonu güncelle
       try {
+        // Gecelik ücret değiştiyse önce Room.price'ı güncelle → rezervasyon kaydında
+        // planlanan toplam (gece × fiyat) yeni fiyatla hesaplanır
+        const newPrice = nightlyRate ? Number(nightlyRate) : room.price;
+        if (newPrice !== room.price) {
+          await roomsApi.updatePrice(room.id, newPrice!);
+        }
         await reservationsApi.update(room.reservationId, {
           roomId: room.id,
           checkIn: checkInDate || undefined,
@@ -523,13 +532,7 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
           companyId: selectedCompanyId ? Number(selectedCompanyId) : null,
           agencyId: selectedAgencyId ? Number(selectedAgencyId) : null,
           agencyReservationCode: agencyReservationCode || '',
-          totalAmount: nightlyRate ? Number(nightlyRate) : undefined,
         });
-        // Gecelik ücret değiştiyse Room.price'ı da güncelle
-        const newPrice = nightlyRate ? Number(nightlyRate) : room.price;
-        if (newPrice !== room.price) {
-          await roomsApi.updatePrice(room.id, newPrice!);
-        }
         // State'i senkronize et
         onRoomUpdate(room.id, {
           reservationCheckIn: checkInDate ? new Date(checkInDate + 'T14:00:00').toISOString() : room.reservationCheckIn,
@@ -684,15 +687,27 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
     }
   };
 
-  /** Check-out iptal — odayı tekrar occupied yap */
+  /**
+   * Check-out iptal — son çıkış geri alınır (backend: rooms/views.py revert_checkout):
+   * çıkışta yazılan kapanış kalemleri ve cari aktarımı silinir, planlanan çıkış tarihi döner, oda tekrar dolu olur.
+   */
   const handleRevertCheckout = async () => {
+    if (!window.confirm('Son check-out geri alınacak; çıkışta yazılan kapanış kalemleri ve cari aktarımı silinecek. Emin misiniz?')) return;
     try {
       // İşlem geçmişi kaydını backend yazar ('checkout_reversed')
-      await roomsApi.revertCheckout(room.id);
+      const res = await roomsApi.revertCheckout(room.id);
+      const removed = res.removedItems?.length ? ` Silinen kalemler: ${res.removedItems.join(', ')}.` : '';
+      if (res.kbsResendRequired) {
+        setSnackbar({
+          open: true,
+          message: `Check-out geri alındı.${removed} KBS'ye çıkış bildirildiği için misafirlerin KBS girişini tekrar gönderin.`,
+          severity: 'warning',
+        });
+      } else {
+        setSnackbar({ open: true, message: `Check-out geri alındı.${removed}`, severity: 'success' });
+      }
     } catch (err: unknown) {
-      console.error('Check-out iptal hatası:', err);
-      const axiosErr = err as { response?: { data?: { error?: string } }; message?: string };
-      setSnackbar({ open: true, message: axiosErr?.response?.data?.error || axiosErr?.message || 'Check-out iptal yapılamadı', severity: 'error' });
+      setSnackbar({ open: true, message: getApiErrorMessage(err, 'Check-out iptal yapılamadı'), severity: 'error' });
     }
   };
 
@@ -804,19 +819,11 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
   };
 
   /* === Hesaplamalar ===
-   * Ödeme gibi davranan kategoriler folioTotal'dan düşer:
-   *   - payment (nakit/kart)
-   *   - account_transfer_debit (cariye borçlu aktar → oda borcu kapandı sayılır)
-   *   - account_transfer_credit (cariye alacaklı aktar → fazla ödeme kredi oldu)
-   *   - discount (indirim)
+   * Folio bakiyesi utils/folio.ts → calcFolioTotals (backend compute_folio_totals ile aynı):
+   *   ödeme ve cariye borç aktarımı düşer, indirim düşer,
+   *   cariye alacak aktarımı (fazla ödeme) bakiyeyi artırır.
    */
-  // PAYMENT_LIKE_CATEGORIES + DEDUCTION_CATEGORIES utils/folio.ts'den import.
-  // Backend `apps/stays/models.py` ile birebir uyumlu — tek doğruluk kaynağı.
-  const folioTotal = folios.reduce((sum, f) => {
-    if (DEDUCTION_CATEGORIES.has(f.category)) return sum - f.amount;
-    if (PAYMENT_LIKE_CATEGORIES.has(f.category)) return sum - f.amount;
-    return sum + f.amount;
-  }, 0);
+  const folioTotal = calcFolioTotals(folios).balance;
 
   const hasGuests = room.guests && room.guests.length > 0;
   const isCheckInDisabled = !hasGuests;
@@ -1059,7 +1066,7 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
 
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={4000}
+        autoHideDuration={snackbar.severity === 'warning' ? 10000 : 4000}
         onClose={() => setSnackbar(s => ({ ...s, open: false }))}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >

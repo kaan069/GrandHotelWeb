@@ -31,7 +31,9 @@ import {
 
 import { FormField } from '../forms';
 import { InvoiceCreateDialog } from '../invoices';
-import AccountTransactionTable from '../debtors/AccountTransactionTable';
+import AccountTransactionTable, { type CariSummary } from '../debtors/AccountTransactionTable';
+import DebtCards from '../debtors/DebtCards';
+import { toStayHistory, countNights, isRealisedStay } from '../../utils/stayHistory';
 import { Company, Guest, StayHistory } from '../../utils/constants';
 import { companiesApi, guestsApi, reservationsApi } from '../../api/services';
 import { formatDate, formatCurrency, formatPhone } from '../../utils/formatters';
@@ -83,16 +85,7 @@ const CompanyDetailContent: React.FC<CompanyDetailContentProps> = ({ company, on
         isBlocked: g.isBlocked,
         createdAt: g.createdAt ?? '',
       })));
-      setStayHistory(historyData.map((r) => ({
-        id: r.id,
-        guestName: r.guestNames || '',
-        roomNumber: r.roomNumber,
-        checkIn: r.checkIn,
-        checkOut: r.checkOut || '',
-        totalAmount: Number(r.totalAmount),
-        paidAmount: Number(r.paidAmount),
-        companyName: r.companyName || undefined,
-      })));
+      setStayHistory(toStayHistory(historyData));
     } catch (err) {
       console.error('Firma verileri yüklenirken hata:', err);
     }
@@ -102,13 +95,14 @@ const CompanyDetailContent: React.FC<CompanyDetailContentProps> = ({ company, on
     refreshData();
   }, [refreshData]);
 
-  const totalRevenue = stayHistory.reduce((sum, s) => sum + s.totalAmount, 0);
-  const totalPaid = stayHistory.reduce((sum, s) => sum + (s.paidAmount || 0), 0);
-  const totalDebt = totalRevenue - totalPaid;
-  const totalNights = stayHistory.reduce((sum, s) => {
-    const diffTime = new Date(s.checkOut).getTime() - new Date(s.checkIn).getTime();
-    return sum + Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  }, 0);
+  /* Ciro ve gece sadece gerçekleşmiş konaklamalardan; borç cari defterden (ekstre) */
+  const realised = stayHistory.filter(isRealisedStay);
+  const totalRevenue = realised.reduce((sum, s) => sum + s.totalAmount, 0);
+  const totalNights = countNights(realised);
+  const [cari, setCari] = useState<CariSummary | null>(null);
+  /* Borç kutucukları ve ekstre: biri değişince diğeri yeniden yüklenir */
+  const [debtsReload, setDebtsReload] = useState(0);
+  const [statementReload, setStatementReload] = useState(0);
 
   const handleGuestFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -203,19 +197,17 @@ const CompanyDetailContent: React.FC<CompanyDetailContentProps> = ({ company, on
               <Divider sx={{ my: 0.5 }} />
               <InfoRow label="Toplam Gece" value={`${totalNights} gece`} />
               <Divider sx={{ my: 0.5 }} />
-              <InfoRow label="Toplam Gelir" value={formatCurrency(totalRevenue)} />
-              <Divider sx={{ my: 0.5 }} />
-              <InfoRow label="Toplam Ödeme" value={formatCurrency(totalPaid)} />
+              <InfoRow label="Toplam Ciro" value={formatCurrency(totalRevenue)} />
               <Divider sx={{ my: 0.5 }} />
               <InfoRow
-                label="Toplam Borç"
+                label="Cari Bakiye"
                 value={
                   <Typography
                     variant="body2"
                     fontWeight={700}
-                    color={totalDebt > 0 ? 'error.main' : 'success.main'}
+                    color={(cari?.balance ?? 0) > 0 ? 'error.main' : 'success.main'}
                   >
-                    {formatCurrency(totalDebt)}
+                    {cari ? formatCurrency(cari.balance) : '…'}
                   </Typography>
                 }
               />
@@ -282,6 +274,17 @@ const CompanyDetailContent: React.FC<CompanyDetailContentProps> = ({ company, on
 
         {/* Sağ - Konaklama Geçmişi */}
         <Grid size={{ xs: 12, md: 8 }}>
+          {/* Açık Borçlar — konaklama başına kutucuk, seçip tahsilat */}
+          <Card sx={{ mb: 2 }}>
+            <CardContent>
+              <DebtCards
+                target={{ company: company.id }}
+                reloadToken={debtsReload}
+                onChanged={() => { setStatementReload((t) => t + 1); refreshData(); }}
+              />
+            </CardContent>
+          </Card>
+
           <Card>
             <CardContent>
               <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -351,8 +354,10 @@ const CompanyDetailContent: React.FC<CompanyDetailContentProps> = ({ company, on
             <CardContent>
               <AccountTransactionTable
                 filter={{ company: company.id }}
-                title="Cari Hesap Hareketleri"
-                onChanged={refreshData}
+                title="Cari Hesap Ekstresi"
+                reloadToken={statementReload}
+                onChanged={() => { setDebtsReload((t) => t + 1); refreshData(); }}
+                onSummary={setCari}
               />
             </CardContent>
           </Card>

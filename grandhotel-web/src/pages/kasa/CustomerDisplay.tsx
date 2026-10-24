@@ -7,7 +7,7 @@
  * Ödeme yapılınca "Teşekkürler" mesajı → 5sn sonra boş ekran.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { Box, Typography, Divider } from '@mui/material';
 import { tablesApi } from '../../api/services';
@@ -19,20 +19,22 @@ const CustomerDisplay: React.FC = () => {
   const [table, setTable] = useState<ApiTable | null>(null);
   const [thankYou, setThankYou] = useState(false);
 
+  /* Bir önceki yüklemede açık adisyon var mıydı (useCallback kapanışında eski state kalmasın) */
+  const hadTabRef = useRef(false);
+
   const fetchTable = useCallback(async () => {
     if (!tableId) return;
     try {
       const data = await tablesApi.getById(Number(tableId));
       setTable(data);
 
-      // Ödeme yapıldıysa (aktif tab yok) → teşekkür ekranı
-      if (!data.currentTab || data.status === 'empty') {
-        if (table?.currentTab) {
-          // Önceden tab vardı ama artık yok → ödeme yapılmış
-          setThankYou(true);
-          setTimeout(() => { setThankYou(false); setTable(data); }, 5000);
-        }
+      // Önceden adisyon vardı ama artık yok → ödeme yapılmış → teşekkür ekranı
+      const hasTab = !!data.currentTab && data.status !== 'empty';
+      if (!hasTab && hadTabRef.current) {
+        setThankYou(true);
+        setTimeout(() => { setThankYou(false); setTable(data); }, 5000);
       }
+      hadTabRef.current = hasTab;
     } catch {
       setTable(null);
     }

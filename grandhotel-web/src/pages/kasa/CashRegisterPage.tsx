@@ -10,7 +10,7 @@
  * Kasiyer/patron/müdür: Hem ürün ekler hem ödeme alır
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Button,
@@ -26,10 +26,8 @@ import {
   Grid,
   IconButton,
   List,
-  ListItem,
   ListItemButton,
   ListItemText,
-  MenuItem,
   Snackbar,
   Alert,
   Table,
@@ -144,13 +142,20 @@ const CashRegisterPage: React.FC = () => {
     }
   };
 
-  /** Kasaları yükle */
+  /** Kasaları yükle — seçili kasa korunur (ödeme / açma-kapama sonrası seçim sıçramasın) */
+  const selectedRegisterRef = useRef(selectedRegister);
+  selectedRegisterRef.current = selectedRegister;
   const fetchRegisters = useCallback(async () => {
     try {
       const data = await kasaApi.getAll();
       setRegisters(data);
-      // İlk açık kasayı seç
-      if (!selectedRegister) {
+      const current = selectedRegisterRef.current;
+      if (current) {
+        // Seçili kasanın güncel durumu / bakiyesi; masa seçimi ve detay korunur
+        const fresh = data.find((r) => r.id === current.id);
+        if (fresh) setSelectedRegister(fresh);
+      } else {
+        // İlk açılışta ilk açık kasayı seç
         const open = data.find(r => r.status === 'open');
         if (open) selectRegister(open);
       }

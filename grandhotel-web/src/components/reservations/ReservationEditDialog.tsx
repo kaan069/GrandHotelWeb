@@ -1,3 +1,10 @@
+/**
+ * ReservationEditDialog — rezervasyon oda / tarih / firma / not düzenleme
+ *
+ * Tutar düzenlenmez: rezervasyon toplamı backend'de folio'dan (ve rezerve durumdayken
+ * gece × oda fiyatından) hesaplanır (Reservation.refresh_totals). Burada salt okunur gösterilir.
+ */
+
 import React, { useState } from 'react';
 import {
   Button,
@@ -15,6 +22,8 @@ import {
 import { Edit as EditIcon } from '@mui/icons-material';
 import { reservationsApi } from '../../api/services';
 import type { ApiReservation, ApiCompany } from '../../api/services';
+import { formatCurrency } from '../../utils/formatters';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 interface Room {
   id: number;
@@ -26,7 +35,6 @@ interface ReservationEditForm {
   roomId: string;
   checkIn: string;
   checkOut: string;
-  totalAmount: string;
   companyId: string;
   notes: string;
 }
@@ -52,7 +60,6 @@ const ReservationEditDialog: React.FC<ReservationEditDialogProps> = ({
     roomId: '',
     checkIn: '',
     checkOut: '',
-    totalAmount: '',
     companyId: '',
     notes: '',
   });
@@ -65,7 +72,6 @@ const ReservationEditDialog: React.FC<ReservationEditDialogProps> = ({
         roomId: String(reservation.roomId),
         checkIn: reservation.checkIn?.split('T')[0] || '',
         checkOut: reservation.checkOut?.split('T')[0] || '',
-        totalAmount: reservation.totalAmount || '',
         companyId: reservation.companyId ? String(reservation.companyId) : '',
         notes: reservation.notes || '',
       });
@@ -87,9 +93,6 @@ const ReservationEditDialog: React.FC<ReservationEditDialogProps> = ({
     if (form.checkIn && form.checkOut && form.checkOut <= form.checkIn) {
       errs.checkOut = 'Çıkış tarihi girişten sonra olmalı';
     }
-    if (form.totalAmount && isNaN(Number(form.totalAmount))) {
-      errs.totalAmount = 'Geçerli bir tutar girin';
-    }
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
 
@@ -101,15 +104,11 @@ const ReservationEditDialog: React.FC<ReservationEditDialogProps> = ({
         checkOut: form.checkOut || undefined,
         notes: form.notes || undefined,
         companyId: form.companyId ? Number(form.companyId) : null,
-        totalAmount: form.totalAmount ? Number(form.totalAmount) : undefined,
       });
       onSave(updated);
       onClose();
     } catch (err: unknown) {
-      console.error('Rezervasyon güncelleme hatası:', err);
-      const axiosErr = err as { response?: { data?: { error?: string } }; message?: string };
-      const msg = axiosErr?.response?.data?.error || axiosErr?.message || 'Güncelleme yapılamadı';
-      setErrors((p) => ({ ...p, notes: msg }));
+      setErrors((p) => ({ ...p, notes: getApiErrorMessage(err, 'Güncelleme yapılamadı') }));
     } finally {
       setLoading(false);
     }
@@ -168,17 +167,15 @@ const ReservationEditDialog: React.FC<ReservationEditDialogProps> = ({
             </TextField>
           </Grid>
 
-          {/* Toplam Tutar */}
+          {/* Toplam Tutar — salt okunur (folio / oda fiyatından hesaplanır) */}
           <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
-              label="Toplam Tutar (TL)"
+              label="Toplam Tutar"
               fullWidth
               size="small"
-              type="number"
-              value={form.totalAmount}
-              onChange={(e) => { setForm((p) => ({ ...p, totalAmount: e.target.value })); setErrors((p) => ({ ...p, totalAmount: '' })); }}
-              error={!!errors.totalAmount}
-              helperText={errors.totalAmount}
+              value={reservation ? formatCurrency(parseFloat(reservation.totalAmount) || 0) : ''}
+              helperText="Folio ve oda fiyatından otomatik hesaplanır"
+              slotProps={{ input: { readOnly: true } }}
             />
           </Grid>
 

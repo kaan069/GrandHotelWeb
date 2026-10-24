@@ -22,7 +22,12 @@ export const toStayHistory = (rows: ApiReservation[]): StayHistory[] =>
       companyName: r.companyName || undefined,
       totalAmount: Number(r.totalAmount) || 0,
       paidAmount: Number(r.paidAmount) || 0,
+      status: r.status,
     }));
+
+/** Gerçekleşmiş konaklama mı? (rezerve kaydın tutarı sadece planlanan tutardır) */
+export const isRealisedStay = (s: StayHistory): boolean =>
+  s.status === undefined || s.status === 'checked_in' || s.status === 'checked_out';
 
 /** Toplam gece — çıkışı olmayan (devam eden) konaklama bugüne kadar sayılır */
 export const countNights = (stays: StayHistory[]): number =>

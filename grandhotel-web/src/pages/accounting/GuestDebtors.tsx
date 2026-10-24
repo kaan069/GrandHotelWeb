@@ -1,8 +1,15 @@
-import React, { useEffect, useState } from 'react';
+/**
+ * Şahıs Carileri — açık cari bakiyesi olan bireysel misafirler (muhasebe)
+ * Satıra tıklayınca misafirin borç kutucukları (DebtCards) açılır: konaklama başına borç, tahsilat.
+ */
+
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Box, Typography, Paper, Table, TableHead, TableRow, TableCell, TableBody, CircularProgress, Chip,
+  Dialog, DialogTitle, DialogContent, DialogActions, Button,
 } from '@mui/material';
 import { accountingApi, GuestDebtorsResponse } from '../../api/services';
+import DebtCards from '../../components/debtors/DebtCards';
 
 const fmt = (v: string | number) =>
   Number(v).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ₺';
@@ -10,13 +17,16 @@ const fmt = (v: string | number) =>
 const GuestDebtors: React.FC = () => {
   const [data, setData] = useState<GuestDebtorsResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<{ id: number; name: string } | null>(null);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     accountingApi.guestDebtors()
       .then(setData)
       .catch(() => setData(null))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   return (
     <Box sx={{ p: 3 }}>
@@ -46,7 +56,7 @@ const GuestDebtors: React.FC = () => {
             </TableHead>
             <TableBody>
               {(data?.items || []).map((g) => (
-                <TableRow key={g.id} hover>
+                <TableRow key={g.id} hover sx={{ cursor: 'pointer' }} onClick={() => setSelected({ id: g.id, name: g.name })}>
                   <TableCell>{g.name}</TableCell>
                   <TableCell>{g.phone || '—'}</TableCell>
                   <TableCell>{g.tcNo || '—'}</TableCell>
@@ -66,6 +76,16 @@ const GuestDebtors: React.FC = () => {
           </Table>
         )}
       </Paper>
+
+      <Dialog open={!!selected} onClose={() => setSelected(null)} maxWidth="lg" fullWidth>
+        <DialogTitle>{selected?.name} — Borçlar</DialogTitle>
+        <DialogContent dividers>
+          {selected && <DebtCards target={{ guest: selected.id }} onChanged={load} />}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSelected(null)}>Kapat</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

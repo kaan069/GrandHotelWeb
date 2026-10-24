@@ -5,7 +5,7 @@
  * Her sayfa kendi tab verilerini bu context üzerinden Header'a iletir.
  */
 
-import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useMemo, useCallback } from 'react';
 
 export interface HeaderTab {
   key: string;
@@ -39,6 +39,17 @@ export const TabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [onTabClose, setOnTabClose] = useState<((e: React.MouseEvent, index: number) => void) | null>(null);
   const [onBackToList, setOnBackToList] = useState<(() => void) | null>(null);
 
+  /* Fonksiyon state'i set edilirken updater sanılmasın diye () => handler ile sarılır; kimlikleri sabit */
+  const setOnTabChangeStable = useCallback(
+    (handler: ((index: number) => void) | null) => setOnTabChange(() => handler), [],
+  );
+  const setOnTabCloseStable = useCallback(
+    (handler: ((e: React.MouseEvent, index: number) => void) | null) => setOnTabClose(() => handler), [],
+  );
+  const setOnBackToListStable = useCallback(
+    (handler: (() => void) | null) => setOnBackToList(() => handler), [],
+  );
+
   const value = useMemo(() => ({
     tabs,
     activeTabIndex,
@@ -47,12 +58,15 @@ export const TabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setActiveTabIndex,
     setBackLabel,
     onTabChange,
-    setOnTabChange: (handler: ((index: number) => void) | null) => setOnTabChange(() => handler),
+    setOnTabChange: setOnTabChangeStable,
     onTabClose,
-    setOnTabClose: (handler: ((e: React.MouseEvent, index: number) => void) | null) => setOnTabClose(() => handler),
+    setOnTabClose: setOnTabCloseStable,
     onBackToList,
-    setOnBackToList: (handler: (() => void) | null) => setOnBackToList(() => handler),
-  }), [tabs, activeTabIndex, backLabel, onTabChange, onTabClose, onBackToList]);
+    setOnBackToList: setOnBackToListStable,
+  }), [
+    tabs, activeTabIndex, backLabel, onTabChange, onTabClose, onBackToList,
+    setOnTabChangeStable, setOnTabCloseStable, setOnBackToListStable,
+  ]);
 
   return (
     <TabContext.Provider value={value}>

@@ -79,6 +79,15 @@ const StatCard: React.FC<{
   </Card>
 );
 
+/** Kategori filtresi → backend folio kategorisi */
+const CATEGORY_MAP: Record<string, string | undefined> = {
+  all: undefined,
+  hotel: 'room_charge',
+  restaurant: 'restaurant',
+  minibar: 'minibar',
+  service: 'service',
+};
+
 const GeneralReport: React.FC = () => {
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(String(now.getMonth() + 1).padStart(2, '0'));
@@ -89,40 +98,27 @@ const GeneralReport: React.FC = () => {
   const [data, setData] = useState<GeneralReportData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const categoryMap: Record<string, string | undefined> = {
-    all: undefined,
-    hotel: 'room_charge',
-    restaurant: 'restaurant',
-    minibar: 'minibar',
-    service: 'service',
-  };
-
-  // Ay seçimi değişince tarih aralığını hesapla
+  // Tarih aralığı girildiyse o aralık, ikisi de boşsa seçili ay; tek uç girildiyse beklenir
   useEffect(() => {
+    let from = dateFrom;
+    let to = dateTo;
     if (!dateFrom && !dateTo) {
       const y = parseInt(selectedYear);
       const m = parseInt(selectedMonth);
-      const start = `${y}-${selectedMonth}-01`;
       const lastDay = new Date(y, m, 0).getDate();
-      const end = `${y}-${selectedMonth}-${String(lastDay).padStart(2, '0')}`;
-      setLoading(true);
-      kazancApi.advancedReport({ dateFrom: start, dateTo: end, includeDebtors: true, categories: categoryMap[categoryFilter] })
-        .then(setData)
-        .catch(console.error)
-        .finally(() => setLoading(false));
+      from = `${y}-${selectedMonth}-01`;
+      to = `${y}-${selectedMonth}-${String(lastDay).padStart(2, '0')}`;
+    } else if (!dateFrom || !dateTo) {
+      return;
     }
-  }, [selectedMonth, selectedYear, categoryFilter]);
-
-  // Tarih aralığı değişince
-  useEffect(() => {
-    if (dateFrom && dateTo) {
-      setLoading(true);
-      kazancApi.advancedReport({ dateFrom, dateTo, includeDebtors: true, categories: categoryMap[categoryFilter] })
-        .then(setData)
-        .catch(console.error)
-        .finally(() => setLoading(false));
-    }
-  }, [dateFrom, dateTo, categoryFilter]);
+    let cancelled = false;  // filtre hızlı değişirse eski yanıt yenisini ezmesin
+    setLoading(true);
+    kazancApi.advancedReport({ dateFrom: from, dateTo: to, includeDebtors: true, categories: CATEGORY_MAP[categoryFilter] })
+      .then((res) => { if (!cancelled) setData(res); })
+      .catch(console.error)
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [selectedMonth, selectedYear, dateFrom, dateTo, categoryFilter]);
 
   const summary = data?.summary ?? { totalRevenue: 0, totalPayments: 0, totalBalance: 0, byCompany: [], byCategory: {}, byBedType: {} };
   const sales = data?.salesCounts ?? { companyReservations: 0, individualReservations: 0, uniqueRooms: 0, uniqueGuests: 0, byBedType: {} };

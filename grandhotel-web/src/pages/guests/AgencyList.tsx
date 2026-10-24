@@ -27,6 +27,8 @@ import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { PageHeader, DataTable } from '../../components/common';
 import type { Agency } from '../../utils/constants';
 import { agenciesApi } from '../../api/services';
+import type { CariDebtorRow } from '../../api/services';
+import { buildCariDebtorColumns } from '../../components/debtors/cariDebtorColumns';
 import { formatPhone, formatCurrency } from '../../utils/formatters';
 import usePageTabs from '../../hooks/usePageTabs';
 
@@ -37,20 +39,7 @@ interface AgencyRow extends Agency {
   [key: string]: unknown;
 }
 
-interface DebtorRow {
-  id: number;
-  name: string;
-  taxNumber: string | null;
-  phone: string | null;
-  email: string | null;
-  commissionRate: string;
-  totalAmount: string;
-  paidAmount: string;
-  balance: string;
-  reservationCount: number;
-  activeReservations: number;
-  [key: string]: unknown;
-}
+type DebtorRow = CariDebtorRow & { [key: string]: unknown };
 
 interface AgencyTabItem {
   agencyId: number;
@@ -87,46 +76,7 @@ const agencyColumns: GridColDef[] = [
   },
 ];
 
-const debtorColumns: GridColDef[] = [
-  { field: 'id', headerName: 'ID', width: 60, align: 'center', headerAlign: 'center' },
-  {
-    field: 'name', headerName: 'Acente Adı', width: 200, flex: 1,
-    renderCell: (p: GridRenderCellParams) => <strong style={{ color: '#1565C0' }}>{p.value}</strong>,
-  },
-  {
-    field: 'taxNumber', headerName: 'Vergi No', width: 130,
-    renderCell: (p: GridRenderCellParams) => p.value || '-',
-  },
-  {
-    field: 'commissionRate', headerName: 'Komisyon', width: 100, align: 'right', headerAlign: 'right',
-    renderCell: (p: GridRenderCellParams) => `%${Number(p.value)}`,
-  },
-  {
-    field: 'totalAmount', headerName: 'Ciro', width: 130, align: 'right', headerAlign: 'right',
-    renderCell: (p: GridRenderCellParams) => formatCurrency(Number(p.value)),
-  },
-  {
-    field: 'paidAmount', headerName: 'Ödenen', width: 130, align: 'right', headerAlign: 'right',
-    renderCell: (p: GridRenderCellParams) => (
-      <span style={{ color: '#22C55E' }}>{formatCurrency(Number(p.value))}</span>
-    ),
-  },
-  {
-    field: 'balance', headerName: 'Bakiye', width: 130, align: 'right', headerAlign: 'right',
-    renderCell: (p: GridRenderCellParams) => (
-      <strong style={{ color: '#EF4444' }}>{formatCurrency(Number(p.value))}</strong>
-    ),
-  },
-  {
-    field: 'reservationCount', headerName: 'Rez.', width: 70, align: 'center', headerAlign: 'center',
-  },
-  {
-    field: 'activeReservations', headerName: 'Aktif', width: 70, align: 'center', headerAlign: 'center',
-    renderCell: (p: GridRenderCellParams) => p.value > 0 ? (
-      <Chip label={p.value} size="small" color="error" />
-    ) : '0',
-  },
-];
+const debtorColumns: GridColDef[] = buildCariDebtorColumns('Acente Adı', true);
 
 const AgencyList: React.FC = () => {
   const [viewTab, setViewTab] = useState(0);

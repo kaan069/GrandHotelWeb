@@ -25,7 +25,7 @@ import {
   Remove as RemoveIcon,
 } from '@mui/icons-material';
 
-import { FOLIO_CATEGORIES, FOLIO_CATEGORY_LABELS } from '../../utils/constants';
+import { FOLIO_CATEGORIES, FOLIO_CATEGORY_LABELS, FOLIO_PAYMENT_METHODS } from '../../utils/constants';
 import { minibarApi } from '../../api/services';
 import type { ApiMinibarProduct } from '../../api/services';
 
@@ -33,6 +33,8 @@ export interface FolioAddData {
   category: string;
   description: string;
   amount: number;
+  /** Ödemede zorunlu — mesai / kasa özetleri yönteme göre hesaplanır */
+  paymentMethod?: string;
   /** Minibar ise — consume API çağrılacak */
   isMinibarConsume?: boolean;
   productId?: number;
@@ -59,6 +61,7 @@ const FolioAddDialog: React.FC<FolioAddDialogProps> = ({
   agencyName,
 }) => {
   const [category, setCategory] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('');
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [quantity, setQuantity] = useState(1);
@@ -74,7 +77,7 @@ const FolioAddDialog: React.FC<FolioAddDialogProps> = ({
         .then(setMinibarProducts)
         .catch((err) => console.error('Minibar ürünleri yüklenemedi:', err));
     }
-  }, [open, category]);
+  }, [open, category, minibarProducts.length]);
 
   const handleCategoryChange = (value: string) => {
     setCategory(value);
@@ -109,6 +112,7 @@ const FolioAddDialog: React.FC<FolioAddDialogProps> = ({
   const handleSave = () => {
     const newErrors: Record<string, string> = {};
     if (!category) newErrors.category = 'Kategori seçiniz';
+    if (category === FOLIO_CATEGORIES.PAYMENT && !paymentMethod) newErrors.paymentMethod = 'Ödeme yöntemi seçiniz';
     if (isMinibar && !selectedProductId) newErrors.product = 'Ürün seçiniz';
     if (!description.trim()) newErrors.description = 'Açıklama giriniz';
     if (!amount || parseFloat(amount) <= 0) newErrors.amount = 'Geçerli tutar giriniz';
@@ -130,6 +134,7 @@ const FolioAddDialog: React.FC<FolioAddDialogProps> = ({
       category,
       description: description.trim(),
       amount: parseFloat(amount),
+      paymentMethod: category === FOLIO_CATEGORIES.PAYMENT ? paymentMethod : undefined,
       isMinibarConsume: isMinibar,
       productId: isMinibar ? Number(selectedProductId) : undefined,
       quantity: isMinibar ? quantity : undefined,
@@ -141,6 +146,7 @@ const FolioAddDialog: React.FC<FolioAddDialogProps> = ({
 
   const resetForm = () => {
     setCategory('');
+    setPaymentMethod('');
     setDescription('');
     setAmount('');
     setSelectedProductId('');
@@ -175,7 +181,9 @@ const FolioAddDialog: React.FC<FolioAddDialogProps> = ({
           error={!!errors.category}
           helperText={
             errors.category ||
-            (isAccountTransfer
+            (category === FOLIO_CATEGORIES.ACCOUNT_TRANSFER_CREDIT
+              ? 'Fazla ödemeyi cariye alacak yazar; folio bakiyesi sıfırlanır.'
+              : isAccountTransfer
               ? (companyName
                   ? `→ ${companyName} firmasının cari hesabına yazılacak.`
                   : agencyName
@@ -260,6 +268,22 @@ const FolioAddDialog: React.FC<FolioAddDialogProps> = ({
           rows={2}
           slotProps={{ input: { readOnly: isMinibar } }}
         />
+
+        {category === FOLIO_CATEGORIES.PAYMENT && (
+          <TextField
+            select
+            label="Ödeme Yöntemi"
+            value={paymentMethod}
+            onChange={(e) => { setPaymentMethod(e.target.value); setErrors((p) => ({ ...p, paymentMethod: '' })); }}
+            error={!!errors.paymentMethod}
+            helperText={errors.paymentMethod || 'Mesai ve kasa özetleri yönteme göre hesaplanır'}
+            fullWidth
+          >
+            {FOLIO_PAYMENT_METHODS.map((m) => (
+              <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>
+            ))}
+          </TextField>
+        )}
 
         <TextField
           label="Tutar (₺)"

@@ -2,7 +2,9 @@
  * ShiftHandover Sayfası - Mesai Devir İşlemleri
  *
  * Mesai devir kayıtlarını görüntüler ve yönetir.
- * Backend API ile entegre çalışır.
+ * Kart / nakit / diğer tahsilat elle girilmez: backend mesai süresince alınan folio ödemeleri
+ * ve cari tahsilatlarını ödeme yöntemine göre toplar (staff/views.py shift_summary).
+ * Aktif mesaide şu ana kadarki özet ("live") gösterilir; kapanışta aynı değerler kaydedilir.
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -39,11 +41,14 @@ import {
   AccessTime as TimeIcon,
   Hotel as OccupiedIcon,
   DoorFront as AvailableIcon,
+  AccountBalance as OtherIcon,
 } from '@mui/icons-material';
 
-import { PageHeader, StatCard } from '../../components/common';
+import { PageHeader, ServerTablePagination } from '../../components/common';
+import useServerTable from '../../hooks/useServerTable';
+import { shiftApi } from '../../api/services';
 import { ShiftHandover as ShiftHandoverType } from '../../utils/constants';
-import { loadShifts, closeShift, getActiveShift } from '../../utils/shiftStorage';
+import { closeShift, getActiveShift } from '../../utils/shiftStorage';
 import useNotification from '../../hooks/useNotification';
 import { getApiErrorMessage } from '../../utils/apiError';
 
@@ -57,32 +62,58 @@ const formatTime = (dateStr: string): string => {
   return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
 };
 
-const formatCurrency = (amount: number): string => {
-  return `${Number(amount).toLocaleString('tr-TR')} ₺`;
+const formatCurrency = (amount: number | string | undefined): string => {
+  return `${(Number(amount) || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺`;
+};
+
+/** Satış özeti kartları (aktif mesai canlı özeti ve geçmiş mesai detayı) */
+const SalesSummary: React.FC<{
+  totalSales: number | string;
+  cashSales: number | string;
+  cardSales: number | string;
+  otherSales?: number | string;
+  roomsSold: number;
+}> = ({ totalSales, cashSales, cardSales, otherSales, roomsSold }) => {
+  const items = [
+    { label: 'Toplam Satış', value: formatCurrency(totalSales), icon: <TotalIcon color="secondary" sx={{ fontSize: 28 }} /> },
+    { label: 'Nakit Tahsilat', value: formatCurrency(cashSales), icon: <CashIcon color="success" sx={{ fontSize: 28 }} /> },
+    { label: 'Kart Tahsilat', value: formatCurrency(cardSales), icon: <CardIcon color="primary" sx={{ fontSize: 28 }} /> },
+    { label: 'Havale / Diğer', value: formatCurrency(otherSales), icon: <OtherIcon color="action" sx={{ fontSize: 28 }} /> },
+    { label: 'Satılan Oda', value: String(roomsSold), icon: <RoomIcon color="info" sx={{ fontSize: 28 }} /> },
+  ];
+  return (
+    <Grid container spacing={2}>
+      {items.map((item) => (
+        <Grid key={item.label} size={{ xs: 6, md: 'grow' }}>
+          <Card variant="outlined">
+            <CardContent sx={{ textAlign: 'center', py: 2 }}>
+              {item.icon}
+              <Typography variant="caption" display="block" color="text.secondary">{item.label}</Typography>
+              <Typography variant="h6" fontWeight={700}>{item.value}</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      ))}
+    </Grid>
+  );
 };
 
 const ShiftHandover: React.FC = () => {
   const { showSuccess, showError } = useNotification();
-  const [shifts, setShifts] = useState<ShiftHandoverType[]>([]);
   const [activeShift, setActiveShift] = useState<ShiftHandoverType | null>(null);
   const [selectedShift, setSelectedShift] = useState<ShiftHandoverType | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [closing, setClosing] = useState(false);
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
-  const [cardSalesInput, setCardSalesInput] = useState('');
-  const [cashSalesInput, setCashSalesInput] = useState('');
+  const [closeNotes, setCloseNotes] = useState('');
+
+  /* Geçmiş (kapanmış) mesailer sayfa sayfa, en yeni önce */
+  const history = useServerTable((p) => shiftApi.getPage({ ...p, status: 'closed' }), [], 10);
 
   const refreshData = useCallback(async () => {
-    setLoading(true);
     try {
-      const allShifts = await loadShifts();
-      const active = await getActiveShift();
-      setShifts(allShifts);
-      setActiveShift(active);
-    } catch {
-      setShifts([]);
-      setActiveShift(null);
+      setActiveShift(await getActiveShift());
     } finally {
       setLoading(false);
     }
@@ -96,21 +127,24 @@ const ShiftHandover: React.FC = () => {
     if (!activeShift) return;
     setClosing(true);
     try {
-      await closeShift(
-        activeShift.id,
-        Number(cardSalesInput) || 0,
-        Number(cashSalesInput) || 0
-      );
+      await closeShift(activeShift.id, closeNotes.trim() || undefined);
       setCloseDialogOpen(false);
-      setCardSalesInput('');
-      setCashSalesInput('');
+      setCloseNotes('');
       showSuccess('Mesai kapatıldı');
       await refreshData();
+      history.refresh();
     } catch (err) {
       showError(getApiErrorMessage(err, 'Mesai kapatılamadı'));
     } finally {
       setClosing(false);
     }
+  };
+
+  /* Kapatma penceresi açılırken canlı özeti tazele (kaydedilecek tutarlar güncel görünsün) */
+  const openCloseDialog = async () => {
+    setCloseDialogOpen(true);
+    const active = await getActiveShift();
+    if (active) setActiveShift(active);
   };
 
   const handleOpenDetail = (shift: ShiftHandoverType) => {
@@ -126,9 +160,7 @@ const ShiftHandover: React.FC = () => {
     );
   }
 
-  const closedShifts = shifts
-    .filter((s) => s.status === 'closed')
-    .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+  const closedShifts = history.rows;
 
   const groupedByDate = closedShifts.reduce<Record<string, ShiftHandoverType[]>>((acc, shift) => {
     const date = shift.date;
@@ -157,7 +189,7 @@ const ShiftHandover: React.FC = () => {
               <Button
                 variant="contained"
                 color="error"
-                onClick={() => setCloseDialogOpen(true)}
+                onClick={openCloseDialog}
                 startIcon={<CheckIcon />}
               >
                 Mesaiyi Kapat
@@ -194,6 +226,15 @@ const ShiftHandover: React.FC = () => {
                 </Box>
               </Grid>
             </Grid>
+
+            {activeShift.live && (
+              <>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 3, mb: 1 }}>
+                  Mesai başından bu yana (ödeme yöntemine göre otomatik)
+                </Typography>
+                <SalesSummary {...activeShift.live} />
+              </>
+            )}
           </CardContent>
         </Card>
       )}
@@ -274,30 +315,27 @@ const ShiftHandover: React.FC = () => {
               </Box>
             ))
           )}
+          {history.rowCount > 0 && <ServerTablePagination server={history.server} />}
         </CardContent>
       </Card>
 
       {/* Mesai Kapat Dialog */}
-      <Dialog open={closeDialogOpen} onClose={() => setCloseDialogOpen(false)} maxWidth="xs" fullWidth>
+      <Dialog open={closeDialogOpen} onClose={() => setCloseDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Mesaiyi Kapat</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Kasa bilgilerini girin. Toplam satış backend'den otomatik hesaplanacaktır.
+            Tutarlar mesai süresince alınan ödemelerden ve cari tahsilatlarından otomatik hesaplanır.
+            Kasayı aşağıdaki nakit tutarla karşılaştırın.
           </Typography>
+          {activeShift?.live && <SalesSummary {...activeShift.live} />}
           <TextField
-            label="Kart Satışı (₺)"
-            type="number"
+            label="Not (opsiyonel)"
             fullWidth
-            value={cardSalesInput}
-            onChange={(e) => setCardSalesInput(e.target.value)}
-            sx={{ mb: 2 }}
-          />
-          <TextField
-            label="Nakit Satışı (₺)"
-            type="number"
-            fullWidth
-            value={cashSalesInput}
-            onChange={(e) => setCashSalesInput(e.target.value)}
+            multiline
+            rows={2}
+            value={closeNotes}
+            onChange={(e) => setCloseNotes(e.target.value)}
+            sx={{ mt: 2 }}
           />
         </DialogContent>
         <DialogActions>
@@ -309,7 +347,7 @@ const ShiftHandover: React.FC = () => {
       </Dialog>
 
       {/* Detay Popup */}
-      <Dialog open={detailOpen} onClose={() => setDetailOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={detailOpen} onClose={() => setDetailOpen(false)} maxWidth="md" fullWidth>
         {selectedShift && (
           <>
             <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -345,44 +383,13 @@ const ShiftHandover: React.FC = () => {
               <Divider sx={{ my: 2 }} />
 
               <Typography variant="h6" sx={{ mb: 2 }}>Satış Özeti</Typography>
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 6 }}>
-                  <Card variant="outlined">
-                    <CardContent sx={{ textAlign: 'center', py: 2 }}>
-                      <CardIcon color="primary" sx={{ fontSize: 28 }} />
-                      <Typography variant="caption" display="block" color="text.secondary">Kart Satışı</Typography>
-                      <Typography variant="h6" fontWeight={700}>{formatCurrency(selectedShift.cardSales)}</Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                <Grid size={{ xs: 6 }}>
-                  <Card variant="outlined">
-                    <CardContent sx={{ textAlign: 'center', py: 2 }}>
-                      <CashIcon color="success" sx={{ fontSize: 28 }} />
-                      <Typography variant="caption" display="block" color="text.secondary">Nakit Satışı</Typography>
-                      <Typography variant="h6" fontWeight={700}>{formatCurrency(selectedShift.cashSales)}</Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                <Grid size={{ xs: 6 }}>
-                  <Card variant="outlined">
-                    <CardContent sx={{ textAlign: 'center', py: 2 }}>
-                      <TotalIcon color="secondary" sx={{ fontSize: 28 }} />
-                      <Typography variant="caption" display="block" color="text.secondary">Toplam Satış</Typography>
-                      <Typography variant="h6" fontWeight={700}>{formatCurrency(selectedShift.totalSales)}</Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                <Grid size={{ xs: 6 }}>
-                  <Card variant="outlined">
-                    <CardContent sx={{ textAlign: 'center', py: 2 }}>
-                      <RoomIcon color="info" sx={{ fontSize: 28 }} />
-                      <Typography variant="caption" display="block" color="text.secondary">Satılan Oda</Typography>
-                      <Typography variant="h6" fontWeight={700}>{selectedShift.roomsSold}</Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              </Grid>
+              <SalesSummary
+                totalSales={selectedShift.totalSales}
+                cashSales={selectedShift.cashSales}
+                cardSales={selectedShift.cardSales}
+                otherSales={selectedShift.otherSales}
+                roomsSold={selectedShift.roomsSold}
+              />
 
               {(selectedShift.roomsOccupied !== undefined) && (
                 <>

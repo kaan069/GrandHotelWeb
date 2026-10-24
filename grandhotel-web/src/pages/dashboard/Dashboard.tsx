@@ -17,7 +17,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { PageHeader } from '../../components/common';
 import RoomDetailContent from '../../components/rooms/RoomDetailContent';
 import RoomMoveDialog from '../../components/rooms/RoomMoveDialog';
 import usePermission from '../../hooks/usePermission';
@@ -94,7 +93,6 @@ const Dashboard: React.FC = () => {
 
   /* Oda verileri - API'den çekilir, WebSocket ile canlı güncellenir */
   const [rooms, setRooms] = useState<Room[]>([]);
-  const [roomsLoading, setRoomsLoading] = useState(true);
 
   /* Kazanç verileri - API'den çekilir */
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -108,8 +106,8 @@ const Dashboard: React.FC = () => {
     loadedRef.current = true;
 
     roomsApi.getAll()
-      .then((data) => { setRooms(data.map(mapApiRoom)); setRoomsLoading(false); })
-      .catch(() => setRoomsLoading(false));
+      .then((data) => setRooms(data.map(mapApiRoom)))
+      .catch(() => {});
 
     kazancApi.dashboardStats()
       .then((data) => {

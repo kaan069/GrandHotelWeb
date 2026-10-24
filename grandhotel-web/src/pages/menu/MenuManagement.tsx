@@ -112,9 +112,8 @@ const MenuManagement: React.FC = () => {
     try {
       const data = await menuApi.getCategories();
       setCategories(data);
-      if (!selectedCatId && data.length > 0) {
-        setSelectedCatId(data[0].id);
-      }
+      // Seçim korunur; ilk yüklemede veya seçili kategori silindiyse ilk kategori
+      setSelectedCatId((cur) => (cur !== null && data.some((c) => c.id === cur) ? cur : data[0]?.id ?? null));
     } catch (err) {
       console.error('Kategoriler yüklenemedi:', err);
     } finally {

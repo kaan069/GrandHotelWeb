@@ -45,25 +45,20 @@ const ModuleManagement: React.FC = () => {
     open: false, message: '', severity: 'success',
   });
 
+  /* Açılışta bir kez yükle (kaydetmede updateUser ile user değişse de tekrar çekilmez) */
   useEffect(() => {
-    loadModules();
+    hotelApi.getModules()
+      .then(setModules)
+      .catch(() => {
+        // API henüz hazır değilse client-side tanımlardan oluştur
+        setModules(MODULE_DEFINITIONS.map((m) => ({
+          ...m,
+          enabled: user?.enabledModules?.includes(m.id) ?? m.alwaysOn,
+        })));
+      })
+      .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const loadModules = async () => {
-    try {
-      const data = await hotelApi.getModules();
-      setModules(data);
-    } catch {
-      // API henüz hazır değilse client-side tanımlardan oluştur
-      const fallback = MODULE_DEFINITIONS.map((m) => ({
-        ...m,
-        enabled: user?.enabledModules?.includes(m.id) ?? m.alwaysOn,
-      }));
-      setModules(fallback);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleToggle = (moduleId: string) => {
     setModules((prev) => {

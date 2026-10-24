@@ -7,8 +7,12 @@ import {
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import {
-  accountingApi, ApiExpense, IncomeExpenseSummary, EXPENSE_CATEGORIES, EXPENSE_PAYMENT_METHODS,
+  accountingApi, IncomeExpenseSummary, EXPENSE_CATEGORIES, EXPENSE_PAYMENT_METHODS,
 } from '../../api/services';
+import { ServerTablePagination } from '../../components/common';
+import useServerTable from '../../hooks/useServerTable';
+import useNotification from '../../hooks/useNotification';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 const fmt = (v: string | number) =>
   Number(v).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ₺';
@@ -26,28 +30,32 @@ const emptyForm = () => ({
 const IncomeExpense: React.FC = () => {
   const [dateFrom, setDateFrom] = useState(monthStartStr());
   const [dateTo, setDateTo] = useState(todayStr());
+  const { showError } = useNotification();
   const [summary, setSummary] = useState<IncomeExpenseSummary | null>(null);
-  const [expenses, setExpenses] = useState<ApiExpense[]>([]);
-  const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(emptyForm());
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [s, e] = await Promise.all([
-        accountingApi.incomeExpense({ dateFrom, dateTo }),
-        accountingApi.listExpenses({ dateFrom, dateTo }),
-      ]);
-      setSummary(s);
-      setExpenses(e);
-    } finally {
-      setLoading(false);
-    }
-  }, [dateFrom, dateTo]);
+  /* Giderler sayfa sayfa (en yeni önce); özet tüm aralık için ayrı gelir */
+  const table = useServerTable(
+    (p) => accountingApi.listExpensesPage({ ...p, dateFrom, dateTo }),
+    [dateFrom, dateTo],
+  );
+  const expenses = table.rows;
+  const loading = table.loading && expenses.length === 0;
 
-  useEffect(() => { load(); }, [load]);
+  const loadSummary = useCallback(() => {
+    accountingApi.incomeExpense({ dateFrom, dateTo })
+      .then(setSummary)
+      .catch((err) => showError(getApiErrorMessage(err, 'Gelir-gider özeti yüklenemedi')));
+  }, [dateFrom, dateTo, showError]);
+
+  useEffect(() => { loadSummary(); }, [loadSummary]);
+
+  const load = () => {
+    loadSummary();
+    table.refresh();
+  };
 
   const handleAdd = async () => {
     if (!form.amount || Number(form.amount) <= 0) return;
@@ -57,6 +65,8 @@ const IncomeExpense: React.FC = () => {
       setAddOpen(false);
       setForm(emptyForm());
       load();
+    } catch (err) {
+      showError(getApiErrorMessage(err, 'Gider kaydedilemedi'));
     } finally {
       setSaving(false);
     }
@@ -64,8 +74,12 @@ const IncomeExpense: React.FC = () => {
 
   const handleDelete = async (id: number) => {
     if (!window.confirm('Bu gideri silmek istiyor musunuz?')) return;
-    await accountingApi.deleteExpense(id);
-    load();
+    try {
+      await accountingApi.deleteExpense(id);
+      load();
+    } catch (err) {
+      showError(getApiErrorMessage(err, 'Gider silinemedi'));
+    }
   };
 
   return (
@@ -124,6 +138,7 @@ const IncomeExpense: React.FC = () => {
             </TableBody>
           </Table>
         )}
+        <ServerTablePagination server={table.server} />
       </Paper>
 
       <Dialog open={addOpen} onClose={() => setAddOpen(false)} maxWidth="sm" fullWidth>

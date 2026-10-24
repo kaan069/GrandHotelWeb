@@ -66,6 +66,7 @@ const StayDetailContent: React.FC<StayDetailContentProps> = ({ stay }) => {
           amount: Number(f.amount),
           date: f.date,
           guestId: f.guestId ?? undefined,
+          paymentMethod: f.paymentMethod || undefined,
           createdBy: f.createdBy ?? undefined,
         })));
       } catch (err) {

@@ -28,7 +28,10 @@ const usePageTabs = ({
   onBackToList,
   backLabel = 'Listeye Dön',
 }: UsePageTabsOptions) => {
-  const ctx = useHeaderTabs();
+  // Setter'lar sabit kimlikli (TabContext) → effect bağımlılığı olarak güvenli
+  const {
+    setTabs, setActiveTabIndex, setBackLabel, setOnTabChange, setOnTabClose, setOnBackToList,
+  } = useHeaderTabs();
 
   // Handler'ları ref'te tut — her renderda güncellenir ama effect tetiklemez
   const onTabChangeRef = useRef(onTabChange);
@@ -39,32 +42,37 @@ const usePageTabs = ({
   onTabCloseRef.current = onTabClose;
   onBackToListRef.current = onBackToList;
 
-  useEffect(() => {
-    ctx.setTabs(tabs);
-  }, [JSON.stringify(tabs.map((t) => ({ key: t.key, label: t.label, badge: t.badge })))]);
+  // Sekmeler sadece key / etiket / rozet değişince iletilir (ikon her renderda yeni nesne)
+  const tabsRef = useRef(tabs);
+  tabsRef.current = tabs;
+  const tabsKey = JSON.stringify(tabs.map((t) => ({ key: t.key, label: t.label, badge: t.badge })));
 
   useEffect(() => {
-    ctx.setActiveTabIndex(activeTabIndex);
-  }, [activeTabIndex]);
+    setTabs(tabsRef.current);
+  }, [tabsKey, setTabs]);
 
   useEffect(() => {
-    ctx.setBackLabel(backLabel);
-  }, [backLabel]);
+    setActiveTabIndex(activeTabIndex);
+  }, [activeTabIndex, setActiveTabIndex]);
+
+  useEffect(() => {
+    setBackLabel(backLabel);
+  }, [backLabel, setBackLabel]);
 
   useEffect(() => {
     // Sabit wrapper fonksiyonlar — ref üzerinden son handler'ı çağırır
-    ctx.setOnTabChange((index: number) => onTabChangeRef.current(index));
-    ctx.setOnTabClose((e: React.MouseEvent, index: number) => onTabCloseRef.current(e, index));
-    ctx.setOnBackToList(() => onBackToListRef.current());
+    setOnTabChange((index: number) => onTabChangeRef.current(index));
+    setOnTabClose((e: React.MouseEvent, index: number) => onTabCloseRef.current(e, index));
+    setOnBackToList(() => onBackToListRef.current());
 
     return () => {
-      ctx.setTabs([]);
-      ctx.setActiveTabIndex(-1);
-      ctx.setOnTabChange(null);
-      ctx.setOnTabClose(null);
-      ctx.setOnBackToList(null);
+      setTabs([]);
+      setActiveTabIndex(-1);
+      setOnTabChange(null);
+      setOnTabClose(null);
+      setOnBackToList(null);
     };
-  }, []);
+  }, [setTabs, setActiveTabIndex, setOnTabChange, setOnTabClose, setOnBackToList]);
 };
 
 export default usePageTabs;

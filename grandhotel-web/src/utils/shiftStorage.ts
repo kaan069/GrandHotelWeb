@@ -35,16 +35,7 @@ export const getActiveShift = async (): Promise<ShiftHandover | null> => {
   }
 };
 
-/** Mesaiyi kapat */
-export const closeShift = async (
-  shiftId: number,
-  cardSales?: number,
-  cashSales?: number,
-  notes?: string
-): Promise<ShiftHandover | null> => {
-  try {
-    return await shiftApi.close(shiftId, { cardSales, cashSales, notes });
-  } catch {
-    return null;
-  }
+/** Mesaiyi kapat (hata çağırana iletilir) */
+export const closeShift = async (shiftId: number, notes?: string): Promise<ShiftHandover> => {
+  return await shiftApi.close(shiftId, { notes });
 };
