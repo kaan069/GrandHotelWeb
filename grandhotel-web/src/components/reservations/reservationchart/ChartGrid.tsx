@@ -204,19 +204,36 @@ const ChartGrid: React.FC<ChartGridProps> = ({ rooms, days, startDate, reservati
                 );
               }
 
+              /* Boş gün hücresi — üzerine gelince tarih baloncuğu */
               return (
-                <Box
+                <Tooltip
                   key={day.format('YYYY-MM-DD')}
-                  onClick={() => onCellClick(room, day)}
-                  sx={{
-                    bgcolor: isToday ? 'rgba(21, 101, 192, 0.04)' : isWeekend ? 'rgba(255, 193, 7, 0.04)' : 'background.paper',
-                    borderBottom: '1px solid #E2E8F0',
-                    borderRight: '1px solid #E2E8F0',
-                    cursor: 'pointer',
-                    transition: 'background-color 0.15s',
-                    '&:hover': { bgcolor: '#E3F2FD' },
-                  }}
-                />
+                  title={
+                    <Box sx={{ textAlign: 'center' }}>
+                      <Typography variant="body2" fontWeight={600} sx={{ textTransform: 'capitalize' }}>
+                        {day.format('D MMMM YYYY, dddd')}
+                      </Typography>
+                      <Typography variant="caption">Oda {room.roomNumber}{isToday ? ' · Bugün' : ''}</Typography>
+                    </Box>
+                  }
+                  placement="top"
+                  arrow
+                  disableInteractive
+                  enterDelay={200}
+                  enterNextDelay={100}
+                >
+                  <Box
+                    onClick={() => onCellClick(room, day)}
+                    sx={{
+                      bgcolor: isToday ? 'rgba(21, 101, 192, 0.04)' : isWeekend ? 'rgba(255, 193, 7, 0.04)' : 'background.paper',
+                      borderBottom: '1px solid #E2E8F0',
+                      borderRight: '1px solid #E2E8F0',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.15s',
+                      '&:hover': { bgcolor: '#E3F2FD' },
+                    }}
+                  />
+                </Tooltip>
               );
             })}
           </React.Fragment>
