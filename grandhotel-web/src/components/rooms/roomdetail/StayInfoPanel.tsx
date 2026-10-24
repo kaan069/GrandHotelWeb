@@ -31,6 +31,7 @@ import {
 
 import { Company, Agency, FolioItem, FOLIO_CATEGORY_LABELS } from '../../../utils/constants';
 import { isFolioDeductionRow } from '../../../utils/folio';
+import FolioBalanceSummary from '../FolioBalanceSummary';
 
 export interface CompanyGuestRow {
   id: number;
@@ -55,7 +56,6 @@ interface StayInfoPanelProps {
   agencyReservationCode?: string;
   onAgencyReservationCodeChange?: (value: string) => void;
   folios: FolioItem[];
-  folioTotal: number;
   onFolioDetailOpen: () => void;
   companyGuests?: CompanyGuestRow[];
   companyGuestsLoading?: boolean;
@@ -80,7 +80,6 @@ const StayInfoPanel: React.FC<StayInfoPanelProps> = ({
   agencyReservationCode = '',
   onAgencyReservationCodeChange,
   folios,
-  folioTotal,
   onFolioDetailOpen,
   companyGuests = [],
   companyGuestsLoading = false,
@@ -341,12 +340,6 @@ const StayInfoPanel: React.FC<StayInfoPanelProps> = ({
                       </TableCell>
                     </TableRow>
                   ))}
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 700, fontSize: '0.8125rem' }}>Toplam</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.8125rem' }}>
-                      {folioTotal.toLocaleString('tr-TR')} ₺
-                    </TableCell>
-                  </TableRow>
                 </TableBody>
               </Table>
             </TableContainer>
@@ -354,6 +347,12 @@ const StayInfoPanel: React.FC<StayInfoPanelProps> = ({
             <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
               Henüz folio kalemi eklenmemiş.
             </Typography>
+          )}
+          {/* Müşterinin hesabı: harcama / ödenen / kırmızı "Borçlu" — resepsiyon tek bakışta görür */}
+          {folios.length > 0 && (
+            <Box sx={{ mt: 1.5 }}>
+              <FolioBalanceSummary folios={folios} />
+            </Box>
           )}
           <Button
             variant="outlined"

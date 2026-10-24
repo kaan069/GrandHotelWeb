@@ -391,6 +391,7 @@ export const RESERVATION_FILTERS: Record<string, string> = {
   TODAY_CHECKOUT_DONE: 'today_checkout_done',
   TOMORROW_CHECKIN: 'tomorrow_checkin',
   UNPAID_CHECKOUT: 'unpaid_checkout',
+  IN_HOUSE_UNPAID: 'in_house_unpaid',
 };
 
 export const RESERVATION_FILTER_LABELS: Record<string, string> = {
@@ -400,6 +401,7 @@ export const RESERVATION_FILTER_LABELS: Record<string, string> = {
   [RESERVATION_FILTERS.TODAY_CHECKOUT_DONE]: 'Bugün Çıkanlar (Checkout Yapılanlar)',
   [RESERVATION_FILTERS.TOMORROW_CHECKIN]: 'Yarın Girecekler',
   [RESERVATION_FILTERS.UNPAID_CHECKOUT]: 'Çıkış Yapıp Ödeme Yapmayanlar',
+  [RESERVATION_FILTERS.IN_HOUSE_UNPAID]: 'Konaklayan — Borçlu',
 };
 
 /* ==================== ÖDEME DURUMLARI ==================== */

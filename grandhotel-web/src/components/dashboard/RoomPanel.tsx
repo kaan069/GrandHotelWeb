@@ -34,6 +34,7 @@ interface RoomPanelRoom {
   reservationOwnerName?: string | null;
   reservationCheckIn?: string | null;
   reservationCheckOut?: string | null;
+  folioBalance?: number | null;
 }
 
 interface RoomPanelProps {

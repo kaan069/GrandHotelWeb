@@ -34,12 +34,12 @@ import { formatDateTime } from '../../../utils/formatters';
 import { tabsApi } from '../../../api/services';
 import type { ApiTab } from '../../../api/services';
 import { PAYMENT_LIKE_CATEGORIES, isFolioDeductionRow } from '../../../utils/folio';
+import FolioBalanceSummary from '../FolioBalanceSummary';
 
 interface FolioDetailDialogProps {
   open: boolean;
   roomNumber: string;
   folios: FolioItem[];
-  folioTotal: number;
   onClose: () => void;
   onFolioAddOpen: () => void;
   onFolioDelete: (folioId: number) => void;
@@ -58,7 +58,6 @@ const FolioDetailDialog: React.FC<FolioDetailDialogProps> = ({
   open,
   roomNumber,
   folios,
-  folioTotal,
   onClose,
   onFolioAddOpen,
   onFolioDelete,
@@ -119,6 +118,7 @@ const FolioDetailDialog: React.FC<FolioDetailDialogProps> = ({
       </DialogTitle>
       <DialogContent dividers>
         {folios.length > 0 ? (
+          <>
           <TableContainer>
             <Table size="small">
               <TableHead>
@@ -218,26 +218,21 @@ const FolioDetailDialog: React.FC<FolioDetailDialogProps> = ({
                     )}
                   </React.Fragment>
                 ))}
-                <TableRow>
-                  <TableCell colSpan={3} sx={{ fontWeight: 700, fontSize: '0.9375rem' }}>
-                    Toplam
-                    {(() => {
-                      const nightCount = folios.filter((f) => f.category === 'room_charge').length;
-                      return nightCount > 0 ? (
-                        <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1, fontWeight: 400 }}>
-                          ({nightCount} gece konaklama)
-                        </Typography>
-                      ) : null;
-                    })()}
-                  </TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.9375rem' }}>
-                    {folioTotal.toLocaleString('tr-TR')} ₺
-                  </TableCell>
-                  <TableCell />
-                </TableRow>
               </TableBody>
             </Table>
           </TableContainer>
+
+          {/* Hesap özeti: harcama / ödenen / kırmızı "Borçlu" */}
+          <Box sx={{ mt: 2, ml: 'auto', maxWidth: 380 }}>
+            <FolioBalanceSummary
+              folios={folios}
+              note={(() => {
+                const nights = folios.filter((f) => f.category === 'room_charge').length;
+                return nights > 0 ? `${nights} gece konaklama` : undefined;
+              })()}
+            />
+          </Box>
+          </>
         ) : (
           <Box sx={{ textAlign: 'center', py: 4 }}>
             <ReceiptIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />

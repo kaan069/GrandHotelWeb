@@ -44,6 +44,8 @@ export interface ApiRoom {
   reservationAgencyId: number | null;
   reservationAgencyName: string | null;
   reservationAgencyCode: string | null;
+  /** Konaklayan müşterinin folio borcu (harcama − ödenen); konaklama yoksa null */
+  folioBalance: string | null;
   beds: { type: string }[];
   notes: string | null;
   minibar?: ApiRoomMinibarItem[];

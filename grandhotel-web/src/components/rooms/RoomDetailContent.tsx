@@ -508,7 +508,7 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
     const body = encodeURIComponent(
       `Oda ${room.roomNumber} Folio Detayları\n\n` +
       folios.map((f) => `${FOLIO_CATEGORY_LABELS[f.category] || f.category}: ${f.amount.toLocaleString('tr-TR')} ₺`).join('\n') +
-      `\n\nToplam: ${folioTotal.toLocaleString('tr-TR')} ₺`
+      `\n\n${folioTotal > 0 ? 'Kalan borç' : 'Bakiye'}: ${folioTotal.toLocaleString('tr-TR')} ₺`
     );
     window.open(`mailto:?subject=${subject}&body=${body}`, '_self');
   };
@@ -906,7 +906,6 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
         agencyReservationCode={agencyReservationCode}
         onAgencyReservationCodeChange={setAgencyReservationCode}
         folios={folios}
-        folioTotal={folioTotal}
         onFolioDetailOpen={() => setFolioDetailOpen(true)}
         companyGuests={companyGuests}
         companyGuestsLoading={companyGuestsLoading}
@@ -928,7 +927,6 @@ const RoomDetailContent: React.FC<RoomDetailContentProps> = ({ room, onRoomUpdat
         open={folioDetailOpen}
         roomNumber={room.roomNumber}
         folios={folios}
-        folioTotal={folioTotal}
         onClose={() => setFolioDetailOpen(false)}
         onFolioAddOpen={() => setFolioAddOpen(true)}
         onFolioDelete={handleFolioDelete}

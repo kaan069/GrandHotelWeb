@@ -36,6 +36,7 @@ import {
   RESERVATION_FILTER_LABELS,
 } from '../../utils/constants';
 import { reservationsApi, roomsApi, companiesApi } from '../../api/services';
+import { mapApiRoomToDetail } from '../../utils/roomDetail';
 import type { ApiReservation, ApiRoom, ApiCompany, ApiRoomMinibarItem } from '../../api/services';
 
 /* Alt bileşenler */
@@ -77,35 +78,6 @@ interface RoomTab {
 
 /* ==================== YARDIMCI ==================== */
 
-/** ApiRoom → RoomForDetail dönüşümü */
-const mapApiRoomToDetail = (r: ApiRoom): RoomForDetail => ({
-  id: r.id,
-  roomNumber: r.roomNumber,
-  bedType: r.bedType,
-  floor: r.floor,
-  capacity: r.capacity,
-  view: r.view,
-  price: parseFloat(r.price) || 0,
-  status: r.status,
-  guestName: r.guestName ?? undefined,
-  guests: r.guests?.filter((g) => g.guestId !== null && g.checkIn).map((g) => ({
-    guestId: g.guestId as number,
-    guestName: g.guestName,
-    phone: g.phone,
-    checkIn: g.checkIn as string,
-    checkOut: g.checkOut ?? undefined,
-    isActive: g.isActive,
-  })),
-  notes: r.notes ?? undefined,
-  reservationId: r.reservationId,
-  reservationCheckIn: r.reservationCheckIn,
-  reservationCheckOut: r.reservationCheckOut,
-  reservationCompanyId: r.reservationCompanyId,
-  reservationAgencyId: r.reservationAgencyId,
-  reservationAgencyCode: r.reservationAgencyCode,
-  beds: r.beds,
-  minibar: r.minibar,
-});
 
 /** Ödeme durumu hesapla */
 const computePaymentStatus = (res: ApiReservation): string => {
@@ -167,6 +139,27 @@ const columns: GridColDef[] = [
     width: 130,
     renderCell: (params: GridRenderCellParams) =>
       formatCurrency(parseFloat(params.value) || 0),
+  },
+  {
+    /* Müşterinin kalan borcu (harcama − ödenen); rezervede henüz harcama olmadığı için gösterilmez */
+    field: 'balance',
+    headerName: 'Kalan',
+    width: 130,
+    sortable: false,
+    valueGetter: (_value: unknown, row: ApiReservation) =>
+      (parseFloat(row.totalAmount) || 0) - (parseFloat(row.paidAmount) || 0),
+    renderCell: (params: GridRenderCellParams) => {
+      const row = params.row as ApiReservation;
+      if (row.status === 'reserved' || row.status === 'cancelled') return '-';
+      const balance = params.value as number;
+      if (balance > 0.004) {
+        return <Typography variant="body2" component="span" sx={{ fontWeight: 700, color: 'error.main' }}>{formatCurrency(balance)}</Typography>;
+      }
+      if (balance < -0.004) {
+        return <Typography variant="body2" component="span" sx={{ fontWeight: 600, color: 'warning.main' }}>İade {formatCurrency(-balance)}</Typography>;
+      }
+      return <Typography variant="body2" component="span" sx={{ color: 'success.main' }}>Ödendi</Typography>;
+    },
   },
   {
     field: 'status',

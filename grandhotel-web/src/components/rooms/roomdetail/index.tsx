@@ -60,7 +60,6 @@ interface RoomDetailSectionsProps {
   agencyReservationCode?: string;
   onAgencyReservationCodeChange?: (value: string) => void;
   folios: FolioItem[];
-  folioTotal: number;
   onFolioDetailOpen: () => void;
   companyGuests?: Array<{ id: number; firstName: string; lastName: string; phone: string }>;
   companyGuestsLoading?: boolean;
@@ -103,7 +102,6 @@ const RoomDetailSections: React.FC<RoomDetailSectionsProps> = ({
   agencyReservationCode,
   onAgencyReservationCodeChange,
   folios,
-  folioTotal,
   onFolioDetailOpen,
   companyGuests,
   companyGuestsLoading,
@@ -170,7 +168,6 @@ const RoomDetailSections: React.FC<RoomDetailSectionsProps> = ({
           agencyReservationCode={agencyReservationCode}
           onAgencyReservationCodeChange={onAgencyReservationCodeChange}
           folios={folios}
-          folioTotal={folioTotal}
           onFolioDetailOpen={onFolioDetailOpen}
           companyGuests={companyGuests}
           companyGuestsLoading={companyGuestsLoading}

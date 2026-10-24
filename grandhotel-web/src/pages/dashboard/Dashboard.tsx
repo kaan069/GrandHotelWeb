@@ -50,6 +50,8 @@ interface Room {
   reservationCompanyId?: number | null;
   reservationAgencyId?: number | null;
   reservationAgencyCode?: string | null;
+  /** Konaklayan müşterinin folio borcu (>0 borçlu, 0 ödendi); konaklama yoksa null */
+  folioBalance?: number | null;
   beds?: { type: string }[];
   minibar?: ApiRoomMinibarItem[];
 }
@@ -74,6 +76,7 @@ const mapApiRoom = (r: ApiRoom): Room => ({
   reservationCompanyId: r.reservationCompanyId,
   reservationAgencyId: r.reservationAgencyId,
   reservationAgencyCode: r.reservationAgencyCode,
+  folioBalance: r.folioBalance != null ? parseFloat(r.folioBalance) : null,
   beds: r.beds,
   minibar: r.minibar,
 });

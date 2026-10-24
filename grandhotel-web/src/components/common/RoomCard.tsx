@@ -59,6 +59,8 @@ interface Room {
   reservationOwnerName?: string | null;
   reservationCheckIn?: string | null;
   reservationCheckOut?: string | null;
+  /** Konaklayan müşterinin folio borcu (>0 borçlu, 0 ödendi, <0 iade); konaklama yoksa null */
+  folioBalance?: number | null;
 }
 
 interface StatusColorConfig {
@@ -296,6 +298,24 @@ const RoomCard: React.FC<RoomCardProps> = ({ room, onStatusChange, onAction, onC
           }}
         >
           {room.guests.length} Kişi
+        </Typography>
+      )}
+
+      {/* Konaklayan müşterinin hesabı — ödemeyen kırmızı borç, ödeyen yeşil "Ödendi" */}
+      {room.status === ROOM_STATUS.OCCUPIED && room.folioBalance != null && (
+        <Typography
+          sx={{
+            fontSize: '0.7rem',
+            fontWeight: 800,
+            textAlign: 'center',
+            color: room.folioBalance > 0.004 ? '#B71C1C' : room.folioBalance < -0.004 ? '#E65100' : '#1B5E20',
+          }}
+        >
+          {room.folioBalance > 0.004
+            ? `Borç ${room.folioBalance.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} ₺`
+            : room.folioBalance < -0.004
+              ? `İade ${(-room.folioBalance).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} ₺`
+              : 'Ödendi'}
         </Typography>
       )}
 

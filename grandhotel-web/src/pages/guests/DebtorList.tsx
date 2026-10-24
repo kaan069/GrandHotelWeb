@@ -5,11 +5,15 @@
  * GET /account-transactions/debtors/): açık konaklama sayısı, en eski borç, bakiye, avans.
  * Satıra tıklayınca borçlu sekmede açılır: borç kutucukları (DebtCards — konaklama başına,
  * seçip tahsilat) ve altında cari hesap ekstresi (geçmiş, avans tahsilatı, iptal).
+ *
+ * "Konaklayan" sekmesi: henüz çıkış yapmamış, folio borcu (harcama > ödenen) olan odalar
+ * (GET /reservations/?filter=in_house_unpaid). Satır → oda detayı (folio, ödeme al).
  * Mobil karşılığı: GrandHotelMobil/src/screens/tasks/DebtorsScreen.tsx
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
+  alpha,
   Box,
   Button,
   Card,
@@ -21,6 +25,7 @@ import {
 } from '@mui/material';
 import {
   Business as BusinessIcon,
+  Hotel as HotelIcon,
   Person as PersonIcon,
   Public as AgencyIcon,
 } from '@mui/icons-material';
@@ -30,22 +35,36 @@ import dayjs from 'dayjs';
 import { PageHeader, DataTable } from '../../components/common';
 import DebtCards from '../../components/debtors/DebtCards';
 import AccountTransactionTable from '../../components/debtors/AccountTransactionTable';
+import RoomDetailById from '../../components/rooms/RoomDetailById';
 import usePageTabs from '../../hooks/usePageTabs';
 import useNotification from '../../hooks/useNotification';
 import { formatDate, formatCurrency } from '../../utils/formatters';
 import { getApiErrorMessage } from '../../utils/apiError';
-import { accountTransactionsApi } from '../../api/services';
-import type { CariDebtorPartyRow, CariDebtorsResponse, CariTargetType } from '../../api/services';
+import { accountTransactionsApi, reservationsApi } from '../../api/services';
+import type { ApiReservation, CariDebtorPartyRow, CariDebtorsResponse, CariTargetType } from '../../api/services';
 
 /* ==================== TİPLER ==================== */
 
-type TabFilter = 'all' | 'guest' | 'company_or_agency';
+type TabFilter = 'all' | 'guest' | 'company_or_agency' | 'in_house';
 
 interface PartyTab {
+  kind: 'party';
   targetType: CariTargetType;
   id: number;
   name: string;
 }
+
+/** Konaklayan borçlu → oda detayı sekmesi */
+interface RoomTab {
+  kind: 'room';
+  roomId: number;
+  roomNumber: string;
+  guestName: string;
+}
+
+type OpenTab = PartyTab | RoomTab;
+
+type InHouseRow = ApiReservation & { [key: string]: unknown };
 
 type DebtorRow = CariDebtorPartyRow & { rowId: string; [key: string]: unknown };
 
@@ -142,6 +161,66 @@ const columns: GridColDef[] = [
   },
 ];
 
+/** Konaklayan (çıkış yapmamış) borçlular — folio borcu olan odalar */
+const inHouseColumns: GridColDef[] = [
+  {
+    field: 'roomNumber',
+    headerName: 'Oda',
+    width: 80,
+    renderCell: (params: GridRenderCellParams) => <strong>{params.value as string}</strong>,
+  },
+  {
+    field: 'guestNames',
+    headerName: 'Misafir',
+    flex: 1,
+    minWidth: 180,
+    valueGetter: (value: string | null, row: ApiReservation) => value || row.placeholderGuestName || '-',
+  },
+  {
+    field: 'companyName',
+    headerName: 'Firma / Acente',
+    width: 160,
+    valueGetter: (value: string | null, row: ApiReservation) => value || row.agencyName || '-',
+  },
+  {
+    field: 'checkIn',
+    headerName: 'Giriş',
+    width: 110,
+    valueGetter: (value: string | null) => formatDate(value),
+  },
+  {
+    field: 'checkOut',
+    headerName: 'Planlanan Çıkış',
+    width: 130,
+    valueGetter: (value: string | null) => formatDate(value),
+  },
+  {
+    field: 'totalAmount',
+    headerName: 'Harcama',
+    width: 120,
+    valueGetter: (value: string) => num(value),
+    renderCell: (params: GridRenderCellParams) => formatCurrency(params.value as number),
+  },
+  {
+    field: 'paidAmount',
+    headerName: 'Ödenen',
+    width: 120,
+    valueGetter: (value: string) => num(value),
+    renderCell: (params: GridRenderCellParams) => formatCurrency(params.value as number),
+  },
+  {
+    field: 'debt',
+    headerName: 'Borç',
+    width: 130,
+    valueGetter: (_value: unknown, row: ApiReservation) => num(row.totalAmount) - num(row.paidAmount),
+    renderCell: (params: GridRenderCellParams) => (
+      <Typography variant="body2" component="span" sx={{ fontWeight: 700, color: 'error.main' }}>
+        {formatCurrency(params.value as number)}
+      </Typography>
+    ),
+  },
+];
+
 /* ==================== BORÇLU DETAYI (sekme) ==================== */
 
 const PartyDebtView: React.FC<{ party: PartyTab; onChanged: () => void }> = ({ party, onChanged }) => {
@@ -188,19 +267,25 @@ const PartyDebtView: React.FC<{ party: PartyTab; onChanged: () => void }> = ({ p
 const DebtorList: React.FC = () => {
   const { showError } = useNotification();
   const [data, setData] = useState<CariDebtorsResponse | null>(null);
+  const [inHouse, setInHouse] = useState<ApiReservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [activeFilter, setActiveFilter] = useState<TabFilter>('all');
 
-  /* Sekmeler — borçlu detayları */
-  const [openTabs, setOpenTabs] = useState<PartyTab[]>([]);
+  /* Sekmeler — borçlu detayları / konaklayan odalar */
+  const [openTabs, setOpenTabs] = useState<OpenTab[]>([]);
   const [activeTabIndex, setActiveTabIndex] = useState<number>(-1);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(false);
     try {
-      setData(await accountTransactionsApi.getDebtors());
+      const [debtors, inHouseRows] = await Promise.all([
+        accountTransactionsApi.getDebtors(),
+        reservationsApi.getAll({ filter: 'in_house_unpaid' }),
+      ]);
+      setData(debtors);
+      setInHouse(inHouseRows);
     } catch (err) {
       setError(true);
       showError(getApiErrorMessage(err, 'Borçlular yüklenemedi'));
@@ -218,15 +303,32 @@ const DebtorList: React.FC = () => {
     return true;
   });
   const guestCount = allRows.filter((r) => r.targetType === 'guest').length;
+  const inHouseRows: InHouseRow[] = inHouse.map((r) => ({ ...r }));
+  const inHouseTotal = inHouse.reduce((s, r) => s + num(r.totalAmount) - num(r.paidAmount), 0);
 
   const handleRowClick = (row: { id: string | number; [key: string]: unknown }) => {
     const r = row as unknown as DebtorRow;
-    const existingIndex = openTabs.findIndex((t) => t.targetType === r.targetType && t.id === r.id);
+    openTab(
+      (t) => t.kind === 'party' && t.targetType === r.targetType && t.id === r.id,
+      { kind: 'party', targetType: r.targetType, id: r.id, name: r.name },
+    );
+  };
+
+  const handleInHouseClick = (row: { id: string | number; [key: string]: unknown }) => {
+    const r = row as unknown as ApiReservation;
+    openTab(
+      (t) => t.kind === 'room' && t.roomId === r.roomId,
+      { kind: 'room', roomId: r.roomId, roomNumber: r.roomNumber, guestName: r.guestNames || r.placeholderGuestName || '' },
+    );
+  };
+
+  const openTab = (matches: (t: OpenTab) => boolean, tab: OpenTab) => {
+    const existingIndex = openTabs.findIndex(matches);
     if (existingIndex !== -1) {
       setActiveTabIndex(existingIndex);
       return;
     }
-    setOpenTabs((prev) => [...prev, { targetType: r.targetType, id: r.id, name: r.name }]);
+    setOpenTabs((prev) => [...prev, tab]);
     setActiveTabIndex(openTabs.length);
   };
 
@@ -246,12 +348,9 @@ const DebtorList: React.FC = () => {
   }, [fetchData]);
 
   usePageTabs({
-    tabs: openTabs.map((t) => ({
-      key: `${t.targetType}-${t.id}`,
-      icon: TARGET_ICONS[t.targetType],
-      label: t.name,
-      badge: TARGET_TYPE_LABELS[t.targetType],
-    })),
+    tabs: openTabs.map((t) => (t.kind === 'party'
+      ? { key: `${t.targetType}-${t.id}`, icon: TARGET_ICONS[t.targetType], label: t.name, badge: TARGET_TYPE_LABELS[t.targetType] }
+      : { key: `room-${t.roomId}`, icon: <HotelIcon sx={{ fontSize: 16 }} />, label: `Oda ${t.roomNumber}`, badge: t.guestName })),
     activeTabIndex,
     onTabChange: setActiveTabIndex,
     onTabClose: handleTabClose,
@@ -259,32 +358,40 @@ const DebtorList: React.FC = () => {
   });
 
   const summary = data?.summary;
-  const activeParty = activeTabIndex >= 0 && activeTabIndex < openTabs.length ? openTabs[activeTabIndex] : null;
+  const activeTab = activeTabIndex >= 0 && activeTabIndex < openTabs.length ? openTabs[activeTabIndex] : null;
 
   return (
     <div>
       <PageHeader
         title="Borçlular"
         subtitle={summary
-          ? `${summary.count} borçlu · ${summary.openCount} açık konaklama · Toplam ${formatCurrency(num(summary.totalBalance))}`
+          ? `${summary.count} cari borçlu · ${inHouse.length} konaklayan borçlu · Toplam ${formatCurrency(num(summary.totalBalance) + inHouseTotal)}`
           : 'Yükleniyor...'}
       />
 
-      {activeParty ? (
-        <PartyDebtView key={`${activeParty.targetType}-${activeParty.id}`} party={activeParty} onChanged={fetchData} />
+      {activeTab?.kind === 'party' ? (
+        <PartyDebtView key={`${activeTab.targetType}-${activeTab.id}`} party={activeTab} onChanged={fetchData} />
+      ) : activeTab?.kind === 'room' ? (
+        <RoomDetailById key={`room-${activeTab.roomId}`} roomId={activeTab.roomId} onClose={handleBackToList} onChanged={fetchData} />
       ) : (
         <>
           {/* Özet kutuları */}
           {summary && (
             <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
-              <Box sx={{ flex: '1 1 180px', p: 2, borderRadius: 2, bgcolor: 'error.lighter', border: '1px solid', borderColor: 'error.light' }}>
-                <Typography variant="caption" color="text.secondary">Toplam Alacağımız</Typography>
+              <Box sx={{ flex: '1 1 180px', p: 2, borderRadius: 2, bgcolor: (t) => alpha(t.palette.error.main, 0.08), border: '1px solid', borderColor: 'error.light' }}>
+                <Typography variant="caption" color="text.secondary">Cari Borç (çıkış yapmış)</Typography>
                 <Typography variant="h6" color="error.main" sx={{ fontWeight: 700 }}>
                   {formatCurrency(num(summary.totalBalance))}
                 </Typography>
               </Box>
+              <Box sx={{ flex: '1 1 180px', p: 2, borderRadius: 2, bgcolor: (t) => alpha(t.palette.error.main, 0.08), border: '1px solid', borderColor: 'error.light' }}>
+                <Typography variant="caption" color="text.secondary">Konaklayanların Borcu ({inHouse.length} oda)</Typography>
+                <Typography variant="h6" color="error.main" sx={{ fontWeight: 700 }}>
+                  {formatCurrency(inHouseTotal)}
+                </Typography>
+              </Box>
               <Box sx={{ flex: '1 1 180px', p: 2, borderRadius: 2, bgcolor: 'grey.100', border: '1px solid', borderColor: 'divider' }}>
-                <Typography variant="caption" color="text.secondary">Borçlu</Typography>
+                <Typography variant="caption" color="text.secondary">Cari Borçlu</Typography>
                 <Typography variant="h6" sx={{ fontWeight: 700 }}>{summary.count}</Typography>
               </Box>
               <Box sx={{ flex: '1 1 180px', p: 2, borderRadius: 2, bgcolor: 'grey.100', border: '1px solid', borderColor: 'divider' }}>
@@ -298,6 +405,7 @@ const DebtorList: React.FC = () => {
             <Tab label={`Tümü (${allRows.length})`} value="all" />
             <Tab label={`Şahıs (${guestCount})`} value="guest" />
             <Tab label={`Firma/Acente (${allRows.length - guestCount})`} value="company_or_agency" />
+            <Tab label={`Konaklayan (${inHouse.length})`} value="in_house" sx={{ color: 'error.main' }} />
           </Tabs>
 
           {error && !data ? (
@@ -305,6 +413,15 @@ const DebtorList: React.FC = () => {
               <Typography color="error">Borçlular yüklenirken bir hata oluştu.</Typography>
               <Button onClick={fetchData} sx={{ mt: 2 }}>Tekrar Dene</Button>
             </Box>
+          ) : activeFilter === 'in_house' ? (
+            <DataTable
+              rows={inHouseRows}
+              columns={inHouseColumns}
+              loading={loading}
+              onRowClick={handleInHouseClick}
+              searchable
+              searchPlaceholder="Oda, misafir veya firma ara..."
+            />
           ) : (
             <DataTable
               rows={filteredRows}
